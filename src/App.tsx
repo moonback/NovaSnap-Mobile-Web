@@ -1,22 +1,60 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { useAppStore } from './store/useAppStore';
+import { supabase } from './lib/supabase';
 import CameraView from './components/camera/CameraView';
 import ChatScreen from './screens/ChatScreen';
 import StoriesScreen from './screens/StoriesScreen';
 import TabBar from './components/navigation/TabBar';
+import AuthScreen from './screens/AuthScreen';
 
 export default function App() {
-  const { currentView, setCurrentView } = useAppStore();
+  const { currentView, setCurrentView, session, setSession, setUser } = useAppStore();
   const controls = useAnimation();
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Index mapping
   const views = ['chat', 'camera', 'stories'];
   const currentIndex = views.indexOf(currentView);
 
   useEffect(() => {
-    controls.start({ x: `${-currentIndex * 100}vw` }, { type: "spring", stiffness: 300, damping: 30 });
-  }, [currentIndex, controls]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsInitializing(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [setSession, setUser]);
+
+  useEffect(() => {
+    if (session) {
+      controls.start({ x: `${-currentIndex * 100}vw` }, { type: "spring", stiffness: 300, damping: 30 });
+    }
+  }, [currentIndex, controls, session]);
+
+  if (isInitializing) {
+    return (
+      <div className="fixed inset-0 bg-[#050505] flex items-center justify-center">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-400 to-purple-500 p-[2px] animate-pulse">
+          <div className="w-full h-full bg-black rounded-2xl flex items-center justify-center">
+             <span className="text-xl font-black italic text-transparent bg-clip-text bg-gradient-to-tr from-cyan-400 to-purple-500">N</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <AuthScreen />;
+  }
 
   return (
     <div className="fixed inset-0 bg-[#050505] overflow-hidden font-sans">

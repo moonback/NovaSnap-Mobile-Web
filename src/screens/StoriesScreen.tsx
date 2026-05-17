@@ -1,6 +1,10 @@
 import React from 'react';
+import { useStories } from '../hooks/useStories';
+import { Loader2 } from 'lucide-react';
 
 export default function StoriesScreen() {
+  const { data: stories, isLoading } = useStories();
+
   return (
     <div className="w-full h-full bg-[#050505] text-white flex flex-col pt-12 px-4 overflow-y-auto pb-24 gap-6">
       {/* AI Section from design HTML */}
@@ -28,24 +32,49 @@ export default function StoriesScreen() {
       <div>
         <h1 className="text-2xl font-bold mb-4 mx-2">Stories</h1>
         <div className="flex gap-4 overflow-x-auto scroll-hide pb-2">
-          {/* Placeholder for Stories */}
+          {/* Add Story Button */}
           <div className="flex-shrink-0 w-24 space-y-2">
-            <div className="aspect-[9/16] bg-gradient-to-b from-purple-500 to-pink-500 rounded-2xl relative overflow-hidden border border-white/20">
+            <div className="aspect-[9/16] bg-white/5 rounded-2xl relative overflow-hidden border border-white/20 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors">
+              <span className="text-3xl font-light text-white/40">+</span>
             </div>
-            <p className="text-xs text-center font-medium truncate">My Story</p>
+            <p className="text-xs text-center font-medium truncate text-white/60">Add Story</p>
           </div>
-          <div className="flex-shrink-0 w-24 space-y-2">
-            <div className="aspect-[9/16] bg-gray-800 rounded-2xl relative overflow-hidden border-2 border-cyan-400">
+
+          {isLoading && (
+            <div className="flex-shrink-0 w-24 aspect-[9/16] flex items-center justify-center">
+              <Loader2 className="animate-spin text-white/40" />
             </div>
-            <p className="text-xs text-center font-medium truncate">Lena K.</p>
-          </div>
-          <div className="flex-shrink-0 w-24 space-y-2 opacity-60">
-            <div className="aspect-[9/16] bg-gray-800 rounded-2xl relative overflow-hidden border border-white/10">
+          )}
+
+          {stories?.map((story) => (
+             <div key={story.id} className="flex-shrink-0 w-24 space-y-2">
+              <div 
+                className="aspect-[9/16] rounded-2xl relative overflow-hidden border-2 border-cyan-400 bg-cover bg-center"
+                style={{ backgroundImage: `url(${story.media_url})` }}
+              >
+              </div>
+              <p className="text-xs text-center font-medium truncate">{story.users?.username || 'User'}</p>
             </div>
-            <p className="text-xs text-center font-medium truncate">Tom H.</p>
-          </div>
+          ))}
+
+          {/* Placeholder for Stories if empty */}
+          {!isLoading && stories?.length === 0 && (
+            <>
+              <div className="flex-shrink-0 w-24 space-y-2">
+                <div className="aspect-[9/16] bg-gradient-to-b from-purple-500 to-pink-500 rounded-2xl relative overflow-hidden border border-white/20">
+                </div>
+                <p className="text-xs text-center font-medium truncate">My Story (Demo)</p>
+              </div>
+              <div className="flex-shrink-0 w-24 space-y-2 opacity-60">
+                <div className="aspect-[9/16] bg-gray-800 rounded-2xl relative overflow-hidden border border-white/10">
+                </div>
+                <p className="text-xs text-center font-medium truncate">Lena K.</p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
