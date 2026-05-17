@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useConversations } from '../hooks/useConversations';
-import { Loader2, LogOut, X } from 'lucide-react';
+import { Loader2, User, X } from 'lucide-react';
 import ConversationScreen from './ConversationScreen';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store/useAppStore';
@@ -15,7 +15,7 @@ export default function ChatScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
 
-  const { user } = useAppStore();
+  const { user, setShowProfile } = useAppStore();
   const queryClient = useQueryClient();
 
   // Fetch all users to allow starting new conversations
@@ -31,9 +31,7 @@ export default function ChatScreen() {
     enabled: showNewChatModal
   });
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
+
 
   const handleStartChat = async (targetUser: any) => {
     if (!user) return;
@@ -129,8 +127,8 @@ export default function ChatScreen() {
           >
             +
           </div>
-          <div onClick={handleLogout} className="w-8 h-8 rounded-md glass flex items-center justify-center cursor-pointer text-red-400 hover:bg-white/10 transition-all">
-            <LogOut size={16} />
+          <div onClick={() => setShowProfile(true)} className="w-8 h-8 rounded-md glass flex items-center justify-center cursor-pointer text-white hover:bg-white/10 transition-all">
+            <User size={16} />
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, useAnimation } from 'framer-motion';
+import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './lib/supabase';
 import CameraView from './components/camera/CameraView';
@@ -7,9 +7,10 @@ import ChatScreen from './screens/ChatScreen';
 import StoriesScreen from './screens/StoriesScreen';
 import TabBar from './components/navigation/TabBar';
 import AuthScreen from './screens/AuthScreen';
+import ProfileScreen from './screens/ProfileScreen';
 
 export default function App() {
-  const { currentView, setCurrentView, session, setSession, setUser } = useAppStore();
+  const { currentView, setCurrentView, session, setSession, setUser, showProfile } = useAppStore();
   const controls = useAnimation();
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -117,6 +118,10 @@ export default function App() {
         </div>
       </motion.div>
       <TabBar />
+
+      <AnimatePresence>
+        {showProfile && <ProfileScreen />}
+      </AnimatePresence>
     </div>
   );
 }

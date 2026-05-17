@@ -1,12 +1,12 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { Camera, RefreshCw, Zap, ZapOff, Circle, AlertCircle, X, Send, Download, Video, Loader2 } from 'lucide-react';
+import { Camera, RefreshCw, Zap, ZapOff, Circle, AlertCircle, X, Send, Download, Video, Loader2, User } from 'lucide-react';
 import { useConversations } from '../../hooks/useConversations';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../ui/ToastProvider';
 
 export default function CameraView() {
-  const { user, directChatId, setDirectChatId } = useAppStore();
+  const { user, directChatId, setDirectChatId, setShowProfile } = useAppStore();
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -481,8 +481,11 @@ export default function CameraView() {
 
             {/* Top Controls */}
             <div className="absolute top-6 left-6 right-6 flex justify-between items-start z-10">
-              <button className="w-12 h-12 glass flex items-center justify-center text-white rounded-full font-bold">
-                N
+              <button 
+                onClick={() => setShowProfile(true)}
+                className="w-12 h-12 glass flex items-center justify-center text-white rounded-full font-bold hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <User size={20} />
               </button>
               
               <div className="flex flex-col gap-4">
