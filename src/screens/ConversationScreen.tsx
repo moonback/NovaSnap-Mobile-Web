@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { ChevronLeft, Send, Camera as CameraIcon } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -42,7 +42,19 @@ export default function ConversationScreen({ conversationId, onBack }: { convers
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data as unknown as Message[];
+
+      // Resolve signed URLs dynamically for chat media (bucket: 'chats')
+      const messagesWithSignedUrls = await Promise.all(
+        (data as any[]).map(async (msg) => {
+          if (msg.media_url && (msg.message_type === 'IMAGE' || msg.message_type === 'VIDEO')) {
+            const signedUrl = await getValidMediaUrl('chats', msg.media_url);
+            return { ...msg, media_url: signedUrl };
+          }
+          return msg;
+        })
+      );
+
+      return messagesWithSignedUrls as unknown as Message[];
     },
   });
 
@@ -55,13 +67,19 @@ export default function ConversationScreen({ conversationId, onBack }: { convers
         schema: 'public', 
         table: 'messages',
         filter: `conversation_id=eq.${conversationId}`
-      }, (payload) => {
+      }, async (payload) => {
+        let newMsg = payload.new as any;
+        if (newMsg.media_url && (newMsg.message_type === 'IMAGE' || newMsg.message_type === 'VIDEO')) {
+          const signedUrl = await getValidMediaUrl('chats', newMsg.media_url);
+          newMsg = { ...newMsg, media_url: signedUrl };
+        }
+
         // Optimistically update cache
         queryClient.setQueryData(['messages', conversationId], (oldData: any) => {
-          if (!oldData) return [payload.new];
+          if (!oldData) return [newMsg];
           // avoid duplicates
-          if (oldData.find((m: any) => m.id === payload.new.id)) return oldData;
-          return [...oldData, payload.new];
+          if (oldData.find((m: any) => m.id === newMsg.id)) return oldData;
+          return [...oldData, newMsg];
         });
       })
       .subscribe();

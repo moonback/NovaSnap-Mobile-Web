@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
+import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 
 export const useStories = () => {
@@ -36,7 +36,18 @@ export const useStories = () => {
         return [];
       }
 
-      return data as any[];
+      // Resolve signed URLs dynamically for stories (bucket: 'stories')
+      const storiesWithSignedUrls = await Promise.all(
+        (data as any[]).map(async (story) => {
+          const signedUrl = await getValidMediaUrl('stories', story.media_url);
+          return {
+            ...story,
+            media_url: signedUrl
+          };
+        })
+      );
+
+      return storiesWithSignedUrls;
     },
     enabled: !!user,
   });
