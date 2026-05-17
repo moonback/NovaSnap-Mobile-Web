@@ -27,12 +27,18 @@ export const useStories = () => {
         return [];
       }
 
-      const rows = (data ?? []) as unknown as RawStoryRow[];
-      return Promise.all(rows.map(async (story) => ({
-        ...story,
-        users: story.users?.[0] ?? null,
-        media_url: await getValidMediaUrl('stories', story.media_url),
-      })));
+      const rows = (data ?? []) as any[];
+      return Promise.all(rows.map(async (story) => {
+        let userObj = null;
+        if (story.users) {
+          userObj = Array.isArray(story.users) ? (story.users[0] ?? null) : story.users;
+        }
+        return {
+          ...story,
+          users: userObj,
+          media_url: await getValidMediaUrl('stories', story.media_url),
+        };
+      }));
     },
     enabled: !!user,
     staleTime: 15_000,

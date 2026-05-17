@@ -12,7 +12,8 @@ import { useAppStore } from '../store/useAppStore';
 export default function StoriesScreen() {
   const { data: stories, isLoading } = useStories();
   const { setCurrentView } = useAppStore();
-  const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
+  const [activeGroupIndex, setActiveGroupIndex] = useState<number | null>(null);
+  const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
   const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
   const [showAI, setShowAI] = useState(false);
 
@@ -22,10 +23,52 @@ export default function StoriesScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [storyToDeleteId, setStoryToDeleteId] = useState<string | null>(null);
 
-
   const totalStories = stories?.length ?? 0;
   const uniqueCreators = stories ? new Set(stories.map((story) => story.user_id)).size : 0;
   const hasStories = totalStories > 0;
+
+  // Grouper les stories par utilisateur chronologiquement (de la plus ancienne à la plus récente)
+  const groupedStories = React.useMemo(() => {
+    if (!stories) return [];
+    const groups: Record<string, {
+      user_id: string;
+      username: string;
+      avatar_url: string | null;
+      stories: typeof stories;
+    }> = {};
+
+    // Trier les stories par date croissante afin qu'elles défilent dans l'ordre chronologique de publication
+    const sortedStories = [...stories].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    for (const story of sortedStories) {
+      const userId = story.user_id;
+      if (!groups[userId]) {
+        groups[userId] = {
+          user_id: userId,
+          username: story.users?.username || 'User',
+          avatar_url: story.users?.avatar_url || null,
+          stories: [],
+        };
+      }
+      groups[userId].stories.push(story);
+    }
+
+    // Trier les groupes par date de publication de leur story la plus récente (ordre décroissant)
+    return Object.values(groups).sort((a, b) => {
+      const latestA = new Date(a.stories[a.stories.length - 1].created_at).getTime();
+      const latestB = new Date(b.stories[b.stories.length - 1].created_at).getTime();
+      return latestB - latestA;
+    });
+  }, [stories]);
+
+  const handleOpenStoryFromGrid = (storyId: string) => {
+    const groupIdx = groupedStories.findIndex((g) => g.stories.some((s) => s.id === storyId));
+    if (groupIdx !== -1) {
+      const storyIdx = groupedStories[groupIdx].stories.findIndex((s) => s.id === storyId);
+      setActiveGroupIndex(groupIdx);
+      setActiveStoryIndex(storyIdx);
+    }
+  };
 
   const handleDeleteStory = async (storyId: string, e?: React.MouseEvent) => {
     e?.stopPropagation(); // Évite que le clic ne passe à la story suivante
@@ -40,7 +83,8 @@ export default function StoriesScreen() {
 
       toast('Story supprimée avec succès !', 'success');
       setStoryToDeleteId(null);
-      setActiveStoryIndex(null);
+      setActiveGroupIndex(null);
+      setActiveStoryIndex(0);
       queryClient.invalidateQueries({ queryKey: ['stories', user?.id] });
     } catch (err) {
       console.error(err);
@@ -51,17 +95,22 @@ export default function StoriesScreen() {
   };
 
   useEffect(() => {
-    if (activeStoryIndex !== null && stories && stories.length > 0) {
+    if (activeGroupIndex !== null && groupedStories[activeGroupIndex]) {
+      const group = groupedStories[activeGroupIndex];
       const timer = setTimeout(() => {
-        if (activeStoryIndex < stories.length - 1) {
+        if (activeStoryIndex < group.stories.length - 1) {
           setActiveStoryIndex(activeStoryIndex + 1);
+        } else if (activeGroupIndex < groupedStories.length - 1) {
+          setActiveGroupIndex(activeGroupIndex + 1);
+          setActiveStoryIndex(0);
         } else {
-          setActiveStoryIndex(null);
+          setActiveGroupIndex(null);
+          setActiveStoryIndex(0);
         }
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [activeStoryIndex, stories]);
+  }, [activeGroupIndex, activeStoryIndex, groupedStories]);
 
   return (
     <div className="relative w-full h-full bg-black text-white flex flex-col overflow-hidden">
@@ -137,13 +186,17 @@ export default function StoriesScreen() {
                 </div>
               ))}
 
-              {stories?.map((story, index) => {
-                const isFailed = failedUrls[story.media_url];
-                const username = story.users?.username || 'User';
+              {groupedStories.map((group, groupIdx) => {
+                const latestStory = group.stories[group.stories.length - 1];
+                const isFailed = failedUrls[latestStory.media_url];
+                const username = group.username;
                 return (
                   <button
-                    key={story.id}
-                    onClick={() => setActiveStoryIndex(index)}
+                    key={group.user_id}
+                    onClick={() => {
+                      setActiveGroupIndex(groupIdx);
+                      setActiveStoryIndex(0);
+                    }}
                     className="flex-shrink-0 flex flex-col items-center gap-2"
                   >
                     <div className="w-[72px] h-[72px] rounded-full p-[2px] story-ring">
@@ -152,20 +205,20 @@ export default function StoriesScreen() {
                           <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
                             <span className="text-[9px] text-white/30 font-bold uppercase">Exp.</span>
                           </div>
-                        ) : story.media_type === 'IMAGE' ? (
+                        ) : latestStory.media_type === 'IMAGE' ? (
                           <img
-                            src={story.media_url}
+                            src={latestStory.media_url}
                             className="w-full h-full object-cover"
                             alt={username}
-                            onError={() => setFailedUrls((prev) => ({ ...prev, [story.media_url]: true }))}
+                            onError={() => setFailedUrls((prev) => ({ ...prev, [latestStory.media_url]: true }))}
                           />
                         ) : (
                           <video
-                            src={story.media_url}
+                            src={latestStory.media_url}
                             muted
                             playsInline
                             className="w-full h-full object-cover"
-                            onError={() => setFailedUrls((prev) => ({ ...prev, [story.media_url]: true }))}
+                            onError={() => setFailedUrls((prev) => ({ ...prev, [latestStory.media_url]: true }))}
                           />
                         )}
                       </div>
@@ -193,12 +246,12 @@ export default function StoriesScreen() {
               {isLoading && [...Array(4)].map((_, i) => (
                 <Skeleton key={`dsk-${i}`} className="aspect-[9/16] rounded-2xl" />
               ))}
-              {stories?.map((story, index) => {
+              {stories?.map((story) => {
                 const isFailed = failedUrls[story.media_url];
                 return (
                   <button
                     key={`grid-${story.id}`}
-                    onClick={() => setActiveStoryIndex(index)}
+                    onClick={() => handleOpenStoryFromGrid(story.id)}
                     className="aspect-[9/16] rounded-2xl overflow-hidden relative bg-zinc-900 border border-white/10 hover:border-white/20 transition-colors"
                   >
                     {!isFailed && story.media_type === 'IMAGE' && (
@@ -208,7 +261,7 @@ export default function StoriesScreen() {
                       <video src={story.media_url} muted playsInline className="w-full h-full object-cover" onError={() => setFailedUrls((prev) => ({ ...prev, [story.media_url]: true }))} />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                    <div className="absolute bottom-2 left-2 right-2">
+                    <div className="absolute bottom-2 left-2 right-2 text-left">
                       <p className="text-white text-xs font-bold truncate">{story.users?.username || 'User'}</p>
                       <p className="text-[10px] text-white/60">{story.media_type === 'VIDEO' ? 'Vidéo' : 'Photo'}</p>
                     </div>
@@ -231,136 +284,170 @@ export default function StoriesScreen() {
         </div>
 
       {/* Fullscreen Story Viewer */}
-      {activeStoryIndex !== null && stories?.[activeStoryIndex] && (
-        <div className="absolute inset-0 z-50 bg-black flex flex-col">
-          {/* Progress bars */}
-          <div className="absolute top-0 inset-x-0 pt-12 px-3 flex gap-1 z-10">
-            {stories.map((_, idx) => (
-              <div key={idx} className="h-[3px] flex-1 bg-white/25 rounded-full overflow-hidden">
-                {idx === activeStoryIndex ? (
-                  <div className="h-full bg-white rounded-full animate-[progress_5s_linear_forwards]" />
-                ) : idx < activeStoryIndex ? (
-                  <div className="h-full bg-white rounded-full" />
-                ) : null}
-              </div>
-            ))}
-          </div>
+      {activeGroupIndex !== null && groupedStories[activeGroupIndex] && (() => {
+        const currentGroup = groupedStories[activeGroupIndex];
+        const currentStory = currentGroup.stories[activeStoryIndex];
+        if (!currentStory) return null;
+        const isFailed = failedUrls[currentStory.media_url];
+        const username = currentGroup.username;
 
-          {/* Story header */}
-          <div className="absolute top-16 inset-x-0 px-4 flex items-center justify-between z-30 pointer-events-none">
-            <div className="flex items-center gap-2 pointer-events-auto">
-              <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-snap-yellow">
-                {stories[activeStoryIndex].users?.avatar_url ? (
-                  <img src={stories[activeStoryIndex].users!.avatar_url!} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-xs">
-                    {(stories[activeStoryIndex].users?.username || 'U').substring(0, 1).toUpperCase()}
-                  </div>
+        return (
+          <div className="absolute inset-0 z-50 bg-black flex flex-col">
+            {/* Progress bars */}
+            <div className="absolute top-0 inset-x-0 pt-12 px-3 flex gap-1 z-10">
+              {currentGroup.stories.map((_, idx) => (
+                <div key={idx} className="h-[3px] flex-1 bg-white/25 rounded-full overflow-hidden">
+                  {idx === activeStoryIndex ? (
+                    <div className="h-full bg-white rounded-full animate-[progress_5s_linear_forwards]" />
+                  ) : idx < activeStoryIndex ? (
+                    <div className="h-full bg-white rounded-full" />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            {/* Story header */}
+            <div className="absolute top-16 inset-x-0 px-4 flex items-center justify-between z-30 pointer-events-none">
+              <div className="flex items-center gap-2 pointer-events-auto">
+                <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-snap-yellow">
+                  {currentGroup.avatar_url ? (
+                    <img src={currentGroup.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-xs">
+                      {username.substring(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm leading-tight">{username}</p>
+                  <p className="text-white/50 text-xs">
+                    {new Date(currentStory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pointer-events-auto">
+                {currentStory.user_id === user?.id && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(currentStory.id); }}
+                    className="w-9 h-9 rounded-full bg-red-500/20 hover:bg-red-500/35 border border-red-500/30 flex items-center justify-center text-red-400 active:scale-90 transition-all pointer-events-auto"
+                    title="Supprimer ma story"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 )}
-              </div>
-              <div>
-                <p className="text-white font-bold text-sm leading-tight">{stories[activeStoryIndex].users?.username || 'User'}</p>
-                <p className="text-white/50 text-xs">{new Date(stories[activeStoryIndex].created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 pointer-events-auto">
-              {stories[activeStoryIndex].user_id === user?.id && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(stories[activeStoryIndex].id); }}
-                  className="w-9 h-9 rounded-full bg-red-500/20 hover:bg-red-500/35 border border-red-500/30 flex items-center justify-center text-red-400 active:scale-90 transition-all pointer-events-auto"
-                  title="Supprimer ma story"
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setActiveGroupIndex(null); }} 
+                  className="w-9 h-9 rounded-full glass-dark flex items-center justify-center text-white pointer-events-auto"
                 >
-                  <Trash2 size={15} />
+                  <X size={20} />
                 </button>
-              )}
-              <button 
-                onClick={(e) => { e.stopPropagation(); setActiveStoryIndex(null); }} 
-                className="w-9 h-9 rounded-full glass-dark flex items-center justify-center text-white pointer-events-auto"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Media */}
-          {failedUrls[stories[activeStoryIndex].media_url] ? (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-zinc-950">
-              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-white/30 text-2xl font-bold">!</div>
-              <p className="text-white font-bold">Story expirée</p>
-              <p className="text-white/40 text-xs">Ce contenu n'est plus disponible</p>
-            </div>
-          ) : stories[activeStoryIndex].media_type === 'IMAGE' ? (
-            <img
-              src={stories[activeStoryIndex].media_url}
-              className="w-full h-full object-contain bg-zinc-950/20"
-              alt="Story"
-              onError={() => setFailedUrls((prev) => ({ ...prev, [stories[activeStoryIndex].media_url]: true }))}
-            />
-          ) : (
-            <video
-              src={stories[activeStoryIndex].media_url}
-              autoPlay
-              playsInline
-              className="w-full h-full object-contain bg-zinc-950/20"
-              onError={() => setFailedUrls((prev) => ({ ...prev, [stories[activeStoryIndex].media_url]: true }))}
-            />
-          )}
-
-          {/* Tap zones */}
-          <div className="absolute inset-y-0 left-0 w-1/3 z-20" onClick={() => setActiveStoryIndex(activeStoryIndex > 0 ? activeStoryIndex - 1 : activeStoryIndex)} />
-          <div className="absolute inset-y-0 right-0 w-1/3 z-20" onClick={() => setActiveStoryIndex(activeStoryIndex < stories.length - 1 ? activeStoryIndex + 1 : activeStoryIndex)} />
-
-          {/* Delete Confirmation Modal */}
-          <AnimatePresence>
-            {storyToDeleteId !== null && (
-              <div 
-                className="absolute inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-6 pointer-events-auto"
-                onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(null); }}
-              >
-                <motion.div
-                  initial={{ scale: 0.92, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.92, opacity: 0 }}
-                  transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                  className="w-full max-w-[290px] glass-dark rounded-[28px] border border-white/10 p-6 flex flex-col items-center gap-4 text-center pointer-events-auto shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-1">
-                    <Trash2 size={20} />
-                  </div>
-                  
-                  <div className="flex flex-col gap-1.5">
-                    <h3 className="text-white font-black text-base">Supprimer la story ?</h3>
-                    <p className="text-white/40 text-[11px] leading-normal px-2">
-                      Es-tu sûr de vouloir supprimer cette story ? Cette action est irréversible.
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2 w-full mt-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(null); }}
-                      className="flex-1 py-3 bg-white/10 hover:bg-white/15 text-white rounded-2xl font-bold text-xs active:scale-95 transition-all"
-                    >
-                      Annuler
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteStory(storyToDeleteId, e); }}
-                      disabled={isDeleting}
-                      className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white rounded-2xl font-bold text-xs shadow-[0_4px_12px_rgba(239,68,68,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                    >
-                      {isDeleting ? (
-                        <Loader2 className="animate-spin" size={13} />
-                      ) : (
-                        "Supprimer"
-                      )}
-                    </button>
-                  </div>
-                </motion.div>
               </div>
+            </div>
+
+            {/* Media */}
+            {isFailed ? (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-zinc-950">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-white/30 text-2xl font-bold">!</div>
+                <p className="text-white font-bold">Story expirée</p>
+                <p className="text-white/40 text-xs">Ce contenu n'est plus disponible</p>
+              </div>
+            ) : currentStory.media_type === 'IMAGE' ? (
+              <img
+                src={currentStory.media_url}
+                className="w-full h-full object-contain bg-zinc-950/20 animate-fade-in"
+                alt="Story"
+                onError={() => setFailedUrls((prev) => ({ ...prev, [currentStory.media_url]: true }))}
+              />
+            ) : (
+              <video
+                src={currentStory.media_url}
+                autoPlay
+                playsInline
+                className="w-full h-full object-contain bg-zinc-950/20"
+                onError={() => setFailedUrls((prev) => ({ ...prev, [currentStory.media_url]: true }))}
+              />
             )}
-          </AnimatePresence>
-        </div>
-      )}
+
+            {/* Tap zones */}
+            <div
+              className="absolute inset-y-0 left-0 w-1/3 z-20 cursor-pointer"
+              onClick={() => {
+                if (activeStoryIndex > 0) {
+                  setActiveStoryIndex(activeStoryIndex - 1);
+                } else if (activeGroupIndex > 0) {
+                  setActiveGroupIndex(activeGroupIndex - 1);
+                  setActiveStoryIndex(groupedStories[activeGroupIndex - 1].stories.length - 1);
+                } else {
+                  setActiveGroupIndex(null);
+                }
+              }}
+            />
+            <div
+              className="absolute inset-y-0 right-0 w-1/3 z-20 cursor-pointer"
+              onClick={() => {
+                if (activeStoryIndex < currentGroup.stories.length - 1) {
+                  setActiveStoryIndex(activeStoryIndex + 1);
+                } else if (activeGroupIndex < groupedStories.length - 1) {
+                  setActiveGroupIndex(activeGroupIndex + 1);
+                  setActiveStoryIndex(0);
+                } else {
+                  setActiveGroupIndex(null);
+                }
+              }}
+            />
+
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+              {storyToDeleteId !== null && (
+                <div 
+                  className="absolute inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-6 pointer-events-auto"
+                  onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(null); }}
+                >
+                  <motion.div
+                    initial={{ scale: 0.92, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.92, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                    className="w-full max-w-[290px] glass-dark rounded-[28px] border border-white/10 p-6 flex flex-col items-center gap-4 text-center pointer-events-auto shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-1">
+                      <Trash2 size={20} />
+                    </div>
+                    
+                    <div className="flex flex-col gap-1.5">
+                      <h3 className="text-white font-black text-base">Supprimer la story ?</h3>
+                      <p className="text-white/40 text-[11px] leading-normal px-2">
+                        Es-tu sûr de vouloir supprimer cette story ? Cette action est irréversible.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 w-full mt-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(null); }}
+                        className="flex-1 py-3 bg-white/10 hover:bg-white/15 text-white rounded-2xl font-bold text-xs active:scale-95 transition-all"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteStory(storyToDeleteId, e); }}
+                        disabled={isDeleting}
+                        className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white rounded-2xl font-bold text-xs shadow-[0_4px_12px_rgba(239,68,68,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="animate-spin" size={13} />
+                        ) : (
+                          "Supprimer"
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })()}
     </div>
   );
 }
