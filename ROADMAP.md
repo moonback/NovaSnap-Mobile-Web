@@ -94,3 +94,14 @@ Ce document détaille le plan de route du développement de **NovaSnap**, organi
 - [x] **Fix #7 — Envoi vidéo Gemini trop fréquent** : Frames passées de 1/s → 1/4s, downscalées à 320×240 avant encodage, et protégées par un guard `isSendingFrame`. Réduction CPU ~75%.
 - [x] **Fix #12 — Indexes SQL manquants** : 8 indexes de performance ajoutés sur `messages`, `stories`, `friendships`, `message_status`, et `conversation_members`.
 - [x] **Fix #13 — Conversations 1v1 dupliquées** : Colonne `unique_hash` (UUIDs triés canoniques) + index unique sur `conversations`. Le client utilise `upsert` sur ce hash pour éviter les doublons même en cas de race condition.
+
+
+## 🧱 Phase 8 : Hardening Opérationnel (Realtime + Sécurité) - *[Terminé]*
+*Objectif : Finaliser la résilience production et la sécurité de bout en bout.*
+
+- [x] Realtime conversations : retry/backoff de souscription + indicateur UI d’état de connexion (`connected`/`reconnecting`).
+- [x] Chat idempotent : `client_message_id` côté client + index unique partiel côté DB.
+- [x] Storage RLS durci : policies `INSERT/UPDATE/DELETE` owner-only par préfixe `<auth.uid()>/...`.
+- [x] Snaps éphémères : fonction SQL de purge TTL serveur (`purge_expired_temporary_snaps`) + guide planification `pg_cron`.
+- [x] WebSocket `/live` : limite de taille de payload par message (anti-abus mémoire/CPU).
+- [x] Camera mobile : arrêt du flux hors écran + contraintes adaptatives low-power + validation upload (type/taille).

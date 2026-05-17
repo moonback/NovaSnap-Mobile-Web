@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStories } from '../hooks/useStories';
-import { Loader2, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import Skeleton from '../components/ui/Skeleton';
 import GeminiOrb from '../components/GeminiOrb';
 import { useAppStore } from '../store/useAppStore';
 
@@ -53,9 +54,14 @@ export default function StoriesScreen() {
             </div>
 
             {isLoading && (
-              <div className="flex-shrink-0 w-24 aspect-[9/16] flex items-center justify-center">
-                <Loader2 className="animate-spin text-white/40" />
-              </div>
+              <>
+                {[...Array(4)].map((_, i) => (
+                  <div key={`story-skeleton-${i}`} className="flex-shrink-0 w-24 space-y-2">
+                    <Skeleton className="aspect-[9/16] rounded-2xl" />
+                    <Skeleton className="h-3 w-3/4 mx-auto" />
+                  </div>
+                ))}
+              </>
             )}
 
             {stories?.map((story, index) => {
@@ -98,18 +104,10 @@ export default function StoriesScreen() {
 
             {/* Placeholder for Stories if empty */}
             {!isLoading && stories?.length === 0 && (
-              <>
-                <div className="flex-shrink-0 w-24 space-y-2">
-                  <div className="aspect-[9/16] bg-gradient-to-b from-purple-500 to-pink-500 rounded-2xl relative overflow-hidden border border-white/20">
-                  </div>
-                  <p className="text-xs text-center font-medium truncate">My Story (Demo)</p>
-                </div>
-                <div className="flex-shrink-0 w-24 space-y-2 opacity-60">
-                  <div className="aspect-[9/16] bg-gray-800 rounded-2xl relative overflow-hidden border border-white/10">
-                  </div>
-                  <p className="text-xs text-center font-medium truncate">Lena K.</p>
-                </div>
-              </>
+              <div className="flex-shrink-0 min-w-[240px] glass rounded-2xl border border-white/10 p-4">
+                <p className="text-sm text-white/70 font-medium">No active stories</p>
+                <p className="text-xs text-white/40 mt-1">Post your first story from the camera to appear here.</p>
+              </div>
             )}
           </div>
         </div>

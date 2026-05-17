@@ -5,14 +5,15 @@ import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../ui/ToastProvider';
 
-export default function CameraView() {
+export default function CameraView({ isActive = true }: { isActive?: boolean }) {
   const { user, directChatId, setDirectChatId, setShowProfile } = useAppStore();
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  
-  const pressTimerRef = useRef<any>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHoldingRef = useRef<boolean>(false);
   const touchStartRef = useRef<number>(0);
 
@@ -31,10 +32,24 @@ export default function CameraView() {
   const { data: conversations, isLoading: convLoading } = useConversations();
   const [isSending, setIsSending] = useState(false);
 
-  const startCamera = useCallback(async () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+  
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 35 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const ALLOWED_VIDEO_TYPES = new Set(['video/webm', 'video/mp4']);
+
+  const stopStream = useCallback(() => {
+    if (!streamRef.current) return;
+    streamRef.current.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setStream(null);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    stopStream();
     setError(null);
     setCapturedMedia(null);
     setShowSendTo(false);
@@ -44,36 +59,40 @@ export default function CameraView() {
         throw new Error("Camera API not available in this browser context.");
       }
 
+      const isLowPowerDevice = navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4;
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode,
-          // ✅ Preview at 640×1280 — full 1080p on mobile burns battery and causes lag.
-          // The canvas captures at full sensor resolution at snap time.
-          width:  { ideal: 640 },
-          height: { ideal: 1280 },
+          width: { ideal: isLowPowerDevice ? 480 : 640 },
+          height: { ideal: isLowPowerDevice ? 854 : 1280 },
+          frameRate: { ideal: isLowPowerDevice ? 24 : 30, max: 30 },
         },
-        audio: true 
+        audio: true,
       });
       
+      streamRef.current = newStream;
       setStream(newStream);
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Camera error:", err);
-      // Fallback for previews usually denied easily
-      setError(err.name === 'NotAllowedError' ? 'Camera/Microphone permission denied.' : err.message || "Failed to access camera");
+      const parsedError = err instanceof Error ? err : new Error("Failed to access camera");
+      setError(parsedError.name === 'NotAllowedError' ? 'Camera/Microphone permission denied.' : parsedError.message);
     }
-  }, [facingMode]);
+  }, [facingMode, stopStream]);
 
   useEffect(() => {
+    if (!isActive) {
+      stopStream();
+      return;
+    }
+
     startCamera();
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      stopStream();
     };
-  }, [facingMode]);
+  }, [isActive, startCamera, stopStream]);
 
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
@@ -101,9 +120,7 @@ export default function CameraView() {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         setCapturedMedia({ type: 'image', url: dataUrl });
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
+        stopStream();
       }
     }
   };
@@ -180,18 +197,22 @@ export default function CameraView() {
       setCapturedMedia({ type: 'video', url: videoUrl });
       setIsRecording(false);
       setRecordingDuration(0);
-      if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-      }
+      stopStream();
     };
 
     try {
         mediaRecorder.start();
         setIsRecording(true);
-    } catch(err){
-        console.error("Recording start failed", err);
+    } catch (err) {
+      console.error("Recording start failed", err);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      stopStream();
+    };
+  }, [stopStream]);
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
@@ -200,7 +221,7 @@ export default function CameraView() {
   };
 
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isRecording) {
       interval = setInterval(() => {
         setRecordingDuration(prev => {
@@ -245,13 +266,28 @@ export default function CameraView() {
     }
   };
 
+
+  const validateUploadBlob = (fileBlob: Blob) => {
+    const isImage = capturedMedia?.type === 'image';
+    const allowedTypes = isImage ? ALLOWED_IMAGE_TYPES : ALLOWED_VIDEO_TYPES;
+    const maxBytes = isImage ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
+
+    if (!allowedTypes.has(fileBlob.type)) {
+      throw new Error(`Unsupported ${isImage ? 'image' : 'video'} format: ${fileBlob.type || 'unknown'}`);
+    }
+    if (fileBlob.size > maxBytes) {
+      throw new Error(`${isImage ? 'Image' : 'Video'} file too large. Max ${Math.floor(maxBytes / (1024 * 1024))}MB.`);
+    }
+  };
+
   const uploadMedia = async (bucketName: string): Promise<string> => {
     if (!user || !capturedMedia) throw new Error("No captured media");
     
     // Convert URL (blob or dataurl) to raw Blob
     const response = await fetch(capturedMedia.url);
     const fileBlob = await response.blob();
-    
+    validateUploadBlob(fileBlob);
+
     // Generate a unique file name
     const fileExt = capturedMedia.type === 'image' ? 'jpg' : 'mp4';
     const fileName = `${user.id}/${Date.now()}.${fileExt}`;
@@ -270,7 +306,7 @@ export default function CameraView() {
     // This perfectly matches the ephemeral lifetime of stories/snaps and prevents public leaks.
     const { data: signedData, error: signedError } = await supabase.storage
       .from(bucketName)
-      .createSignedUrl(fileName, 86400);
+      .createSignedUrl(fileName, 3600);
       
     if (signedError) throw signedError;
     return signedData.signedUrl;
@@ -294,12 +330,13 @@ export default function CameraView() {
       if (error) throw error;
       
       discardMedia();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.message?.includes('row-level security')) {
+      const parsedError = err instanceof Error ? err : new Error('Failed to send message');
+      if (parsedError.message.includes('row-level security')) {
         toast('Action failed: Supabase RLS permissions missing for "messages" table. Please add an INSERT policy.', 'error');
       } else {
-        toast('Failed to send: ' + err.message, 'error');
+        toast('Failed to send: ' + parsedError.message, 'error');
       }
     } finally {
       setIsSending(false);
@@ -327,12 +364,13 @@ export default function CameraView() {
       if (error) throw error;
       
       discardMedia();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.message?.includes('row-level security')) {
+      const parsedError = err instanceof Error ? err : new Error('Failed to send message');
+      if (parsedError.message.includes('row-level security')) {
         toast('Action failed: Supabase RLS permissions missing for "stories" table. Please configure an INSERT policy with "user_id" check in your database setting.', 'error');
       } else {
-        toast('Failed to post story: ' + err.message, 'error');
+        toast('Failed to post story: ' + parsedError.message, 'error');
       }
     } finally {
       setIsSending(false);
