@@ -23,12 +23,12 @@
 > **Priorité : CRITIQUE** — Ce sont les features de base que Snapchat a et que NovaSnap n'a pas encore.
 
 ### 1.1 Système d'amis / contacts
-- [ ] Table `friendships` avec statuts (`pending`, `accepted`, `blocked`)
-- [ ] Bouton "Ajouter un ami" sur les profils
-- [ ] Écran "Demandes d'amis" avec accept/refus
-- [ ] Recherche d'utilisateurs par username exact
-- [ ] Liste d'amis dans le profil
-- [ ] Compteur d'amis en temps réel
+- [x] Table `friendships` avec statuts (`pending`, `accepted`, `blocked`)
+- [x] Bouton "Ajouter un ami" sur les profils
+- [x] Écran "Demandes d'amis" avec accept/refus
+- [x] Recherche d'utilisateurs par username exact
+- [x] Liste d'amis dans le profil
+- [x] Compteur d'amis en temps réel
 
 ### 1.2 Notifications Push
 - [ ] Intégration Web Push API (service worker existant à étendre)

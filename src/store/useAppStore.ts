@@ -12,6 +12,10 @@ interface AppState {
   setDirectChatId: (id: string | null) => void;
   showProfile: boolean;
   setShowProfile: (show: boolean) => void;
+  showFriends: boolean;
+  setShowFriends: (show: boolean) => void;
+  viewingProfileUserId: string | null;
+  setViewingProfileUserId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -25,5 +29,8 @@ export const useAppStore = create<AppState>((set) => ({
   setDirectChatId: (id) => set({ directChatId: id }),
   showProfile: false,
   setShowProfile: (show) => set({ showProfile: show }),
+  showFriends: false,
+  setShowFriends: (show) => set({ showFriends: show }),
+  viewingProfileUserId: null,
+  setViewingProfileUserId: (id) => set({ viewingProfileUserId: id }),
 }));
-

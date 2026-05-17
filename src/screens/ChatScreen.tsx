@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useConversations } from '../hooks/useConversations';
+import { useFriends } from '../hooks/useFriends';
 import { Loader2, User, X, Search, Edit3, ChevronRight } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import ConversationScreen from './ConversationScreen';
@@ -29,15 +30,23 @@ export default function ChatScreen() {
   const { user, setShowProfile } = useAppStore();
   const queryClient = useQueryClient();
 
+  // Friends data for the "Nouveau chat" modal
+  const { friends } = useFriends();
+  const friendIds = new Set(friends.map((f) => f.user.id));
+
   const { data: allUsers, isLoading: isUsersLoading } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('users').select('id, username, display_name, avatar_url');
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, display_name, avatar_url');
       if (error) throw error;
-      return Promise.all(data.map(async (u) => {
-        if (u.avatar_url) u.avatar_url = await getValidMediaUrl('avatars', u.avatar_url);
-        return u;
-      }));
+      return Promise.all(
+        data.map(async (u) => {
+          if (u.avatar_url) u.avatar_url = await getValidMediaUrl('avatars', u.avatar_url);
+          return u;
+        })
+      );
     },
     enabled: showNewChatModal,
   });
@@ -47,13 +56,17 @@ export default function ChatScreen() {
     setIsCreating(true);
     try {
       const { data: myConversations, error: myConvError } = await supabase
-        .from('conversation_members').select('conversation_id').eq('user_id', user.id);
+        .from('conversation_members')
+        .select('conversation_id')
+        .eq('user_id', user.id);
       if (myConvError) throw myConvError;
       const myConvIds = myConversations.map((c) => c.conversation_id);
       if (myConvIds.length > 0) {
         const { data: sharedMembers, error: sharedError } = await supabase
-          .from('conversation_members').select('conversation_id')
-          .in('conversation_id', myConvIds).eq('user_id', targetUser.id);
+          .from('conversation_members')
+          .select('conversation_id')
+          .in('conversation_id', myConvIds)
+          .eq('user_id', targetUser.id);
         if (sharedError) throw sharedError;
         if (sharedMembers && sharedMembers.length > 0) {
           setActiveConversationId(sharedMembers[0].conversation_id);
@@ -62,8 +75,10 @@ export default function ChatScreen() {
         }
       }
       const { data: newConv, error: createError } = await supabase
-        .from('conversations').insert({ is_group: false, title: targetUser.display_name || targetUser.username })
-        .select().single();
+        .from('conversations')
+        .insert({ is_group: false, title: targetUser.display_name || targetUser.username })
+        .select()
+        .single();
       if (createError) throw createError;
       const { error: memberError } = await supabase.from('conversation_members').insert([
         { conversation_id: newConv.id, user_id: user.id },
@@ -82,18 +97,28 @@ export default function ChatScreen() {
   };
 
   const otherUsers = allUsers?.filter((u) => u.id !== user?.id) || [];
-  const filteredUsers = otherUsers.filter((u) =>
-    u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (u.display_name && u.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredUsers = otherUsers.filter(
+    (u) =>
+      u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (u.display_name && u.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  // Split into friends and others
+  const filteredFriendUsers = filteredUsers.filter((u) => friendIds.has(u.id));
+  const filteredOtherUsers = filteredUsers.filter((u) => !friendIds.has(u.id));
+
   const activeConversation = useMemo(
-    () => conversations?.find((c: ConversationRow) => c.conversations?.id === activeConversationId)?.conversations,
+    () =>
+      conversations?.find(
+        (c: ConversationRow) => c.conversations?.id === activeConversationId
+      )?.conversations,
     [activeConversationId, conversations]
   );
 
   if (activeConversationId) {
-    const otherMember = activeConversation?.conversation_members?.find((m) => m.user_id !== user?.id);
+    const otherMember = activeConversation?.conversation_members?.find(
+      (m) => m.user_id !== user?.id
+    );
     return (
       <ConversationScreen
         conversationId={activeConversationId}
@@ -128,7 +153,10 @@ export default function ChatScreen() {
       {/* Search bar */}
       <div className="px-4 pb-3">
         <div className="relative">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+          <Search
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
+          />
           <input
             type="text"
             placeholder="Rechercher..."
@@ -182,7 +210,13 @@ export default function ChatScreen() {
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">
-                    <div className={`w-14 h-14 rounded-full overflow-hidden ${hasNew ? 'ring-2 ring-snap-yellow ring-offset-2 ring-offset-black' : ''}`}>
+                    <div
+                      className={`w-14 h-14 rounded-full overflow-hidden ${
+                        hasNew
+                          ? 'ring-2 ring-snap-yellow ring-offset-2 ring-offset-black'
+                          : ''
+                      }`}
+                    >
                       {otherAvatar ? (
                         <img src={otherAvatar} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
@@ -199,7 +233,11 @@ export default function ChatScreen() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className={`font-bold text-[15px] truncate ${hasNew ? 'text-white' : 'text-white/90'}`}>
+                      <span
+                        className={`font-bold text-[15px] truncate ${
+                          hasNew ? 'text-white' : 'text-white/90'
+                        }`}
+                      >
                         {conv.title}
                       </span>
                       {lastMsg && (
@@ -209,7 +247,11 @@ export default function ChatScreen() {
                       )}
                     </div>
                     {lastMsg ? (
-                      <p className={`text-sm truncate ${hasNew ? 'text-snap-yellow font-semibold' : 'text-white/40'}`}>
+                      <p
+                        className={`text-sm truncate ${
+                          hasNew ? 'text-snap-yellow font-semibold' : 'text-white/40'
+                        }`}
+                      >
                         {lastMsg.message_type !== 'TEXT' ? '📷 Snap' : lastMsg.content}
                       </p>
                     ) : (
@@ -249,7 +291,10 @@ export default function ChatScreen() {
           {/* Modal header */}
           <div className="flex items-center gap-3 px-4 pt-14 pb-4">
             <button
-              onClick={() => { setShowNewChatModal(false); setSearchQuery(''); }}
+              onClick={() => {
+                setShowNewChatModal(false);
+                setSearchQuery('');
+              }}
               className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
             >
               <X size={18} className="text-white" />
@@ -260,12 +305,15 @@ export default function ChatScreen() {
           {/* Search */}
           <div className="px-4 pb-4">
             <div className="relative">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+              <Search
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
+              />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher un ami..."
+                placeholder="Rechercher un utilisateur..."
                 autoFocus
                 className="w-full bg-white/8 border border-white/10 rounded-full h-11 pl-10 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 transition-all text-sm"
               />
@@ -279,38 +327,50 @@ export default function ChatScreen() {
                 <Loader2 className="animate-spin text-white/40" size={28} />
               </div>
             )}
+
             {!isUsersLoading && filteredUsers.length === 0 && (
-              <div className="text-center pt-12 text-white/30 text-sm">Aucun utilisateur trouvé</div>
+              <div className="text-center pt-12 text-white/30 text-sm">
+                Aucun utilisateur trouvé
+              </div>
             )}
-            {!isUsersLoading && filteredUsers.map((u) => (
-              <button
-                key={u.id}
-                onClick={() => handleStartChat(u)}
-                disabled={isCreating}
-                className="w-full flex items-center gap-3 px-2 py-3 rounded-2xl hover:bg-white/5 active:bg-white/8 transition-colors text-left disabled:opacity-50"
-              >
-                <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
-                  {u.avatar_url ? (
-                    <img src={u.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
-                      {u.username?.substring(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-[15px] text-white truncate">{u.display_name || u.username}</p>
-                  <p className="text-sm text-white/40">@{u.username}</p>
-                </div>
-                {isCreating ? (
-                  <Loader2 size={18} className="animate-spin text-white/40 shrink-0" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-snap-yellow flex items-center justify-center shrink-0">
-                    <span className="text-black font-black text-lg leading-none">+</span>
-                  </div>
+
+            {/* Friends section */}
+            {!isUsersLoading && filteredFriendUsers.length > 0 && (
+              <>
+                <p className="text-white/30 text-xs font-bold uppercase tracking-wider mb-2 px-2">
+                  Amis
+                </p>
+                {filteredFriendUsers.map((u) => (
+                  <UserRow
+                    key={u.id}
+                    user={u}
+                    isFriend
+                    isCreating={isCreating}
+                    onSelect={() => handleStartChat(u)}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* Other users section */}
+            {!isUsersLoading && filteredOtherUsers.length > 0 && (
+              <>
+                {filteredFriendUsers.length > 0 && (
+                  <p className="text-white/30 text-xs font-bold uppercase tracking-wider mb-2 mt-4 px-2">
+                    Autres utilisateurs
+                  </p>
                 )}
-              </button>
-            ))}
+                {filteredOtherUsers.map((u) => (
+                  <UserRow
+                    key={u.id}
+                    user={u}
+                    isFriend={false}
+                    isCreating={isCreating}
+                    onSelect={() => handleStartChat(u)}
+                  />
+                ))}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -318,9 +378,67 @@ export default function ChatScreen() {
   );
 }
 
+// ── User row sub-component ────────────────────────────────────
+function UserRow({
+  user,
+  isFriend,
+  isCreating,
+  onSelect,
+}: {
+  user: AppUserProfile;
+  isFriend: boolean;
+  isCreating: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      onClick={onSelect}
+      disabled={isCreating}
+      className="w-full flex items-center gap-3 px-2 py-3 rounded-2xl hover:bg-white/5 active:bg-white/8 transition-colors text-left disabled:opacity-50"
+    >
+      <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
+        {user.avatar_url ? (
+          <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
+            {user.username?.substring(0, 2).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="font-bold text-[15px] text-white truncate">
+            {user.display_name || user.username}
+          </p>
+          {isFriend && (
+            <span className="text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 rounded-full px-2 py-0.5 shrink-0">
+              Amis
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-white/40">@{user.username}</p>
+      </div>
+      {isCreating ? (
+        <Loader2 size={18} className="animate-spin text-white/40 shrink-0" />
+      ) : (
+        <div className="w-8 h-8 rounded-full bg-snap-yellow flex items-center justify-center shrink-0">
+          <span className="text-black font-black text-lg leading-none">+</span>
+        </div>
+      )}
+    </button>
+  );
+}
+
 function MessageCircleIcon() {
   return (
-    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5">
+    <svg
+      width="36"
+      height="36"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="rgba(255,255,255,0.3)"
+      strokeWidth="1.5"
+    >
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );

@@ -8,9 +8,20 @@ import StoriesScreen from './screens/StoriesScreen';
 import TabBar from './components/navigation/TabBar';
 import AuthScreen from './screens/AuthScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import FriendsScreen from './screens/FriendsScreen';
+import UserProfileScreen from './screens/UserProfileScreen';
 
 export default function App() {
-  const { currentView, setCurrentView, session, setSession, setUser, showProfile } = useAppStore();
+  const {
+    currentView,
+    setCurrentView,
+    session,
+    setSession,
+    setUser,
+    showProfile,
+    showFriends,
+    viewingProfileUserId,
+  } = useAppStore();
   const controls = useAnimation();
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -18,16 +29,33 @@ export default function App() {
   const currentIndex = views.indexOf(currentView);
 
   useEffect(() => {
-    const checkAndCreateProfile = async (u: { id: string; user_metadata?: Record<string, unknown> } | null) => {
+    const checkAndCreateProfile = async (
+      u: { id: string; user_metadata?: Record<string, unknown> } | null
+    ) => {
       if (!u) return;
       try {
-        const { data: profile } = await supabase.from('users').select('id').eq('id', u.id).maybeSingle();
+        const { data: profile } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', u.id)
+          .maybeSingle();
         if (!profile) {
           const metadata = u.user_metadata ?? {};
-          const username = typeof metadata.username === 'string' ? metadata.username : `user_${u.id.substring(0, 8)}`;
-          const display_name = typeof metadata.display_name === 'string' ? metadata.display_name : username;
-          const avatar_url = typeof metadata.avatar_url === 'string' ? metadata.avatar_url : `https://api.dicebear.com/7.x/adventurer/svg?seed=${username}`;
-          await supabase.from('users').insert({ id: u.id, username, display_name, avatar_url });
+          const username =
+            typeof metadata.username === 'string'
+              ? metadata.username
+              : `user_${u.id.substring(0, 8)}`;
+          const display_name =
+            typeof metadata.display_name === 'string'
+              ? metadata.display_name
+              : username;
+          const avatar_url =
+            typeof metadata.avatar_url === 'string'
+              ? metadata.avatar_url
+              : `https://api.dicebear.com/7.x/adventurer/svg?seed=${username}`;
+          await supabase
+            .from('users')
+            .insert({ id: u.id, username, display_name, avatar_url });
         }
       } catch (err) {
         console.error('Error creating/checking profile:', err);
@@ -41,7 +69,9 @@ export default function App() {
       setIsInitializing(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) checkAndCreateProfile(session.user);
@@ -52,7 +82,10 @@ export default function App() {
 
   useEffect(() => {
     if (session) {
-      controls.start({ x: `${-currentIndex * 100}vw` }, { type: 'spring', stiffness: 300, damping: 30 });
+      controls.start(
+        { x: `${-currentIndex * 100}vw` },
+        { type: 'spring', stiffness: 300, damping: 30 }
+      );
     }
   }, [currentIndex, controls, session]);
 
@@ -62,7 +95,10 @@ export default function App() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-16 h-16 rounded-[22px] bg-snap-yellow flex items-center justify-center shadow-snap animate-pulse">
             <svg viewBox="0 0 100 100" className="w-10 h-10" fill="none">
-              <path d="M50 10C28 10 10 28 10 50c0 8 2.5 15.5 6.8 21.6L10 90l18.4-6.8C34.5 87.5 42 90 50 90c22 0 40-18 40-40S72 10 50 10z" fill="black" />
+              <path
+                d="M50 10C28 10 10 28 10 50c0 8 2.5 15.5 6.8 21.6L10 90l18.4-6.8C34.5 87.5 42 90 50 90c22 0 40-18 40-40S72 10 50 10z"
+                fill="black"
+              />
               <circle cx="35" cy="50" r="5" fill="white" />
               <circle cx="50" cy="50" r="5" fill="white" />
               <circle cx="65" cy="50" r="5" fill="white" />
@@ -103,7 +139,9 @@ export default function App() {
         </div>
         {/* Camera */}
         <div className="w-[100vw] h-full flex-shrink-0 bg-black">
-          {Math.abs(currentIndex - 1) <= 1 && <CameraView isActive={currentView === 'camera'} />}
+          {Math.abs(currentIndex - 1) <= 1 && (
+            <CameraView isActive={currentView === 'camera'} />
+          )}
         </div>
         {/* Stories */}
         <div className="w-[100vw] h-full flex-shrink-0 bg-black">
@@ -114,7 +152,15 @@ export default function App() {
       <TabBar />
 
       <AnimatePresence>
-        {showProfile && <ProfileScreen />}
+        {showProfile && <ProfileScreen key="profile" />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showFriends && <FriendsScreen key="friends" />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {viewingProfileUserId && <UserProfileScreen key="user-profile" />}
       </AnimatePresence>
     </div>
   );

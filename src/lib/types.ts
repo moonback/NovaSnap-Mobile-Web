@@ -53,3 +53,23 @@ export type StoryRow = {
     avatar_url: string | null;
   } | null;
 };
+
+// ── Friends System ──────────────────────────────────────────
+
+export type FriendshipStatus = 'PENDING' | 'ACCEPTED' | 'BLOCKED';
+
+export type Friendship = {
+  id: string;
+  user_id: string;
+  friend_id: string;
+  status: FriendshipStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FriendWithProfile = {
+  friendship_id: string;
+  friendship_status: FriendshipStatus;
+  user: AppUserProfile & { bio?: string | null; snap_score?: number };
+  is_requester: boolean; // true if current user sent the request
+};
