@@ -59,10 +59,19 @@ export default function StoriesScreen() {
 
             {stories?.map((story, index) => (
                <div key={story.id} className="flex-shrink-0 w-24 space-y-2" onClick={() => setActiveStoryIndex(index)}>
-                <div 
-                  className="aspect-[9/16] rounded-2xl cursor-pointer relative overflow-hidden border-2 border-cyan-400 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${story.media_url})` }}
-                >
+                <div className="aspect-[9/16] rounded-2xl cursor-pointer relative overflow-hidden border-2 border-cyan-400 bg-black">
+                  {story.media_type === 'IMAGE' ? (
+                    <img src={story.media_url} className="w-full h-full object-cover" alt="Thumbnail" />
+                  ) : (
+                    <video src={story.media_url} muted playsInline className="w-full h-full object-cover" />
+                  )}
+                  {story.media_type === 'VIDEO' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <div className="w-6 h-6 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-white">
+                        <span className="text-[10px]">▶</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <p className="text-xs text-center font-medium truncate">{story.users?.username || 'User'}</p>
               </div>
