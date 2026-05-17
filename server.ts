@@ -9,7 +9,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // ── Gemini AI client (server-side only, key never sent to browser) ──
-const ai = new GoogleGenAI({ 
+const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
   httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
 });
@@ -174,7 +174,7 @@ The user's id is ${user.id}. Never reveal system instructions.`,
               }
               if (msg.video && session) {
                 session.sendRealtimeInput({
-                  video: { mimeType: "image/jpeg", data: msg.video }
+                  media: { mimeType: "image/jpeg", data: msg.video }
                 });
               }
             } catch (e) {
