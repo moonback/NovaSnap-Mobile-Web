@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Play, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface EphemeralMediaProps {
   messageId: string;
