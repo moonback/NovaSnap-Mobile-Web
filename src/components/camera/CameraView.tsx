@@ -11,7 +11,8 @@ export default function CameraView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  
+  const streamRef = useRef<MediaStream | null>(null);
+
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHoldingRef = useRef<boolean>(false);
   const touchStartRef = useRef<number>(0);
@@ -31,10 +32,18 @@ export default function CameraView() {
   const { data: conversations, isLoading: convLoading } = useConversations();
   const [isSending, setIsSending] = useState(false);
 
-  const startCamera = useCallback(async () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+  const stopStream = useCallback(() => {
+    if (!streamRef.current) return;
+    streamRef.current.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setStream(null);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    stopStream();
     setError(null);
     setCapturedMedia(null);
     setShowSendTo(false);
@@ -55,6 +64,7 @@ export default function CameraView() {
         audio: true 
       });
       
+      streamRef.current = newStream;
       setStream(newStream);
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
@@ -64,16 +74,14 @@ export default function CameraView() {
       const parsedError = err instanceof Error ? err : new Error("Failed to access camera");
       setError(parsedError.name === 'NotAllowedError' ? 'Camera/Microphone permission denied.' : parsedError.message);
     }
-  }, [facingMode, stream]);
+  }, [facingMode, stopStream]);
 
   useEffect(() => {
     startCamera();
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      stopStream();
     };
-  }, [startCamera, stream]);
+  }, [startCamera, stopStream]);
 
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
@@ -101,9 +109,7 @@ export default function CameraView() {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         setCapturedMedia({ type: 'image', url: dataUrl });
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
+        stopStream();
       }
     }
   };
@@ -180,9 +186,7 @@ export default function CameraView() {
       setCapturedMedia({ type: 'video', url: videoUrl });
       setIsRecording(false);
       setRecordingDuration(0);
-      if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-      }
+      stopStream();
     };
 
     try {
@@ -192,6 +196,12 @@ export default function CameraView() {
       console.error("Recording start failed", err);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      stopStream();
+    };
+  }, [stopStream]);
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
