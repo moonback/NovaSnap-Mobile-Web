@@ -9,6 +9,11 @@ export default function CameraView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  
+  const pressTimerRef = useRef<any>(null);
+  const isHoldingRef = useRef<boolean>(false);
+  const touchStartRef = useRef<number>(0);
+
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [flashMode, setFlashMode] = useState<boolean>(false);
@@ -80,8 +85,9 @@ export default function CameraView() {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Fallback in case metadata is not fully loaded yet
+      canvas.width = video.videoWidth || video.clientWidth || 640;
+      canvas.height = video.videoHeight || video.clientHeight || 480;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         if (facingMode === 'user') {
@@ -89,7 +95,7 @@ export default function CameraView() {
           ctx.scale(-1, 1);
         }
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         setCapturedMedia({ type: 'image', url: dataUrl });
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
@@ -97,6 +103,48 @@ export default function CameraView() {
       }
     }
   };
+
+  const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
+    // Avoid interfering with click events or double events
+    if (e.cancelable) e.preventDefault();
+    if (isRecording) return;
+    
+    isHoldingRef.current = false;
+    touchStartRef.current = Date.now();
+    
+    pressTimerRef.current = setTimeout(() => {
+      isHoldingRef.current = true;
+      startRecording();
+    }, 400); // 400ms threshold for video recording
+  };
+
+  const handlePressEnd = (e: React.MouseEvent | React.TouchEvent) => {
+    // Avoid double events
+    if (e.cancelable) e.preventDefault();
+    
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+    
+    const duration = Date.now() - touchStartRef.current;
+    
+    if (isHoldingRef.current || isRecording) {
+      stopRecording();
+    } else if (duration < 400) {
+      takePhoto();
+    }
+    
+    isHoldingRef.current = false;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (pressTimerRef.current) {
+        clearTimeout(pressTimerRef.current);
+      }
+    };
+  }, []);
 
   const startRecording = () => {
     if (!stream) return;
@@ -308,8 +356,10 @@ export default function CameraView() {
            // Media Preview State
            <div className="absolute inset-0 w-full h-full">
              {capturedMedia.type === 'image' ? (
-                <img src={capturedMedia.url} alt="Captured" className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} />
+                // Image is already physically mirrored by the canvas draw context, so we display it flat.
+                <img src={capturedMedia.url} alt="Captured" className="w-full h-full object-cover" />
              ) : (
+                // Video captures are flat, so we mirror them in CSS if the front camera was used.
                 <video src={capturedMedia.url} autoPlay loop playsInline className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} />
              )}
              
@@ -454,12 +504,12 @@ export default function CameraView() {
             <div className="absolute bottom-8 inset-x-0 flex flex-col items-center justify-end z-10">
               {/* Shutter Button */}
               <button 
-                onClick={takePhoto}
-                onMouseDown={startRecording}
-                onMouseUp={stopRecording}
-                onTouchStart={startRecording}
-                onTouchEnd={stopRecording}
-                className={`w-24 h-24 p-2 rounded-full border-4 flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.3)] transition-all ${isRecording ? 'border-red-500 scale-110' : 'border-white hover:scale-105 active:scale-95'}`}
+                onMouseDown={handlePressStart}
+                onMouseUp={handlePressEnd}
+                onMouseLeave={handlePressEnd}
+                onTouchStart={handlePressStart}
+                onTouchEnd={handlePressEnd}
+                className={`w-24 h-24 p-2 rounded-full border-4 flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.3)] transition-all cursor-pointer ${isRecording ? 'border-red-500 scale-110 animate-pulse' : 'border-white hover:scale-105 active:scale-95'}`}
               >
                 <div className={`w-full h-full rounded-full transition-all duration-300 ${isRecording ? 'bg-red-500 scale-75 rounded-xl' : 'bg-white/90 backdrop-blur-sm'}`} />
               </button>
