@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 
 export default function CameraView() {
-  const { user } = useAppStore();
+  const { user, directChatId, setDirectChatId } = useAppStore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -177,6 +177,7 @@ export default function CameraView() {
 
     setCapturedMedia(null);
     setShowSendTo(false);
+    setDirectChatId(null); // Clear direct chat mode
     startCamera(); 
 
     if (isVideo && urlToRevoke && urlToRevoke.startsWith('blob:')) {
@@ -341,13 +342,34 @@ export default function CameraView() {
                  </div>
                </div>
              ) : (
-                <div className="absolute bottom-8 right-6 flex items-center z-10">
+                <div className="absolute bottom-8 left-6 right-6 flex justify-between items-center gap-3 z-10">
+                  {directChatId && conversations?.find(c => c.conversations?.id === directChatId)?.conversations ? (
+                    <>
+                      <button 
+                        onClick={async () => {
+                          await handleSendToChat(directChatId);
+                          setDirectChatId(null);
+                        }}
+                        disabled={isSending}
+                        className="flex-1 bg-gradient-to-r from-cyan-400 to-blue-500 text-white py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] cursor-pointer"
+                      >
+                        Send to {conversations.find(c => c.conversations?.id === directChatId)?.conversations?.title} <Send size={18} />
+                      </button>
+                      <button 
+                        onClick={() => setShowSendTo(true)}
+                        className="px-5 py-4 bg-white/10 hover:bg-white/20 text-white rounded-full font-semibold text-sm transition-all cursor-pointer"
+                      >
+                        Others
+                      </button>
+                    </>
+                  ) : (
                     <button 
-                    onClick={() => setShowSendTo(true)}
-                    className="bg-yellow-400 text-black px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-yellow-300 transition-colors shadow-lg"
+                      onClick={() => setShowSendTo(true)}
+                      className="bg-yellow-400 text-black px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-yellow-300 transition-colors shadow-lg ml-auto cursor-pointer"
                     >
-                    Send To <Send size={18} />
+                      Send To <Send size={18} />
                     </button>
+                  )}
                 </div>
              )}
              

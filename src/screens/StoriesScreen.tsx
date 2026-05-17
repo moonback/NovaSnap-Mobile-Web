@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useStories } from '../hooks/useStories';
 import { Loader2, X } from 'lucide-react';
 import GeminiOrb from '../components/GeminiOrb';
+import { useAppStore } from '../store/useAppStore';
 
 export default function StoriesScreen() {
   const { data: stories, isLoading } = useStories();
+  const { setCurrentView } = useAppStore();
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
 
   // Auto-advance story
@@ -42,7 +44,7 @@ export default function StoriesScreen() {
           <h1 className="text-2xl font-bold mb-4 mx-2">Stories</h1>
           <div className="flex gap-4 overflow-x-auto scroll-hide pb-2">
             {/* Add Story Button */}
-            <div className="flex-shrink-0 w-24 space-y-2">
+            <div onClick={() => setCurrentView('camera')} className="flex-shrink-0 w-24 space-y-2 cursor-pointer">
               <div className="aspect-[9/16] bg-white/5 rounded-2xl relative overflow-hidden border border-white/20 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors">
                 <span className="text-3xl font-light text-white/40">+</span>
               </div>

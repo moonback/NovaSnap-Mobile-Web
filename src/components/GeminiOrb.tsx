@@ -9,6 +9,7 @@ export default function GeminiOrb() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
 
   const startVoice = async () => {
     try {
@@ -31,6 +32,10 @@ export default function GeminiOrb() {
           video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } 
         });
         streamRef.current = stream;
+
+        if (videoPreviewRef.current) {
+          videoPreviewRef.current.srcObject = stream;
+        }
         
         // Video capture setup
         const videoTrack = stream.getVideoTracks()[0];
@@ -117,6 +122,9 @@ export default function GeminiOrb() {
       audioCtxRef.current.close().catch(console.error);
       audioCtxRef.current = null;
     }
+    if (videoPreviewRef.current) {
+      videoPreviewRef.current.srcObject = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -145,12 +153,19 @@ export default function GeminiOrb() {
     <div className="flex-1 flex flex-col items-center justify-center gap-6 py-4">
       <div 
         onClick={toggleVoice}
-        className={`w-32 h-32 rounded-full flex items-center justify-center cursor-pointer transition-all duration-500
+        className={`w-32 h-32 rounded-full flex items-center justify-center cursor-pointer transition-all duration-500 relative overflow-hidden
           ${isActive ? 'voice-orb neon-glow scale-110 shadow-[0_0_50px_rgba(34,211,238,0.5)]' : 'bg-white/5 border border-white/10 hover:bg-white/10'}
           ${isConnecting ? 'animate-pulse' : ''}
         `}
       >
-         <div className={`w-28 h-28 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center transition-all ${isActive ? 'scale-90' : ''}`}>
+        <video 
+          ref={videoPreviewRef}
+          autoPlay 
+          playsInline 
+          muted 
+          className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] rounded-full opacity-60 pointer-events-none transition-opacity duration-500 ${isActive ? 'opacity-60' : 'opacity-0 hidden'}`}
+        />
+         <div className={`w-28 h-28 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center transition-all z-10 ${isActive ? 'scale-90 bg-transparent' : ''}`}>
            {!isActive && !isConnecting && (
               <span className="text-white/40 font-bold tracking-widest uppercase text-xs">Tap to Speak</span>
            )}

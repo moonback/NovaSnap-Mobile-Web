@@ -8,6 +8,8 @@ interface AppState {
   session: Session | null;
   setUser: (user: User | null) => void;
   setSession: (session: Session | null) => void;
+  directChatId: string | null;
+  setDirectChatId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -17,5 +19,7 @@ export const useAppStore = create<AppState>((set) => ({
   session: null,
   setUser: (user) => set({ user }),
   setSession: (session) => set({ session }),
+  directChatId: null,
+  setDirectChatId: (id) => set({ directChatId: id }),
 }));
 

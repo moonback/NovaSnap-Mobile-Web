@@ -224,3 +224,27 @@ DROP POLICY IF EXISTS "Users can view members of their conversations" ON public.
 CREATE POLICY "Users can view members of their conversations" 
 ON public.conversation_members FOR SELECT 
 USING (auth.uid() IS NOT NULL);
+
+
+-- ========== BUCKETS DE STOCKAGE & POLITIQUES ==========
+-- Crée les buckets si non présents
+INSERT INTO storage.buckets (id, name, public)
+VALUES 
+  ('avatars', 'avatars', true),
+  ('chats', 'chats', true),
+  ('stories', 'stories', true),
+  ('temporary_snaps', 'temporary_snaps', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Politiques d'accès public aux médias pour tout utilisateur connecté
+CREATE POLICY "Allow select for avatars" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+CREATE POLICY "Allow insert for avatars" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+
+CREATE POLICY "Allow select for chats" ON storage.objects FOR SELECT USING (bucket_id = 'chats');
+CREATE POLICY "Allow insert for chats" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'chats' AND auth.role() = 'authenticated');
+
+CREATE POLICY "Allow select for stories" ON storage.objects FOR SELECT USING (bucket_id = 'stories');
+CREATE POLICY "Allow insert for stories" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'stories' AND auth.role() = 'authenticated');
+
+CREATE POLICY "Allow select for temporary_snaps" ON storage.objects FOR SELECT USING (bucket_id = 'temporary_snaps');
+CREATE POLICY "Allow insert for temporary_snaps" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'temporary_snaps' AND auth.role() = 'authenticated');

@@ -18,7 +18,7 @@ interface Message {
 }
 
 export default function ConversationScreen({ conversationId, onBack }: { conversationId: string, onBack: () => void }) {
-  const { user } = useAppStore();
+  const { user, setCurrentView, setDirectChatId } = useAppStore();
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -152,7 +152,15 @@ export default function ConversationScreen({ conversationId, onBack }: { convers
       {/* Message Input */}
       <div className="p-4 bg-black/40 backdrop-blur-md border-t border-white/10 shrink-0 pb-8">
         <form onSubmit={handleSend} className="flex items-center gap-2">
-          <button type="button" className="w-12 h-12 rounded-full glass flex items-center justify-center text-white/70 hover:text-white shrink-0">
+          <button 
+            type="button" 
+            onClick={() => {
+              setDirectChatId(conversationId);
+              setCurrentView('camera');
+              onBack();
+            }}
+            className="w-12 h-12 rounded-full glass flex items-center justify-center text-white/70 hover:text-white shrink-0 cursor-pointer"
+          >
             <CameraIcon size={24} />
           </button>
           <input 
