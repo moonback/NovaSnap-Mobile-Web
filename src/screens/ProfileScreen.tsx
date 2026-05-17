@@ -25,6 +25,7 @@ import {
   HardDrive,
   Sun,
   Moon,
+  MapPin,
 } from 'lucide-react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
@@ -111,6 +112,43 @@ export default function ProfileScreen() {
       nextVal ? 'Notifications activées.' : 'Notifications désactivées.',
       'info'
     );
+  };
+
+
+  const refreshLocationNow = async () => {
+    const ghostModeEnabled = localStorage.getItem('novasnap_settings_ghost_mode') === 'true';
+
+    if (ghostModeEnabled) {
+      toast('Désactive le Mode Fantôme pour partager ta position.', 'info');
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      toast("La géolocalisation n'est pas disponible sur cet appareil.", 'error');
+      return;
+    }
+
+    const position = await new Promise<GeolocationPosition | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 },
+      );
+    });
+
+    try {
+      const { error } = await supabase.rpc('update_user_heartbeat', {
+        p_lat: position?.coords.latitude ?? null,
+        p_lng: position?.coords.longitude ?? null,
+        p_ghost: false,
+      });
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['friend-locations'] });
+      toast('Position mise à jour sur Snap Map.', 'success');
+    } catch (err) {
+      console.error('[Location] Erreur de mise à jour:', err);
+      toast('Impossible de mettre à jour la position.', 'error');
+    }
   };
 
   const updateMediaQuality = (val: string) => {
@@ -543,6 +581,20 @@ export default function ProfileScreen() {
                     </div>
                     <button onClick={toggleGhostMode} className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${ghostMode ? 'bg-purple-500' : t.isLight ? 'bg-black/15' : 'bg-white/10'}`}>
                       <div className={`w-5 h-5 rounded-full bg-white shadow-md transform duration-200 ${ghostMode ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    <button
+                      onClick={refreshLocationNow}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl border transition-colors ${t.isLight ? 'border-black/10 hover:bg-black/5' : 'border-white/10 hover:bg-white/5'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <MapPin size={18} className="text-purple-400" />
+                        <div className="text-left">
+                          <p className="text-sm font-bold">Mettre à jour ma localisation</p>
+                          <p className={`text-[11px] ${t.textMuted}`}>Envoie ta position actuelle maintenant</p>
+                        </div>
+                      </div>
                     </button>
                   </div>
                   <div className="p-4 space-y-3">
