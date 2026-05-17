@@ -35,11 +35,20 @@ export default function GeminiOrb() {
       // Initialiser le client Gemini
       const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
+      console.log('[Nova AI] Initialisation de la connexion Gemini...');
+
       // Créer une session Gemini Live
+      // Note: Le modèle pour Multimodal Live API est "models/gemini-2.0-flash-exp"
       const session = await ai.live.connect({
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'models/gemini-3.1-flash-live-preview',
         callbacks: {
+          onopen: () => {
+            console.log('[Nova AI] ✅ Connexion WebSocket établie');
+            setIsConnecting(false);
+            setIsActive(true);
+          },
           onmessage: (message) => {
+            console.log('[Nova AI] Message reçu:', message);
             const parts = message.serverContent?.modelTurn?.parts || [];
 
             // Gérer l'audio de réponse
@@ -61,9 +70,16 @@ export default function GeminiOrb() {
             }
           },
           onerror: (error) => {
-            console.error('Erreur Gemini Live:', error);
+            console.error('[Nova AI] ❌ Erreur Gemini Live:', error);
             toast('Erreur de connexion à Nova AI', 'error');
             stopVoice();
+          },
+          onclose: () => {
+            console.log('[Nova AI] 📴 Connexion fermée');
+            if (isActive) {
+              toast('Connexion à Nova AI perdue', 'error');
+              stopVoice();
+            }
           },
         },
         config: {
@@ -78,9 +94,8 @@ Réponds toujours en français de manière naturelle et conversationnelle.`,
         },
       });
 
+      console.log('[Nova AI] Session créée:', session);
       geminiSessionRef.current = session;
-      setIsConnecting(false);
-      setIsActive(true);
 
       // Initialiser le contexte audio
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -112,7 +127,10 @@ Réponds toujours en français de manière naturelle et conversationnelle.`,
         const imageCapture = new (window as any).ImageCapture(videoTrack);
         
         const sendVideoFrame = async () => {
-          if (!geminiSessionRef.current) return;
+          if (!geminiSessionRef.current) {
+            console.warn('[Nova AI] Session non disponible pour envoi vidéo');
+            return;
+          }
           
           try {
             const bitmap = await imageCapture.grabFrame();
@@ -126,11 +144,16 @@ Réponds toujours en français de manière naturelle et conversationnelle.`,
             const base64Data = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
             
             // Envoyer à Gemini
-            session.sendRealtimeInput({
-              media: { mimeType: 'image/jpeg', data: base64Data },
-            });
+            try {
+              session.sendRealtimeInput({
+                media: { mimeType: 'image/jpeg', data: base64Data },
+              });
+              console.log('[Nova AI] Frame vidéo envoyée');
+            } catch (sendError) {
+              console.warn('[Nova AI] Erreur envoi frame:', sendError);
+            }
           } catch (error) {
-            console.warn('Erreur capture vidéo:', error);
+            console.warn('[Nova AI] Erreur capture vidéo:', error);
           }
         };
 
@@ -149,9 +172,13 @@ Réponds toujours en français de manière naturelle et conversationnelle.`,
 
         workletNode.port.onmessage = (e) => {
           if (geminiSessionRef.current && e.data?.pcm) {
-            session.sendRealtimeInput({
-              audio: { mimeType: 'audio/pcm;rate=16000', data: pcmToBase64(e.data.pcm) },
-            });
+            try {
+              session.sendRealtimeInput({
+                audio: { mimeType: 'audio/pcm;rate=16000', data: pcmToBase64(e.data.pcm) },
+              });
+            } catch (sendError) {
+              console.warn('[Nova AI] Erreur envoi audio:', sendError);
+            }
           }
         };
 
@@ -166,9 +193,13 @@ Réponds toujours en français de manière naturelle et conversationnelle.`,
 
         processor.onaudioprocess = (e) => {
           if (geminiSessionRef.current) {
-            session.sendRealtimeInput({
-              audio: { mimeType: 'audio/pcm;rate=16000', data: pcmToBase64(e.inputBuffer.getChannelData(0)) },
-            });
+            try {
+              session.sendRealtimeInput({
+                audio: { mimeType: 'audio/pcm;rate=16000', data: pcmToBase64(e.inputBuffer.getChannelData(0)) },
+              });
+            } catch (sendError) {
+              console.warn('[Nova AI] Erreur envoi audio (ScriptProcessor):', sendError);
+            }
           }
         };
       }
