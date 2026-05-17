@@ -227,24 +227,61 @@ USING (auth.uid() IS NOT NULL);
 
 
 -- ========== BUCKETS DE STOCKAGE & POLITIQUES ==========
--- Crée les buckets si non présents
+-- ✅ Buckets PRIVES — les médias ne sont pas accessibles sans URL signée.
+-- Côté client, utiliser: supabase.storage.from('bucket').createSignedUrl(path, 3600)
 INSERT INTO storage.buckets (id, name, public)
 VALUES 
-  ('avatars', 'avatars', true),
-  ('chats', 'chats', true),
-  ('stories', 'stories', true),
-  ('temporary_snaps', 'temporary_snaps', true)
-ON CONFLICT (id) DO NOTHING;
+  ('avatars',         'avatars',         false),
+  ('chats',           'chats',           false),
+  ('stories',         'stories',         false),
+  ('temporary_snaps', 'temporary_snaps', false)
+ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 
--- Politiques d'accès public aux médias pour tout utilisateur connecté
-CREATE POLICY "Allow select for avatars" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
-CREATE POLICY "Allow insert for avatars" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+-- Politiques : lecture et écriture uniquement pour utilisateurs authentifiés
+CREATE POLICY "Auth read avatars"   ON storage.objects FOR SELECT USING (bucket_id = 'avatars'         AND auth.role() = 'authenticated');
+CREATE POLICY "Auth insert avatars" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars'    AND auth.role() = 'authenticated');
 
-CREATE POLICY "Allow select for chats" ON storage.objects FOR SELECT USING (bucket_id = 'chats');
-CREATE POLICY "Allow insert for chats" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'chats' AND auth.role() = 'authenticated');
+CREATE POLICY "Auth read chats"     ON storage.objects FOR SELECT USING (bucket_id = 'chats'           AND auth.role() = 'authenticated');
+CREATE POLICY "Auth insert chats"   ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'chats'      AND auth.role() = 'authenticated');
 
-CREATE POLICY "Allow select for stories" ON storage.objects FOR SELECT USING (bucket_id = 'stories');
-CREATE POLICY "Allow insert for stories" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'stories' AND auth.role() = 'authenticated');
+CREATE POLICY "Auth read stories"   ON storage.objects FOR SELECT USING (bucket_id = 'stories'         AND auth.role() = 'authenticated');
+CREATE POLICY "Auth insert stories" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'stories'    AND auth.role() = 'authenticated');
 
-CREATE POLICY "Allow select for temporary_snaps" ON storage.objects FOR SELECT USING (bucket_id = 'temporary_snaps');
-CREATE POLICY "Allow insert for temporary_snaps" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'temporary_snaps' AND auth.role() = 'authenticated');
+CREATE POLICY "Auth read snaps"     ON storage.objects FOR SELECT USING (bucket_id = 'temporary_snaps' AND auth.role() = 'authenticated');
+CREATE POLICY "Auth insert snaps"   ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'temporary_snaps' AND auth.role() = 'authenticated');
+
+
+-- ========== INDEXES DE PERFORMANCE (FIX #12) ==========
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_created
+  ON public.messages(conversation_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_stories_expires
+  ON public.stories(expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_stories_user_created
+  ON public.stories(user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_friendships_user
+  ON public.friendships(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_friendships_friend
+  ON public.friendships(friend_id);
+
+CREATE INDEX IF NOT EXISTS idx_message_status_user
+  ON public.message_status(user_id, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_members_user
+  ON public.conversation_members(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_members_conversation
+  ON public.conversation_members(conversation_id);
+
+
+-- ========== UNICITÉ DES CONVERSATIONS 1v1 (FIX #13) ==========
+-- Ajoute un hash canonique pour empêcher les doublons entre 2 utilisateurs.
+ALTER TABLE public.conversations
+  ADD COLUMN IF NOT EXISTS unique_hash TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_unique_hash
+  ON public.conversations(unique_hash)
+  WHERE unique_hash IS NOT NULL;

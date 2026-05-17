@@ -45,8 +45,10 @@ export default function CameraView() {
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode,
-          width: { ideal: 1080 },
-          height: { ideal: 1920 }
+          // ✅ Preview at 640×1280 — full 1080p on mobile burns battery and causes lag.
+          // The canvas captures at full sensor resolution at snap time.
+          width:  { ideal: 640 },
+          height: { ideal: 1280 },
         },
         audio: true 
       });

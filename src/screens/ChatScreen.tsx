@@ -64,32 +64,41 @@ export default function ChatScreen() {
         }
       }
       
-      // 2. If no conversation exists, create a new one!
+      // 2. Create a unique hash for this 1v1 pair (canonical = sorted UUIDs)
+      // This prevents duplicates even under race conditions.
+      const ids = [user.id, targetUser.id].sort();
+      const uniqueHash = `${ids[0]}:${ids[1]}`;
+
+      // 3. Upsert conversation using unique_hash — won't create duplicate
       const { data: newConv, error: createError } = await supabase
         .from('conversations')
-        .insert({
-          is_group: false,
-          title: targetUser.display_name || targetUser.username
-        })
+        .upsert(
+          {
+            is_group: false,
+            title: targetUser.display_name || targetUser.username,
+            unique_hash: uniqueHash,
+          },
+          { onConflict: 'unique_hash' }
+        )
         .select()
         .single();
         
       if (createError) throw createError;
       
-      // 3. Add members (current user & target user)
+      // 4. Add members — use upsert so re-runs are safe
       const { error: memberError } = await supabase
         .from('conversation_members')
-        .insert([
+        .upsert([
           { conversation_id: newConv.id, user_id: user.id },
           { conversation_id: newConv.id, user_id: targetUser.id }
-        ]);
+        ], { onConflict: 'conversation_id,user_id' });
         
       if (memberError) throw memberError;
       
-      // 4. Invalidate react-query cache to refresh list!
+      // 5. Invalidate react-query cache to refresh list!
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });
 
-      // 5. Set as active and close modal
+      // 6. Set as active and close modal
       setActiveConversationId(newConv.id);
       setShowNewChatModal(false);
       

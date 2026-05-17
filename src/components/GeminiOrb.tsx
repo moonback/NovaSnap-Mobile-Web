@@ -15,12 +15,22 @@ export default function GeminiOrb() {
     try {
       setIsConnecting(true);
       resetAudioSync();
+
+      // ── Grab the Supabase session JWT before opening the socket ──
+      const { supabase } = await import('../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated — please sign in first.');
+      }
+
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${wsProtocol}//${window.location.host}/live`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = async () => {
+        // ── First message: authenticate with the Supabase JWT ────
+        ws.send(JSON.stringify({ auth: session.access_token }));
         setIsConnecting(false);
         setIsActive(true);
 
@@ -37,37 +47,35 @@ export default function GeminiOrb() {
           videoPreviewRef.current.srcObject = stream;
         }
         
-        // Video capture setup
+        // ── Video capture — throttled to 1 frame / 4s ─────────────
+        // 1 fps causes ~75% wasted CPU on encode+base64+JSON. 4s is enough for
+        // contextual AI awareness without killing battery.
         const videoTrack = stream.getVideoTracks()[0];
         if (videoTrack) {
           const imageCapture = new (window as any).ImageCapture(videoTrack);
-          
+          let isSendingFrame = false;
+
           const sendVideoFrame = async () => {
-             if (ws.readyState === WebSocket.OPEN) {
-               try {
-                 const bitmap = await imageCapture.grabFrame();
-                 
-                 // Draw to offscreen canvas to get JPEG
-                 const canvas = document.createElement('canvas');
-                 canvas.width = bitmap.width;
-                 canvas.height = bitmap.height;
-                 const ctx = canvas.getContext('2d');
-                 ctx?.drawImage(bitmap, 0, 0);
-                 
-                 const base64Jpeg = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
-                 ws.send(JSON.stringify({ video: base64Jpeg }));
-               } catch (e) {
-                 // Ignore frame grab errors (can happen when stopping)
-               }
-               // Send frame every ~1 second
-               setTimeout(sendVideoFrame, 1000);
-             }
+            if (ws.readyState !== WebSocket.OPEN) return;
+            if (isSendingFrame) { setTimeout(sendVideoFrame, 4000); return; }
+            isSendingFrame = true;
+            try {
+              const bitmap = await imageCapture.grabFrame();
+              // ✅ Downscale to 320×240 before encoding — AI doesn't need full res
+              const canvas = document.createElement('canvas');
+              canvas.width = 320; canvas.height = 240;
+              canvas.getContext('2d')?.drawImage(bitmap, 0, 0, 320, 240);
+              const base64Jpeg = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+              ws.send(JSON.stringify({ video: base64Jpeg }));
+            } catch { /* ignore frame grab errors when stopping */ }
+            finally { isSendingFrame = false; }
+            setTimeout(sendVideoFrame, 4000); // ✅ every 4s, not 1s
           };
           sendVideoFrame();
         }
 
         const source = audioCtx.createMediaStreamSource(stream);
-        // Using ScriptProcessorNode for simplicity despite it being deprecated
+        // ScriptProcessorNode — deprecated but functional (AudioWorklet upgrade planned)
         const processor = audioCtx.createScriptProcessor(4096, 1, 1);
         processorRef.current = processor;
         

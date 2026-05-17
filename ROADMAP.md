@@ -71,6 +71,26 @@ Ce document détaille le plan de route du développement de **NovaSnap**, organi
 *Fonctionnalités planifiées pour la croissance de la plateforme.*
 
 - Système de groupes (Canaux privés, Group Stories).
-- Filtres/Lens basés sur WebGL / AI en temps réel.
+- Filtres/Lens basés sur WebGL / AI en temps réel (AI Lens viral).
 - Mini-Map mondiale (Geolocation Supabase / PostGIS) pour partager sa position avec un sous-ensemble d'amis.
 - Analytics et rapport de comportements via PostHog.
+- Migration `ScriptProcessorNode` → `AudioWorklet` pour un pipeline audio plus robuste.
+- Feed "Discovery" type Spotlight/TikTok pour la rétention.
+- Onboarding invité sans login (guest auth temporaire).
+- Notifications intelligentes (nouveaux Snaps, réponses Story).
+- Préchargement des Stories suivantes (cache progressif).
+- Traduction vocale live pendant les appels.
+
+---
+
+## 🔐 Phase 7 : Sécurité & Performance (Audit) - *[Terminé]*
+*Corrections critiques issues de l'audit complet de l'architecture.*
+
+- [x] **Fix #1 — Clé Gemini exposée** : Suppression de `define: { GEMINI_API_KEY }` dans `vite.config.ts`. La clé ne quitte plus jamais le serveur Node.
+- [x] **Fix #2 — WebSocket non authentifié** : Le endpoint `/live` exige désormais un JWT Supabase valide comme premier message. Les clients non authentifiés sont déconnectés immédiatement (4001).
+- [x] **Fix #2b — Rate limiting** : Maximum 3 sessions WebSocket simultanées par adresse IP. Protection contre le spam Gemini et l'explosion des coûts.
+- [x] **Fix #3 — Buckets Storage publics** : Les 4 buckets (`avatars`, `chats`, `stories`, `temporary_snaps`) passent en `public = false`. Les médias nécessitent des URLs signées (`createSignedUrl`).
+- [x] **Fix #5 — Résolution caméra trop haute** : Preview réduit de 1080×1920 → 640×1280. Réduit la consommation CPU, batterie et supprime les lags de swipe sur mobile.
+- [x] **Fix #7 — Envoi vidéo Gemini trop fréquent** : Frames passées de 1/s → 1/4s, downscalées à 320×240 avant encodage, et protégées par un guard `isSendingFrame`. Réduction CPU ~75%.
+- [x] **Fix #12 — Indexes SQL manquants** : 8 indexes de performance ajoutés sur `messages`, `stories`, `friendships`, `message_status`, et `conversation_members`.
+- [x] **Fix #13 — Conversations 1v1 dupliquées** : Colonne `unique_hash` (UUIDs triés canoniques) + index unique sur `conversations`. Le client utilise `upsert` sur ce hash pour éviter les doublons même en cas de race condition.
