@@ -307,7 +307,7 @@ export default function UserProfileScreen() {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className={`fixed inset-0 z-50 flex flex-col overflow-y-auto scroll-hide ${t.bg} ${t.text}`}
+      className={`absolute inset-0 z-50 flex flex-col overflow-y-auto scroll-hide ${t.bg} ${t.text}`}
       onClick={() => setShowRemoveConfirm(false)}
     >
       {/* Header */}

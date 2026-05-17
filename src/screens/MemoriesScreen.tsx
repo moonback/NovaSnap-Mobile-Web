@@ -476,7 +476,7 @@ export default function MemoriesScreen() {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className={`fixed inset-0 z-50 flex flex-col overflow-hidden ${t.bg} ${t.text}`}
+      className={`absolute inset-0 z-50 flex flex-col overflow-hidden ${t.bg} ${t.text}`}
     >
       {/* ── Header ── */}
       <div className="flex-shrink-0 px-5 pt-14 pb-3">

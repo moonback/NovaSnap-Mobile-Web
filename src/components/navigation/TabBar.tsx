@@ -9,7 +9,7 @@ export default function TabBar() {
   const t = useTheme();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
+    <div className="absolute bottom-0 left-0 right-0 z-40 pointer-events-none">
       {/* Gradient de fond */}
       <div
         className="absolute inset-0"
