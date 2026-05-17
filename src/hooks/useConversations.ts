@@ -62,7 +62,7 @@ export const useConversations = () => {
     if (!user) return;
 
     const channel = supabase
-      .channel(`conversation-members:${user.id}`)
+      .channel(`conversation-members:${user.id}:${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversation_members', filter: `user_id=eq.${user.id}` },
