@@ -11,6 +11,7 @@
 | Auth + profils | ✅ Terminé |
 | Chat realtime éphémère | ✅ Terminé |
 | Caméra photo/vidéo | ✅ Terminé |
+| Memories (sauvegarde privée) | ✅ Terminé |
 | Stories 24h | ✅ Terminé |
 | Nova AI (Gemini Live) | ✅ Terminé |
 | Design Snapchat-like | ✅ Terminé |
@@ -75,6 +76,7 @@
 - [x] Rotation *(±90° via boutons CCW/CW)*
 - [x] Vitesse vidéo (slow-mo x0.5, fast x2) *(sélecteur ×0.5 / ×1 / ×2 sur vidéos)*
 - [x] Recadrage précis (crop libre) *(4 curseurs Gauche/Droite/Haut/Bas, masque assombri et grille mobile)*
+- [x] Fusion d'image ("Flattening") pour sauvegarde Memories/Local
 - [ ] Musique sur les snaps vidéo (bibliothèque libre de droits)
 - [x] Boomerang (boucle aller-retour) *(Auto-stop à 2s et boucle fluide avant-arrière en requestAnimationFrame)*
 - [ ] Intégration GIPHY API pour stickers animés

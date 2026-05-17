@@ -27,6 +27,7 @@ NovaSnap redéfinit l'interaction sociale avec une interface "Camera-First" imme
 - 📸 **Camera-First UI & Éditeur Premium :** Caméra avec contrôles instantanés, outil de recadrage libre, effet Boomerang et filtres.
 - 💨 **Navigation Swipeable :** Transition physique fluide entre Carte ← Chat ← Caméra → Stories.
 - 💬 **Chat Realtime & Éphémère :** Messagerie temps réel avec messages éphémères (auto-suppression après lecture) et sauvegarde manuelle.
+- 💾 **Memories (Souvenirs) :** Sauvegardez vos snaps édités en toute sécurité dans votre galerie privée intégrée à la TabBar.
 - 📖 **Stories Groupées 24h :** Flux de stories continu classé par créateur et ordonné chronologiquement avec lecteur segmenté interactif.
 - 🤖 **IA Vocale Intégrée :** Assistant "Voice Orb" boosté par Gemini pour l'analyse visuelle et vocale.
 
@@ -139,6 +140,7 @@ Si `pg_cron` est activé sur votre projet Supabase, planifiez `public.purge_expi
 - ✅ **Éditeur Média Complet :** Recadrage précis, dessin, texte, stickers, rotation, contrôle de vitesse, et mode Boomerang.
 - ✅ **Stories Groupées :** Triées par créateur et chronologiquement, avec un player story de qualité premium (segments, auto-play).
 - ✅ **Messagerie Éphémère :** Suppression automatique à la lecture, avec option de sauvegarde manuelle ("Keep in Chat").
+- ✅ **Memories Intégrées :** Espace personnel persistant (bouton "Enregistrer") avec fusion de calques sur l'image (flattening) via un canvas HTML5, directement accessible dans la barre de navigation.
 - ✅ **Base Technique Solide :** Auth, profils, système d'amis, WebRTC, WebSocket protégés, requêtes optimisées.
 
 ### Prochaines priorités
