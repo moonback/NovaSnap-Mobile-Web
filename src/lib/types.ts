@@ -13,6 +13,9 @@ export type ConversationMessage = {
   message_type: string;
   created_at: string;
   sender_id: string;
+  is_ephemeral?: boolean;
+  is_saved?: boolean;
+  opened_by?: string[];
 };
 
 export type ConversationMember = {
