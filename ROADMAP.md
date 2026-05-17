@@ -40,7 +40,7 @@
 
 ### 1.3 Profils publics enrichis
 - [x] Page profil visiteur (voir les stories publiques d'un ami)
-- [ ] Bio / statut personnalisé (140 caractères)
+- [x] Bio / statut personnalisé (140 caractères)
 - [ ] Lien Bitmoji / avatar animé (SVG animé généré par IA)
 - [ ] Snap Score visible et animé (gamification)
 - [x] Bouton "Snap" direct depuis le profil d'un ami
