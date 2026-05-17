@@ -10,7 +10,7 @@ import NotificationBell from '../ui/NotificationBell';
 import SnapEditor, { type EditorState } from './SnapEditor';
 
 export default function CameraView({ isActive = true }: { isActive?: boolean }) {
-  const { user, directChatId, setDirectChatId, setShowProfile, setShowFriends } = useAppStore();
+  const { user, directChatId, setDirectChatId, setShowProfile, setShowFriends, setIsEditingSnap } = useAppStore();
   const { toast } = useToast();
   const { pendingCount } = useFriends();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -31,6 +31,8 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const [showSendTo, setShowSendTo] = useState(false);
   const { data: conversations, isLoading: convLoading } = useConversations();
   const [isSending, setIsSending] = useState(false);
+  const saveMemory = useSaveMemory();
+  const [isSavingMemory, setIsSavingMemory] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<EditorState>({
     textLayers: [], strokes: [], stickerLayers: [], rotation: 0, videoSpeed: 1,
@@ -39,6 +41,12 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const [isBoomerang, setIsBoomerang] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const playbackDirectionRef = useRef<'forward' | 'backward'>('forward');
+
+  // Sync local editing state with global store to hide TabBar
+  useEffect(() => {
+    setIsEditingSnap(!!capturedMedia);
+    return () => setIsEditingSnap(false);
+  }, [capturedMedia, setIsEditingSnap]);
 
   // Fetch avatar de l'utilisateur connecté
   useEffect(() => {
@@ -373,6 +381,32 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     });
   };
 
+  // NOUVEAU : Sauvegarder dans les Memories Supabase
+  const handleSaveToMemories = async () => {
+    if (!user || !capturedMedia) return;
+    setIsSavingMemory(true);
+    try {
+      let finalMediaUrl = capturedMedia.url;
+      if (capturedMedia.type === 'image') {
+        finalMediaUrl = await flattenImage();
+      }
+      const response = await fetch(finalMediaUrl);
+      const fileBlob = await response.blob();
+      
+      await saveMemory.mutateAsync({
+        mediaBlob: fileBlob,
+        mediaType: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
+        source: 'camera',
+      });
+      toast('Sauvegardé dans les Memories !', 'success');
+    } catch (err) {
+      const parsedError = err instanceof Error ? err : new Error('Sauvegarde échouée');
+      toast('Erreur : ' + parsedError.message, 'error');
+    } finally {
+      setIsSavingMemory(false);
+    }
+  };
+
   // NOUVEAU : Téléchargement du média édité
   const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -516,7 +550,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
             </div>
 
             {/* Snap Editor overlay */}
-            <SnapEditor mediaType={capturedMedia.type} onStateChange={setEditorState} />
+            <SnapEditor mediaType={capturedMedia.type} onStateChange={setEditorState} hideTools={showSendTo} />
 
             {/* Top bar */}
             <div className="absolute top-0 inset-x-0 p-5 flex justify-between items-start bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
@@ -530,7 +564,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
 
             {/* Send To panel */}
             {showSendTo ? (
-              <div className="absolute inset-x-0 bottom-0 h-[60%] glass-dark rounded-t-[32px] flex flex-col border-t border-white/10 animate-in slide-in-from-bottom duration-300">
+              <div className="absolute inset-x-0 bottom-0 h-[80%] glass-dark rounded-t-[32px] flex flex-col border-t border-white/10 animate-in slide-in-from-bottom duration-300">
                 <div className="px-5 pt-5 pb-3 flex items-center justify-between">
                   <h2 className="text-white font-black text-lg">Envoyer à</h2>
                   <button onClick={() => setShowSendTo(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
@@ -574,28 +608,39 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
               </div>
             ) : (
               /* Bottom send button */
-              <div className="absolute bottom-[120px] inset-x-5 flex items-center gap-3">
-                {directChatId && conversations?.find((c) => c.conversations?.id === directChatId)?.conversations ? (
-                  <>
+              <div className="absolute bottom-[120px] inset-x-5 flex items-center justify-between">
+                <button
+                  onClick={handleSaveToMemories}
+                  disabled={isSavingMemory}
+                  className="bg-black/50 backdrop-blur-md border border-white/10 text-white px-5 py-4 rounded-full font-bold text-sm flex items-center gap-2 active:scale-95 transition-all shadow-lg"
+                >
+                  {isSavingMemory ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                  Enregistrer
+                </button>
+
+                <div className="flex items-center gap-3">
+                  {directChatId && conversations?.find((c) => c.conversations?.id === directChatId)?.conversations ? (
+                    <>
+                      <button onClick={() => setShowSendTo(true)} className="px-5 py-4 glass-dark text-white rounded-full font-bold text-sm">
+                        Autres
+                      </button>
+                      <button
+                        onClick={async () => { await handleSendToChat(directChatId); setDirectChatId(null); }}
+                        disabled={isSending}
+                        className="bg-snap-yellow text-black px-7 py-4 rounded-full font-black flex items-center justify-center gap-2 active:scale-95 transition-all shadow-snap"
+                      >
+                        Envoyer <Send size={18} />
+                      </button>
+                    </>
+                  ) : (
                     <button
-                      onClick={async () => { await handleSendToChat(directChatId); setDirectChatId(null); }}
-                      disabled={isSending}
-                      className="flex-1 bg-snap-yellow text-black py-4 rounded-full font-black flex items-center justify-center gap-2 active:scale-95 transition-all shadow-snap"
+                      onClick={() => setShowSendTo(true)}
+                      className="bg-snap-yellow text-black px-7 py-4 rounded-full font-black flex items-center gap-2 active:scale-95 transition-all shadow-snap"
                     >
                       Envoyer <Send size={18} />
                     </button>
-                    <button onClick={() => setShowSendTo(true)} className="px-5 py-4 glass-dark text-white rounded-full font-bold text-sm">
-                      Autres
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => setShowSendTo(true)}
-                    className="ml-auto bg-snap-yellow text-black px-7 py-4 rounded-full font-black flex items-center gap-2 active:scale-95 transition-all shadow-snap"
-                  >
-                    Envoyer <Send size={18} />
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
             )}
 

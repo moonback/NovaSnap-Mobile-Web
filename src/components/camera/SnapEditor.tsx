@@ -41,6 +41,7 @@ export interface EditorState {
 interface SnapEditorProps {
   mediaType: 'image' | 'video';
   onStateChange: (s: EditorState) => void;
+  hideTools?: boolean;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -65,8 +66,12 @@ const SPEEDS = [
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 // ── Component ──────────────────────────────────────────────────────────
-export default function SnapEditor({ mediaType, onStateChange }: SnapEditorProps) {
+export default function SnapEditor({ mediaType, onStateChange, hideTools }: SnapEditorProps) {
   const [activeTool, setActiveTool] = useState<Tool>('none');
+
+  useEffect(() => {
+    if (hideTools) setActiveTool('none');
+  }, [hideTools]);
 
   // Text state
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
@@ -354,21 +359,23 @@ export default function SnapEditor({ mediaType, onStateChange }: SnapEditorProps
       </AnimatePresence>
 
       {/* ── Tool bar (right side) ─────────────────────────────────────── */}
-      <div className="absolute top-16 right-3 flex flex-col gap-3 pointer-events-auto z-40">
-        {toolBtn('text', <Type size={18} />, 'Texte')}
-        {toolBtn('draw', <Pencil size={18} />, 'Dessin')}
-        {toolBtn('stickers', <Smile size={18} />, 'Stickers')}
-        {toolBtn('crop', <Crop size={18} />, 'Recadrer')}
+      {!hideTools && (
+        <div className="absolute top-16 right-3 flex flex-col gap-3 pointer-events-auto z-40">
+          {toolBtn('text', <Type size={18} />, 'Texte')}
+          {toolBtn('draw', <Pencil size={18} />, 'Dessin')}
+          {toolBtn('stickers', <Smile size={18} />, 'Stickers')}
+          {toolBtn('crop', <Crop size={18} />, 'Recadrer')}
 
-        {/* Rotate */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex gap-1">
-            <button onClick={rotateCCW} className="w-5 h-11 rounded-l-full bg-white/15 text-white flex items-center justify-center"><RotateCcw size={12} /></button>
-            <button onClick={rotateCW} className="w-5 h-11 rounded-r-full bg-white/15 text-white flex items-center justify-center"><RotateCw size={12} /></button>
+          {/* Rotate */}
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex gap-1">
+              <button onClick={rotateCCW} className="w-5 h-11 rounded-l-full bg-white/15 text-white flex items-center justify-center"><RotateCcw size={12} /></button>
+              <button onClick={rotateCW} className="w-5 h-11 rounded-r-full bg-white/15 text-white flex items-center justify-center"><RotateCw size={12} /></button>
+            </div>
+            <span className="text-white text-[9px] font-bold uppercase tracking-wider">Rotation</span>
           </div>
-          <span className="text-white text-[9px] font-bold uppercase tracking-wider">Rotation</span>
         </div>
-      </div>
+      )}
 
       {/* ── Draw sub-toolbar ─────────────────────────────────────────── */}
       <AnimatePresence>

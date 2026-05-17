@@ -18,6 +18,8 @@ interface AppState {
   setViewingProfileUserId: (id: string | null) => void;
   showMemories: boolean;
   setShowMemories: (show: boolean) => void;
+  isEditingSnap: boolean;
+  setIsEditingSnap: (isEditing: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -37,4 +39,6 @@ export const useAppStore = create<AppState>((set) => ({
   setViewingProfileUserId: (id) => set({ viewingProfileUserId: id }),
   showMemories: false,
   setShowMemories: (show) => set({ showMemories: show }),
+  isEditingSnap: false,
+  setIsEditingSnap: (isEditing) => set({ isEditingSnap: isEditing }),
 }));
