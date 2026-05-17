@@ -132,6 +132,22 @@ En complément du schéma initial, appliquez aussi les migrations versionnées s
 ### Planification purge TTL (optionnelle)
 Si `pg_cron` est activé sur votre projet Supabase, planifiez `public.purge_expired_temporary_snaps()` toutes les 5 minutes (snippet inclus dans `supabase_migration_v8.sql`).
 
+
+
+## 📈 Statut Actuel du Projet (Mai 2026)
+
+- ✅ Auth + profils utilisateurs Supabase stabilisés.
+- ✅ Chat realtime + optimistic UI + idempotence message (`client_message_id`).
+- ✅ Caméra mobile durcie (lifecycle stream, low-power mode, validation upload).
+- ✅ Stories + chargements skeletons harmonisés.
+- ✅ Sécurité renforcée : migrations `V5` à `V8` (Storage RLS, idempotence DB, purge TTL).
+- ✅ WebSocket serveur `/live` protégé contre payloads surdimensionnés.
+
+### Prochaines priorités
+1. Monitoring/alerting production (échecs de purge TTL, erreurs realtime, saturation WS).
+2. Dashboard qualité temps réel (latence message, taux reconnect, volume retries).
+3. Durcissement anti-abus avancé (ratelimit par user/token et quotas applicatifs).
+
 ## 🤝 Bonnes Pratiques pour Contribuer
 
 1. **Architecture Feat-First :** Si une fonctionnalité devient complexe, isolez-la dans un dossier spécifique (`features/Chat`, `features/Camera`).
