@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { ChevronLeft, Send, Camera as CameraIcon, Loader2 } from 'lucide-react';
+import Skeleton from '../components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import EphemeralMedia from '../components/chat/EphemeralMedia';
 
@@ -20,6 +21,7 @@ interface Message {
     username: string;
   };
   pending?: boolean;
+  client_hash?: string;
 }
 
 export default function ConversationScreen({
@@ -120,6 +122,7 @@ export default function ConversationScreen({
     onMutate: async (content) => {
       if (!user) return;
       const tempId = `temp-${Date.now()}`;
+      const clientHash = `${user.id}:${conversationId}:${content}:${Date.now()}`;
       await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
       const previousMessages = queryClient.getQueryData<Message[]>(['messages', conversationId]) ?? [];
       const optimisticMessage: Message = {
@@ -129,6 +132,7 @@ export default function ConversationScreen({
         created_at: new Date().toISOString(),
         message_type: 'TEXT',
         pending: true,
+        client_hash: clientHash,
       };
       queryClient.setQueryData<Message[]>(['messages', conversationId], [...previousMessages, optimisticMessage]);
       setNewMessage('');
@@ -173,7 +177,9 @@ export default function ConversationScreen({
         {isLoading && (
           <div className="space-y-3 my-auto">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className={`h-12 rounded-2xl ${i % 2 === 0 ? 'w-2/3' : 'w-1/2 ml-auto'} bg-white/10 animate-pulse`} />
+              <div key={i}>
+                <Skeleton className={`h-12 rounded-2xl ${i % 2 === 0 ? 'w-2/3' : 'w-1/2 ml-auto'}`} />
+              </div>
             ))}
           </div>
         )}

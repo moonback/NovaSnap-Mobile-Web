@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useConversations, type ConversationRow } from '../hooks/useConversations';
 import { Loader2, User, X } from 'lucide-react';
+import Skeleton from '../components/ui/Skeleton';
 import ConversationScreen from './ConversationScreen';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store/useAppStore';
@@ -159,10 +160,10 @@ export default function ChatScreen() {
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="flex items-center gap-3 p-3 rounded-3xl glass border border-white/5">
-                <div className="w-12 h-12 rounded-full bg-white/10 animate-pulse" />
+                <Skeleton className="w-12 h-12 rounded-full" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 w-1/3 bg-white/10 rounded animate-pulse" />
-                  <div className="h-3 w-2/3 bg-white/10 rounded animate-pulse" />
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-3 w-2/3" />
                 </div>
               </div>
             ))}

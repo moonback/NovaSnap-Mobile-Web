@@ -73,7 +73,21 @@ export const useConversations = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
-        () => {
+        (payload) => {
+          const conversationId = (payload.new as { conversation_id?: string } | null)?.conversation_id
+            ?? (payload.old as { conversation_id?: string } | null)?.conversation_id;
+          if (!conversationId) return;
+
+          queryClient.setQueryData<ConversationRow[]>(['conversations', user.id], (oldRows) => {
+            if (!oldRows) return oldRows;
+            const index = oldRows.findIndex((row) => row.conversations?.id === conversationId);
+            if (index === -1) return oldRows;
+            const rows = [...oldRows];
+            const [updated] = rows.splice(index, 1);
+            rows.unshift(updated);
+            return rows;
+          });
+
           queryClient.invalidateQueries({ queryKey: ['conversations', user.id] });
         }
       )
