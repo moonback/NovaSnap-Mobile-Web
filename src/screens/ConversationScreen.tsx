@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
-import { ChevronLeft, Send, Camera as CameraIcon, Loader2, Bookmark, BookmarkCheck } from 'lucide-react';
+import { ChevronLeft, Send, Camera as CameraIcon, Loader2, BookmarkCheck, MoreVertical } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import EphemeralMedia from '../components/chat/EphemeralMedia';
@@ -46,261 +46,122 @@ export default function ConversationScreen({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
 
-  // ─── Fetch messages ────────────────────────────────────────────────────────
   const { data: messages, isLoading } = useQuery<Message[]>({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('messages')
-        .select(
-          `id,content,message_type,media_url,created_at,sender_id,
-           client_message_id,is_ephemeral,is_saved,opened_by,users (username)`
-        )
+        .select(`id,content,message_type,media_url,created_at,sender_id,client_message_id,is_ephemeral,is_saved,opened_by,users (username)`)
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
-
       if (error) throw error;
-
-      const messagesWithSignedUrls = await Promise.all(
+      return Promise.all(
         ((data ?? []) as RawMessage[]).map(async (rawMsg) => {
-          const normalizedUser = Array.isArray(rawMsg.users)
-            ? rawMsg.users[0]
-            : rawMsg.users;
+          const normalizedUser = Array.isArray(rawMsg.users) ? rawMsg.users[0] : rawMsg.users;
           const msg: Message = { ...rawMsg, users: normalizedUser };
-          if (
-            msg.media_url &&
-            (msg.message_type === 'IMAGE' || msg.message_type === 'VIDEO')
-          ) {
+          if (msg.media_url && (msg.message_type === 'IMAGE' || msg.message_type === 'VIDEO')) {
             const signedUrl = await getValidMediaUrl('chats', msg.media_url);
             return { ...msg, media_url: signedUrl };
           }
           return msg;
         })
       );
-
-      return messagesWithSignedUrls;
     },
   });
 
-  // ─── Realtime subscription ─────────────────────────────────────────────────
   useEffect(() => {
     const channel = supabase
       .channel(`conversation:${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         async (payload) => {
           let newMsg = payload.new as Message;
-          if (
-            newMsg.media_url &&
-            (newMsg.message_type === 'IMAGE' || newMsg.message_type === 'VIDEO')
-          ) {
+          if (newMsg.media_url && (newMsg.message_type === 'IMAGE' || newMsg.message_type === 'VIDEO')) {
             const signedUrl = await getValidMediaUrl('chats', newMsg.media_url);
             newMsg = { ...newMsg, media_url: signedUrl };
           }
-
-          queryClient.setQueryData<Message[]>(
-            ['messages', conversationId],
-            (oldData) => {
-              if (!oldData) return [newMsg];
-              if (oldData.some((m) => m.id === newMsg.id)) return oldData;
-              const withoutPendingEcho = oldData.filter((m) => {
-                if (!m.pending) return true;
-                if (m.client_message_id && newMsg.client_message_id) {
-                  return m.client_message_id !== newMsg.client_message_id;
-                }
-                return !(
-                  m.sender_id === newMsg.sender_id &&
-                  m.content === newMsg.content
-                );
-              });
-              return [...withoutPendingEcho, newMsg];
-            }
-          );
-
+          queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) => {
+            if (!oldData) return [newMsg];
+            if (oldData.some((m) => m.id === newMsg.id)) return oldData;
+            const withoutPendingEcho = oldData.filter((m) => {
+              if (!m.pending) return true;
+              if (m.client_message_id && newMsg.client_message_id) return m.client_message_id !== newMsg.client_message_id;
+              return !(m.sender_id === newMsg.sender_id && m.content === newMsg.content);
+            });
+            return [...withoutPendingEcho, newMsg];
+          });
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const updated = payload.new as Message;
-          queryClient.setQueryData<Message[]>(
-            ['messages', conversationId],
-            (oldData) => {
-              if (!oldData) return oldData;
-              return oldData.map((m) =>
-                m.id === updated.id ? { ...m, ...updated } : m
-              );
-            }
+          queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) =>
+            oldData ? oldData.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)) : oldData
           );
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const deletedId = (payload.old as { id: string }).id;
-          queryClient.setQueryData<Message[]>(
-            ['messages', conversationId],
-            (oldData) => oldData?.filter((m) => m.id !== deletedId) ?? []
-          );
+          queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) => oldData?.filter((m) => m.id !== deletedId) ?? []);
         }
       )
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [conversationId, queryClient]);
 
-  // ─── Auto-scroll ───────────────────────────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ─── Mark text message as opened (triggers ephemeral delete for recipient) ─
-  const markAsOpened = useCallback(
-    async (msg: Message) => {
-      if (!user) return;
-      // Only act on ephemeral text messages not yet opened by this user
-      if (
-        msg.message_type !== 'TEXT' ||
-        !msg.is_ephemeral ||
-        msg.is_saved ||
-        msg.sender_id === user.id ||
-        msg.opened_by?.includes(user.id)
-      )
-        return;
+  const markAsOpened = useCallback(async (msg: Message) => {
+    if (!user) return;
+    if (msg.message_type !== 'TEXT' || !msg.is_ephemeral || msg.is_saved || msg.sender_id === user.id || msg.opened_by?.includes(user.id)) return;
+    const newOpenedBy = [...(msg.opened_by ?? []), user.id];
+    queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
+      old?.map((m) => (m.id === msg.id ? { ...m, opened_by: newOpenedBy } : m)) ?? []
+    );
+    await supabase.from('messages').update({ opened_by: newOpenedBy }).eq('id', msg.id);
+  }, [user, conversationId, queryClient]);
 
-      const newOpenedBy = [...(msg.opened_by ?? []), user.id];
-
-      // Optimistic update
-      queryClient.setQueryData<Message[]>(
-        ['messages', conversationId],
-        (old) =>
-          old?.map((m) =>
-            m.id === msg.id ? { ...m, opened_by: newOpenedBy } : m
-          ) ?? []
-      );
-
-      await supabase
-        .from('messages')
-        .update({ opened_by: newOpenedBy })
-        .eq('id', msg.id);
-    },
-    [user, conversationId, queryClient]
-  );
-
-  // ─── Delete ephemeral text after both sides have opened it ─────────────────
   useEffect(() => {
     if (!messages || !user) return;
     messages.forEach(async (msg) => {
-      if (
-        msg.message_type !== 'TEXT' ||
-        !msg.is_ephemeral ||
-        msg.is_saved ||
-        !msg.opened_by
-      )
-        return;
-
-      // Delete once the recipient (non-sender) has opened it
-      const recipientOpened =
-        msg.sender_id === user.id
-          ? // I'm the sender: delete when the other side opened it
-            msg.opened_by.some((uid) => uid !== user.id)
-          : // I'm the recipient: delete once I've opened it (already marked above)
-            msg.opened_by.includes(user.id);
-
+      if (msg.message_type !== 'TEXT' || !msg.is_ephemeral || msg.is_saved || !msg.opened_by) return;
+      const recipientOpened = msg.sender_id === user.id
+        ? msg.opened_by.some((uid) => uid !== user.id)
+        : msg.opened_by.includes(user.id);
       if (recipientOpened) {
-        // Remove from local cache immediately
-        queryClient.setQueryData<Message[]>(
-          ['messages', conversationId],
-          (old) => old?.filter((m) => m.id !== msg.id) ?? []
-        );
-        // Delete from DB
+        queryClient.setQueryData<Message[]>(['messages', conversationId], (old) => old?.filter((m) => m.id !== msg.id) ?? []);
         await supabase.from('messages').delete().eq('id', msg.id);
       }
     });
   }, [messages, user, conversationId, queryClient]);
 
-  // ─── Toggle save (long-press) ──────────────────────────────────────────────
-  const toggleSave = useCallback(
-    async (msg: Message) => {
-      if (!user || savingId) return;
-      setSavingId(msg.id);
+  const toggleSave = useCallback(async (msg: Message) => {
+    if (!user || savingId) return;
+    setSavingId(msg.id);
+    const newSaved = !msg.is_saved;
+    queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
+      old?.map((m) => (m.id === msg.id ? { ...m, is_saved: newSaved } : m)) ?? []
+    );
+    await supabase.from('messages').update({ is_saved: newSaved }).eq('id', msg.id);
+    setSavingId(null);
+  }, [user, savingId, conversationId, queryClient]);
 
-      const newSaved = !msg.is_saved;
-
-      // Optimistic update
-      queryClient.setQueryData<Message[]>(
-        ['messages', conversationId],
-        (old) =>
-          old?.map((m) =>
-            m.id === msg.id ? { ...m, is_saved: newSaved } : m
-          ) ?? []
-      );
-
-      await supabase
-        .from('messages')
-        .update({ is_saved: newSaved })
-        .eq('id', msg.id);
-
-      setSavingId(null);
-    },
-    [user, savingId, conversationId, queryClient]
-  );
-
-  // Long-press handlers
   const handlePressStart = (msg: Message) => {
-    longPressTimerRef.current = setTimeout(() => {
-      toggleSave(msg);
-    }, 500);
+    longPressTimerRef.current = setTimeout(() => toggleSave(msg), 500);
   };
-
   const handlePressEnd = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
+    if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
   };
 
-  // ─── Send message ──────────────────────────────────────────────────────────
   const sendMessageMutation = useMutation({
-    mutationFn: async ({
-      content,
-      meta,
-    }: {
-      content: string;
-      meta: { clientMessageId: string };
-    }) => {
+    mutationFn: async ({ content, meta }: { content: string; meta: { clientMessageId: string } }) => {
       if (!user) throw new Error('Not authenticated');
       const { error } = await supabase.from('messages').insert({
-        conversation_id: conversationId,
-        content,
-        message_type: 'TEXT',
-        sender_id: user.id,
-        client_message_id: meta.clientMessageId,
-        // Text messages are ephemeral by default (deleted after recipient reads)
-        is_ephemeral: true,
-        is_saved: false,
-        opened_by: [],
+        conversation_id: conversationId, content, message_type: 'TEXT', sender_id: user.id,
+        client_message_id: meta.clientMessageId, is_ephemeral: true, is_saved: false, opened_by: [],
       });
       if (error) throw error;
     },
@@ -308,34 +169,18 @@ export default function ConversationScreen({
       if (!user) return;
       const tempId = `temp-${Date.now()}`;
       await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
-      const previousMessages =
-        queryClient.getQueryData<Message[]>(['messages', conversationId]) ?? [];
+      const previousMessages = queryClient.getQueryData<Message[]>(['messages', conversationId]) ?? [];
       const optimisticMessage: Message = {
-        id: tempId,
-        content,
-        sender_id: user.id,
-        created_at: new Date().toISOString(),
-        message_type: 'TEXT',
-        is_ephemeral: true,
-        is_saved: false,
-        opened_by: [],
-        pending: true,
-        client_message_id: meta.clientMessageId,
+        id: tempId, content, sender_id: user.id, created_at: new Date().toISOString(),
+        message_type: 'TEXT', is_ephemeral: true, is_saved: false, opened_by: [],
+        pending: true, client_message_id: meta.clientMessageId,
       };
-      queryClient.setQueryData<Message[]>(['messages', conversationId], [
-        ...previousMessages,
-        optimisticMessage,
-      ]);
+      queryClient.setQueryData<Message[]>(['messages', conversationId], [...previousMessages, optimisticMessage]);
       setNewMessage('');
       return { previousMessages };
     },
     onError: (_err, _content, context) => {
-      if (context?.previousMessages) {
-        queryClient.setQueryData(
-          ['messages', conversationId],
-          context.previousMessages
-        );
-      }
+      if (context?.previousMessages) queryClient.setQueryData(['messages', conversationId], context.previousMessages);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
@@ -347,50 +192,45 @@ export default function ConversationScreen({
     e.preventDefault();
     const trimmedMessage = newMessage.trim();
     if (!trimmedMessage) return;
-    sendMessageMutation.mutate({
-      content: trimmedMessage,
-      meta: { clientMessageId: crypto.randomUUID() },
-    });
+    sendMessageMutation.mutate({ content: trimmedMessage, meta: { clientMessageId: crypto.randomUUID() } });
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  const initials = title.substring(0, 2).toUpperCase();
+
   return (
-    <div className="absolute inset-0 bg-[#050505] z-50 flex flex-col font-sans">
+    <div className="absolute inset-0 bg-black z-50 flex flex-col">
       {/* Header */}
-      <div className="h-16 border-b border-white/10 flex items-center px-4 bg-black/40 backdrop-blur-md shrink-0">
-        <button
-          onClick={onBack}
-          className="p-2 mr-2 text-white/70 hover:text-white transition-colors"
-        >
-          <ChevronLeft size={28} />
+      <div className="flex items-center gap-3 px-3 pt-12 pb-3 border-b border-white/8">
+        <button onClick={onBack} className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors">
+          <ChevronLeft size={26} />
         </button>
-        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-purple-500 p-[1px] mr-3">
-          <div className="w-full h-full rounded-full bg-black flex items-center justify-center font-bold text-xs text-white overflow-hidden">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              title.substring(0, 2).toUpperCase()
-            )}
-          </div>
+
+        <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-xs">
+              {initials}
+            </div>
+          )}
         </div>
-        <div>
-          <h2 className="text-white font-bold text-lg leading-tight">{title}</h2>
-          <p className="text-white/40 text-xs font-mono">Messages éphémères activés</p>
+
+        <div className="flex-1 min-w-0">
+          <h2 className="text-white font-black text-[15px] leading-tight truncate">{title}</h2>
+          <p className="text-white/30 text-xs">Messages éphémères</p>
         </div>
+
+        <button className="w-9 h-9 rounded-full flex items-center justify-center text-white/50 hover:bg-white/10 transition-colors">
+          <MoreVertical size={20} />
+        </button>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto scroll-hide px-4 py-4 flex flex-col gap-2">
         {isLoading && (
           <div className="space-y-3 my-auto">
             {[...Array(4)].map((_, i) => (
-              <div key={i}>
-                <Skeleton
-                  className={`h-12 rounded-2xl ${
-                    i % 2 === 0 ? 'w-2/3' : 'w-1/2 ml-auto'
-                  }`}
-                />
-              </div>
+              <Skeleton key={i} className={`h-10 rounded-2xl ${i % 2 === 0 ? 'w-2/3' : 'w-1/2 ml-auto'}`} />
             ))}
           </div>
         )}
@@ -403,84 +243,41 @@ export default function ConversationScreen({
           return (
             <div
               key={msg.id}
-              className={`flex flex-col max-w-[80%] ${
-                isMe ? 'self-end items-end' : 'self-start items-start'
-              } ${msg.pending ? 'opacity-70' : ''}`}
-              // Long-press to save/unsave
+              className={`flex flex-col max-w-[78%] ${isMe ? 'self-end items-end' : 'self-start items-start'} ${msg.pending ? 'opacity-60' : ''}`}
               onMouseDown={() => handlePressStart(msg)}
               onMouseUp={handlePressEnd}
               onMouseLeave={handlePressEnd}
               onTouchStart={() => handlePressStart(msg)}
               onTouchEnd={handlePressEnd}
               onTouchCancel={handlePressEnd}
-              // Mark as opened when rendered (for recipient)
-              ref={(el) => {
-                if (el && !isMe && msg.message_type === 'TEXT') {
-                  markAsOpened(msg);
-                }
-              }}
+              ref={(el) => { if (el && !isMe && msg.message_type === 'TEXT') markAsOpened(msg); }}
             >
-              <div
-                className={`
-                  px-4 py-2.5 rounded-2xl relative transition-colors select-none
-                  ${isSaved ? 'bg-white/10 border border-white/20' : ''}
-                  ${
-                    isMe
-                      ? msg.message_type === 'TEXT'
-                        ? isSaved
-                          ? 'bg-white/10 text-white rounded-br-sm'
-                          : 'bg-blue-600 text-white rounded-br-sm'
-                        : ''
-                      : msg.message_type === 'TEXT'
-                      ? isSaved
-                        ? 'bg-white/10 text-white rounded-bl-sm'
-                        : 'glass text-white rounded-bl-sm'
-                      : ''
-                  }
-                `}
-              >
+              <div className={`
+                relative px-4 py-2.5 rounded-2xl select-none
+                ${msg.message_type === 'TEXT' ? (
+                  isMe
+                    ? isSaved ? 'bg-white/10 border border-white/15 text-white rounded-br-sm' : 'bg-snap-yellow text-black rounded-br-sm'
+                    : isSaved ? 'bg-white/10 border border-white/15 text-white rounded-bl-sm' : 'bg-white/12 text-white rounded-bl-sm'
+                ) : ''}
+              `}>
                 {msg.message_type === 'TEXT' && (
-                  <p className="text-[15px] leading-relaxed break-words">
+                  <p className={`text-[15px] leading-relaxed break-words font-medium ${isMe && !isSaved ? 'text-black' : 'text-white'}`}>
                     {msg.content}
                   </p>
                 )}
-                {(msg.message_type === 'IMAGE' ||
-                  msg.message_type === 'VIDEO') &&
-                  msg.media_url && (
-                    <EphemeralMedia
-                      messageId={msg.id}
-                      mediaUrl={msg.media_url}
-                      mediaType={msg.message_type}
-                      isMe={isMe}
-                      isSaved={isSaved}
-                    />
-                  )}
-
-                {/* Save indicator */}
+                {(msg.message_type === 'IMAGE' || msg.message_type === 'VIDEO') && msg.media_url && (
+                  <EphemeralMedia messageId={msg.id} mediaUrl={msg.media_url} mediaType={msg.message_type} isMe={isMe} isSaved={isSaved} />
+                )}
                 {isSaved && (
-                  <span
-                    className={`absolute -top-2 ${
-                      isMe ? '-left-2' : '-right-2'
-                    } w-5 h-5 rounded-full bg-white/20 flex items-center justify-center`}
-                  >
-                    {isSaving ? (
-                      <Loader2 size={10} className="animate-spin text-white" />
-                    ) : (
-                      <BookmarkCheck size={10} className="text-cyan-400" />
-                    )}
+                  <span className={`absolute -top-2 ${isMe ? '-left-2' : '-right-2'} w-5 h-5 rounded-full bg-white/15 flex items-center justify-center`}>
+                    {isSaving ? <Loader2 size={10} className="animate-spin text-white" /> : <BookmarkCheck size={10} className="text-snap-yellow" />}
                   </span>
                 )}
               </div>
-
-              <span className="text-[10px] text-white/30 mt-1 font-mono flex items-center gap-1">
-                {new Date(msg.created_at).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-                {msg.pending && <Loader2 size={10} className="animate-spin" />}
-                {isSaved && (
-                  <span className="text-white/40 text-[9px]">• Enregistré</span>
-                )}
+              <span className="text-[10px] text-white/25 mt-1 flex items-center gap-1">
+                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {msg.pending && <Loader2 size={9} className="animate-spin" />}
+                {isSaved && <span className="text-white/30">· Enregistré</span>}
               </span>
             </div>
           );
@@ -489,39 +286,42 @@ export default function ConversationScreen({
       </div>
 
       {/* Input */}
-      <div className="p-4 bg-black/40 backdrop-blur-md border-t border-white/10 shrink-0 pb-8">
+      <div className="px-3 py-3 border-t border-white/8 pb-6">
         <form onSubmit={handleSend} className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => {
-              setDirectChatId(conversationId);
-              setCurrentView('camera');
-              onBack();
-            }}
-            className="w-12 h-12 rounded-full glass flex items-center justify-center text-white/70 hover:text-white shrink-0 cursor-pointer"
+            onClick={() => { setDirectChatId(conversationId); setCurrentView('camera'); onBack(); }}
+            className="w-11 h-11 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/12 transition-all shrink-0"
           >
-            <CameraIcon size={24} />
+            <CameraIcon size={22} />
           </button>
+
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Envoyer un message..."
-            className="flex-1 bg-white/5 border border-white/10 rounded-full h-12 px-5 text-white placeholder-white/30 focus:outline-none focus:border-cyan-400/50 focus:bg-white/10 transition-all font-medium"
+            className="flex-1 bg-white/8 border border-white/10 rounded-full h-11 px-5 text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition-all text-[15px]"
           />
-          {newMessage.trim() && (
+
+          {newMessage.trim() ? (
             <button
               type="submit"
               disabled={sendMessageMutation.isPending}
-              className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 hover:bg-blue-700 transition-colors"
+              className="w-11 h-11 rounded-full bg-snap-yellow flex items-center justify-center shrink-0 active:scale-90 transition-all shadow-snap-sm"
             >
-              <Send size={20} className="ml-1" />
+              <Send size={18} className="text-black ml-0.5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="w-11 h-11 rounded-full bg-white/8 flex items-center justify-center text-white/40 shrink-0"
+            >
+              <span className="text-lg">😊</span>
             </button>
           )}
         </form>
-        <p className="text-center text-white/20 text-[10px] mt-2 font-mono">
-          Appui long pour enregistrer un message
-        </p>
+        <p className="text-center text-white/15 text-[10px] mt-2">Appui long pour enregistrer</p>
       </div>
     </div>
   );

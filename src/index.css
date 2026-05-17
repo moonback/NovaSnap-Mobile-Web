@@ -1,31 +1,84 @@
 @import "tailwindcss";
 
 @layer utilities {
-  .glass { 
-    background: rgba(255, 255, 255, 0.03); 
-    backdrop-filter: blur(16px); 
-    border: 1px solid rgba(255, 255, 255, 0.08); 
+  /* ── Glassmorphism ── */
+  .glass {
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.10);
   }
-  .glass-dark { 
-    background: rgba(0, 0, 0, 0.6); 
-    backdrop-filter: blur(12px); 
-    border: 1px solid rgba(255, 255, 255, 0.05); 
+  .glass-dark {
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
-  .neon-glow { 
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); 
+  .glass-card {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
-  .camera-gradient { 
-    background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%); 
+
+  /* ── Snap Yellow ── */
+  .snap-yellow { color: #FFFC00; }
+  .bg-snap-yellow { background-color: #FFFC00; }
+  .border-snap-yellow { border-color: #FFFC00; }
+  .shadow-snap { box-shadow: 0 0 24px rgba(255, 252, 0, 0.35); }
+  .shadow-snap-sm { box-shadow: 0 0 12px rgba(255, 252, 0, 0.25); }
+
+  /* ── Glow effects ── */
+  .neon-glow { box-shadow: 0 0 16px rgba(255, 252, 0, 0.5); }
+  .neon-glow-white { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
+
+  /* ── Camera ── */
+  .camera-gradient {
+    background: radial-gradient(circle at center, #111 0%, #000 100%);
   }
-  .voice-orb { 
-    background: radial-gradient(circle at 30% 30%, #00ffff 0%, #0066ff 50%, #6600ff 100%); 
+
+  /* ── Voice orb ── */
+  .voice-orb {
+    background: radial-gradient(circle at 30% 30%, #FFFC00 0%, #ff9500 50%, #ff3b30 100%);
   }
-  .scroll-hide::-webkit-scrollbar { 
-    display: none; 
+
+  /* ── Scrollbar hide ── */
+  .scroll-hide::-webkit-scrollbar { display: none; }
+  .scroll-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* ── Story ring ── */
+  .story-ring {
+    background: conic-gradient(#FFFC00, #ff9500, #ff3b30, #FFFC00);
   }
+  .story-ring-seen {
+    background: conic-gradient(#555, #444, #555);
+  }
+
+  /* ── Safe area ── */
+  .safe-top { padding-top: env(safe-area-inset-top, 12px); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 16px); }
 }
 
 @keyframes progress {
   from { width: 0%; }
   to { width: 100%; }
 }
+
+@keyframes snap-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.85; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Global resets */
+* { -webkit-tap-highlight-color: transparent; }
+body { overscroll-behavior: none; }

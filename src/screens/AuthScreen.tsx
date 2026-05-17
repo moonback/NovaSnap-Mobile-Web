@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '../components/ui/ToastProvider';
 
 type AuthMode = 'login' | 'signup';
@@ -14,18 +14,10 @@ function normalizeUsername(value: string): string {
 
 function getAuthErrorMessage(error: AuthError | Error): string {
   const message = error.message.toLowerCase();
-
-  if (message.includes('invalid login credentials')) {
-    return 'Invalid email or password.';
-  }
-  if (message.includes('password should be at least')) {
-    return 'Password must contain at least 8 characters.';
-  }
-  if (message.includes('email not confirmed')) {
-    return 'Please confirm your email before signing in.';
-  }
-
-  return error.message || 'An error occurred during authentication.';
+  if (message.includes('invalid login credentials')) return 'Email ou mot de passe incorrect.';
+  if (message.includes('password should be at least')) return 'Le mot de passe doit contenir au moins 8 caractères.';
+  if (message.includes('email not confirmed')) return 'Confirme ton email avant de te connecter.';
+  return error.message || 'Une erreur est survenue.';
 }
 
 export default function AuthScreen() {
@@ -33,6 +25,7 @@ export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -41,9 +34,7 @@ export default function AuthScreen() {
   const normalizedUsername = useMemo(() => normalizeUsername(username), [username]);
   const usernameError = useMemo(() => {
     if (isLogin || normalizedUsername.length === 0) return null;
-    if (!USERNAME_PATTERN.test(normalizedUsername)) {
-      return 'Use 3-20 chars: letters, numbers, underscore.';
-    }
+    if (!USERNAME_PATTERN.test(normalizedUsername)) return '3-20 caractères : lettres, chiffres, underscore.';
     return null;
   }, [isLogin, normalizedUsername]);
 
@@ -56,35 +47,23 @@ export default function AuthScreen() {
   const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!canSubmit) return;
-
     setLoading(true);
     setError(null);
-
     try {
       if (isLogin) {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (signInError) throw signInError;
       } else {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: {
-            data: {
-              username: normalizedUsername,
-            },
-          },
+          options: { data: { username: normalizedUsername } },
         });
         if (signUpError) throw signUpError;
-
-        if (data.user) {
-          toast('Check your email for the confirmation link!', 'success');
-        }
+        if (data.user) toast('Vérifie ton email pour confirmer ton compte !', 'success');
       }
     } catch (err) {
-      const parsedError = err instanceof Error ? err : new Error('Authentication failed.');
+      const parsedError = err instanceof Error ? err : new Error('Erreur d\'authentification.');
       setError(getAuthErrorMessage(parsedError));
     } finally {
       setLoading(false);
@@ -92,39 +71,53 @@ export default function AuthScreen() {
   };
 
   return (
-    <div className="w-full h-full bg-[#050505] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-cyan-500/20 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-500/20 rounded-full blur-[100px] pointer-events-none" />
+    <div className="w-full h-full bg-black text-white flex flex-col items-center justify-center relative overflow-hidden">
+      {/* Background gradient blobs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-80 h-80 rounded-full opacity-20"
+          style={{ background: 'radial-gradient(circle, #FFFC00 0%, transparent 70%)' }} />
+        <div className="absolute -bottom-32 -right-32 w-80 h-80 rounded-full opacity-10"
+          style={{ background: 'radial-gradient(circle, #ff9500 0%, transparent 70%)' }} />
+      </div>
 
-      <div className="w-full max-w-md glass rounded-[40px] p-8 relative z-10 shadow-2xl">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-400 to-purple-500 p-[2px] mx-auto mb-4">
-            <div className="w-full h-full bg-black rounded-2xl flex items-center justify-center">
-              <span className="text-2xl font-black italic text-transparent bg-clip-text bg-gradient-to-tr from-cyan-400 to-purple-500">N</span>
-            </div>
+      <div className="w-full max-w-sm px-6 relative z-10">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-20 h-20 rounded-[28px] bg-snap-yellow flex items-center justify-center mb-4 shadow-snap">
+            <svg viewBox="0 0 100 100" className="w-12 h-12" fill="none">
+              <path
+                d="M50 10C28 10 10 28 10 50c0 8 2.5 15.5 6.8 21.6L10 90l18.4-6.8C34.5 87.5 42 90 50 90c22 0 40-18 40-40S72 10 50 10z"
+                fill="black"
+              />
+              <circle cx="35" cy="50" r="5" fill="white" />
+              <circle cx="50" cy="50" r="5" fill="white" />
+              <circle cx="65" cy="50" r="5" fill="white" />
+            </svg>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">NovaSnap</h1>
-          <p className="text-white/40 text-sm mt-2 font-mono uppercase tracking-widest">{isLogin ? 'Welcome Back' : 'Create Account'}</p>
+          <h1 className="text-3xl font-black tracking-tight">NovaSnap</h1>
+          <p className="text-white/40 text-sm mt-1">
+            {isLogin ? 'Content de te revoir 👋' : 'Rejoins la communauté'}
+          </p>
         </div>
 
+        {/* Error */}
         {error && (
-          <div role="alert" className="mb-6 p-4 glass-dark border border-red-500/30 rounded-2xl text-red-400 text-sm text-center">
+          <div role="alert" className="mb-5 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm text-center">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleAuth} className="space-y-4">
+        {/* Form */}
+        <form onSubmit={handleAuth} className="space-y-3">
           {!isLogin && (
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/40">
-                <User size={18} />
-              </div>
+              <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Username"
+                placeholder="Nom d'utilisateur"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-cyan-400/50 focus:bg-white/10 transition-all font-medium"
+                className="w-full bg-white/8 border border-white/12 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/60 focus:bg-white/10 transition-all text-[15px]"
                 required
                 minLength={3}
                 maxLength={20}
@@ -132,20 +125,18 @@ export default function AuthScreen() {
                 autoComplete="username"
                 aria-invalid={!!usernameError}
               />
-              {usernameError && <p className="text-xs text-amber-300 mt-2">{usernameError}</p>}
+              {usernameError && <p className="text-xs text-amber-400 mt-1.5 pl-1">{usernameError}</p>}
             </div>
           )}
 
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/40">
-              <Mail size={18} />
-            </div>
+            <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
             <input
               type="email"
-              placeholder="Email Address"
+              placeholder="Adresse email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-cyan-400/50 focus:bg-white/10 transition-all font-medium"
+              className="w-full bg-white/8 border border-white/12 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/60 focus:bg-white/10 transition-all text-[15px]"
               required
               autoComplete="email"
               inputMode="email"
@@ -153,39 +144,46 @@ export default function AuthScreen() {
           </div>
 
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/40">
-              <Lock size={18} />
-            </div>
+            <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
             <input
-              type="password"
-              placeholder="Password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Mot de passe"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-cyan-400/50 focus:bg-white/10 transition-all font-medium"
+              className="w-full bg-white/8 border border-white/12 rounded-2xl py-4 pl-12 pr-12 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/60 focus:bg-white/10 transition-all text-[15px]"
               required
               minLength={8}
               autoComplete={isLogin ? 'current-password' : 'new-password'}
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
 
           <button
             type="submit"
             disabled={!canSubmit}
-            className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-bold py-4 rounded-2xl mt-6 flex items-center justify-center gap-2 hover:from-cyan-300 hover:to-blue-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full bg-snap-yellow text-black font-black py-4 rounded-2xl mt-2 flex items-center justify-center gap-2 active:scale-95 transition-all shadow-snap disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[15px] tracking-wide"
           >
-            {loading ? <Loader2 size={20} className="animate-spin" /> : <>{isLogin ? 'Sign In' : 'Continue'}<ArrowRight size={20} /></>}
+            {loading
+              ? <Loader2 size={20} className="animate-spin" />
+              : <>{isLogin ? 'Se connecter' : 'Créer mon compte'} <ArrowRight size={20} /></>
+            }
           </button>
         </form>
 
+        {/* Toggle */}
         <div className="mt-8 text-center">
           <button
-            onClick={() => {
-              setMode(isLogin ? 'signup' : 'login');
-              setError(null);
-            }}
-            className="text-white/40 hover:text-white text-sm font-medium transition-colors"
+            onClick={() => { setMode(isLogin ? 'signup' : 'login'); setError(null); }}
+            className="text-white/50 hover:text-white text-sm transition-colors"
           >
-            {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
+            {isLogin ? "Pas encore de compte ? " : 'Déjà un compte ? '}
+            <span className="text-snap-yellow font-bold">{isLogin ? 'Inscription' : 'Connexion'}</span>
           </button>
         </div>
       </div>
