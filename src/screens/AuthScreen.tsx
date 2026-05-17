@@ -85,7 +85,7 @@ export default function AuthScreen() {
   };
 
   return (
-    <div className="w-full h-full bg-[#0a0a0f] text-white flex flex-col items-center justify-center relative overflow-y-auto overflow-x-hidden font-sans py-8">
+    <div className="w-full h-full screen-shell text-white flex flex-col items-center justify-center relative overflow-y-auto overflow-x-hidden font-sans py-8">
       {/* Animated Background Blobs */}
       <motion.div 
         animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
@@ -133,7 +133,7 @@ export default function AuthScreen() {
         </div>
 
         {/* Segmented Toggle */}
-        <div className="flex p-1 bg-white/5 border border-white/10 rounded-full mb-8 relative backdrop-blur-md">
+        <div className="flex p-1 glass-panel rounded-full mb-8 relative">
           <motion.div
             className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white/10 rounded-full shadow-lg border border-white/5"
             animate={{ x: isLogin ? 4 : 'calc(100% + 4px)' }}
@@ -192,7 +192,7 @@ export default function AuthScreen() {
                     placeholder="Nom d'utilisateur"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
+                    className="w-full glass-panel rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 transition-all text-[15px] shadow-inner"
                     required
                     minLength={3}
                     maxLength={20}
@@ -220,7 +220,7 @@ export default function AuthScreen() {
                   placeholder="Adresse email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
+                  className="w-full glass-panel rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 transition-all text-[15px] shadow-inner"
                   required
                   autoComplete="email"
                   inputMode="email"
@@ -234,7 +234,7 @@ export default function AuthScreen() {
                   placeholder="Mot de passe"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
+                  className="w-full glass-panel rounded-2xl py-4 pl-12 pr-12 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 transition-all text-[15px] shadow-inner"
                   required
                   minLength={8}
                   autoComplete={isLogin ? 'current-password' : 'new-password'}
