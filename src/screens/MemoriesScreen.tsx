@@ -54,15 +54,19 @@ function groupByDate(memories: MemoryRow[]): { label: string; items: MemoryRow[]
 
 // ── Sub-components ────────────────────────────────────────────
 
-function MediaThumbnail({
-  memory,
-  onClick,
-  layout,
-}: {
+const MediaThumbnail: React.FC<{
   memory: MemoryRow;
   onClick: () => void;
   layout: 'grid' | 'list';
-}) {
+  selectionMode?: boolean;
+  selected?: boolean;
+}> = ({
+  memory,
+  onClick,
+  layout,
+  selectionMode,
+  selected,
+}) => {
   const [failed, setFailed] = useState(false);
   const src = memory.media_url;
   const isVideo = memory.media_type === 'VIDEO';
@@ -72,10 +76,15 @@ function MediaThumbnail({
     return (
       <button
         onClick={onClick}
-        className="flex items-center gap-3 w-full p-3 rounded-2xl bg-white/4 border border-white/8 hover:bg-white/7 active:scale-[0.98] transition-all text-left"
+        className={`flex items-center gap-3 w-full p-3 rounded-2xl bg-white/4 border hover:bg-white/7 active:scale-[0.98] transition-all text-left ${selectionMode && selected ? 'border-snap-yellow bg-snap-yellow/10' : 'border-white/8'}`}
       >
+        {selectionMode && (
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 ${selected ? 'bg-snap-yellow border-snap-yellow text-black' : 'border-white/50 bg-black/20'}`}>
+            {selected && <Check size={12} />}
+          </div>
+        )}
         {/* Thumbnail */}
-        <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-900">
+        <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-900 border border-white/10">
           {!failed && isVideo ? (
             <video src={src} muted playsInline className="w-full h-full object-cover" onError={() => setFailed(true)} />
           ) : !failed ? (
@@ -87,7 +96,7 @@ function MediaThumbnail({
           )}
           {isVideo && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm">
                 <Play size={10} className="text-white ml-0.5" fill="white" />
               </div>
             </div>
@@ -114,7 +123,7 @@ function MediaThumbnail({
   return (
     <button
       onClick={onClick}
-      className="relative aspect-square rounded-xl overflow-hidden bg-zinc-900 border border-white/8 hover:border-white/20 active:scale-95 transition-all"
+      className={`relative aspect-square rounded-xl overflow-hidden bg-zinc-900 border hover:border-white/20 active:scale-95 transition-all ${selectionMode && selected ? 'border-snap-yellow scale-95 ring-2 ring-snap-yellow ring-offset-2 ring-offset-black' : 'border-white/8'}`}
     >
       {!failed && isVideo ? (
         <video src={src} muted playsInline className="w-full h-full object-cover" onError={() => setFailed(true)} />
@@ -127,19 +136,28 @@ function MediaThumbnail({
       )}
 
       {/* Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
       {/* Video badge */}
       {isVideo && (
-        <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center">
+        <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center backdrop-blur-sm">
           <Play size={9} className="text-white ml-0.5" fill="white" />
         </div>
       )}
 
       {/* Source badge */}
-      <div className={`absolute bottom-1.5 left-1.5 flex items-center gap-0.5 ${sourceInfo.color}`}>
+      <div className={`absolute bottom-1.5 left-1.5 flex items-center gap-0.5 ${sourceInfo.color} drop-shadow-md`}>
         {sourceInfo.icon}
       </div>
+
+      {/* Selection badge */}
+      {selectionMode && (
+        <div className="absolute top-1.5 left-1.5 z-10">
+           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shadow-sm ${selected ? 'bg-snap-yellow border-snap-yellow text-black' : 'border-white/50 bg-black/40'}`}>
+              {selected && <Check size={12} />}
+           </div>
+        </div>
+      )}
     </button>
   );
 }
@@ -252,7 +270,15 @@ function Lightbox({
       </div>
 
       {/* Media */}
-      <div className="flex-1 flex items-center justify-center bg-zinc-950/30">
+      <motion.div 
+        className="flex-1 flex items-center justify-center bg-zinc-950/30 overflow-hidden"
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={0.9}
+        onDragEnd={(e, info) => {
+          if (info.offset.y > 100 || info.offset.y < -100) onClose();
+        }}
+      >
         {failed ? (
           <div className="flex flex-col items-center gap-3 text-white/30">
             <Image size={40} />
@@ -266,7 +292,7 @@ function Lightbox({
             loop
             playsInline
             controls
-            className="max-w-full max-h-full object-contain"
+            className="max-w-full max-h-full object-contain pointer-events-none"
             onError={() => setFailed(true)}
           />
         ) : (
@@ -274,11 +300,11 @@ function Lightbox({
             key={memory.id}
             src={memory.media_url}
             alt={memory.caption ?? ''}
-            className="max-w-full max-h-full object-contain"
+            className="max-w-full max-h-full object-contain pointer-events-none"
             onError={() => setFailed(true)}
           />
         )}
-      </div>
+      </motion.div>
 
       {/* Left / Right navigation */}
       {canGoLeft && (
@@ -410,6 +436,36 @@ export default function MemoriesScreen() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showSearch, setShowSearch] = useState(false);
 
+  // Multi-selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeletingMany, setIsDeletingMany] = useState(false);
+  const deleteMemory = useDeleteMemory();
+  const { toast } = useToast();
+
+  const toggleSelection = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsDeletingMany(true);
+    try {
+      const toDelete = filtered.filter(m => selectedIds.has(m.id));
+      await Promise.all(toDelete.map(m => deleteMemory.mutateAsync({ memoryId: m.id, storagePath: m.media_url })));
+      toast(`${selectedIds.size} souvenir(s) supprimé(s).`, 'success');
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+    } catch {
+      toast('Erreur lors de la suppression multiple.', 'error');
+    } finally {
+      setIsDeletingMany(false);
+    }
+  };
+
   // Filtered + searched memories
   const filtered = useMemo(() => {
     if (!memories) return [];
@@ -428,6 +484,13 @@ export default function MemoriesScreen() {
   }, [memories, filter, search]);
 
   const groups = useMemo(() => groupByDate(filtered), [filtered]);
+
+  const flashbackMemory = useMemo(() => {
+    if (!memories || memories.length === 0) return null;
+    const candidates = memories.filter(m => m.media_type === 'IMAGE');
+    if (candidates.length > 0) return candidates[candidates.length - 1]; // oldest image
+    return memories[memories.length - 1];
+  }, [memories]);
 
   const totalCount = memories?.length ?? 0;
   const imageCount = memories?.filter((m) => m.media_type === 'IMAGE').length ?? 0;
@@ -457,9 +520,20 @@ export default function MemoriesScreen() {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => {
+                setSelectionMode(!selectionMode);
+                setSelectedIds(new Set());
+              }}
+              className={`px-3 h-9 rounded-full flex items-center justify-center transition-colors text-xs font-bold ${
+                selectionMode ? 'bg-snap-yellow text-black shadow-snap-sm' : 'bg-white/10 text-white hover:bg-white/15'
+              }`}
+            >
+              {selectionMode ? 'Annuler' : 'Sélect.'}
+            </button>
+            <button
               onClick={() => setShowSearch((s) => !s)}
               className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                showSearch ? 'bg-snap-yellow text-black' : 'bg-white/10 text-white'
+                showSearch ? 'bg-snap-yellow text-black' : 'bg-white/10 text-white hover:bg-white/15'
               }`}
             >
               <Search size={16} />
@@ -572,6 +646,43 @@ export default function MemoriesScreen() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Flashback Banner */}
+            {!search && filter === 'all' && flashbackMemory && (
+              <div 
+                className={`relative h-48 rounded-2xl overflow-hidden cursor-pointer group mb-2 active:scale-[0.98] transition-all border ${selectionMode && selectedIds.has(flashbackMemory.id) ? 'border-snap-yellow ring-2 ring-snap-yellow ring-offset-2 ring-offset-black scale-95' : 'border-white/10'}`}
+                onClick={() => {
+                   if (selectionMode) toggleSelection(flashbackMemory.id);
+                   else setLightboxIndex(filtered.indexOf(flashbackMemory));
+                }}
+              >
+                {flashbackMemory.media_type === 'IMAGE' ? (
+                  <img src={flashbackMemory.media_url} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <video src={flashbackMemory.media_url} className="w-full h-full object-cover" muted playsInline />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                
+                <div className="absolute top-3 left-3 px-3 py-1.5 bg-white/20 backdrop-blur-md rounded-full border border-white/20 shadow-lg">
+                  <span className="text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <BookOpen size={12} className="text-snap-yellow" /> Souvenir
+                  </span>
+                </div>
+                
+                <div className="absolute bottom-3 left-3 right-3">
+                  <p className="text-white text-base font-black truncate">{flashbackMemory.caption || 'Ce jour-là...'}</p>
+                  <p className="text-white/60 text-[11px] mt-0.5 uppercase tracking-wider font-bold">{formatDate(flashbackMemory.created_at)}</p>
+                </div>
+
+                {selectionMode && (
+                  <div className="absolute top-3 right-3 z-10">
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors shadow-lg ${selectedIds.has(flashbackMemory.id) ? 'bg-snap-yellow border-snap-yellow text-black' : 'border-white/50 bg-black/40'}`}>
+                        {selectedIds.has(flashbackMemory.id) && <Check size={14} />}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {groups.map((group) => (
               <div key={group.label}>
                 {/* Date header */}
@@ -593,7 +704,12 @@ export default function MemoriesScreen() {
                           key={memory.id}
                           memory={memory}
                           layout="grid"
-                          onClick={() => setLightboxIndex(globalIdx)}
+                          selectionMode={selectionMode}
+                          selected={selectedIds.has(memory.id)}
+                          onClick={() => {
+                            if (selectionMode) toggleSelection(memory.id);
+                            else setLightboxIndex(globalIdx);
+                          }}
                         />
                       );
                     })}
@@ -607,7 +723,12 @@ export default function MemoriesScreen() {
                           key={memory.id}
                           memory={memory}
                           layout="list"
-                          onClick={() => setLightboxIndex(globalIdx)}
+                          selectionMode={selectionMode}
+                          selected={selectedIds.has(memory.id)}
+                          onClick={() => {
+                            if (selectionMode) toggleSelection(memory.id);
+                            else setLightboxIndex(globalIdx);
+                          }}
                         />
                       );
                     })}
@@ -618,6 +739,32 @@ export default function MemoriesScreen() {
           </div>
         )}
       </div>
+
+      {/* ── Selection Bottom Bar ── */}
+      <AnimatePresence>
+        {selectionMode && (
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            className="absolute bottom-0 inset-x-0 p-5 bg-gradient-to-t from-black via-black/90 to-transparent flex justify-center z-40"
+          >
+            <div className="flex items-center gap-4 bg-zinc-900 border border-white/10 p-2 rounded-full shadow-2xl">
+              <span className="text-white text-xs font-bold px-3">
+                {selectedIds.size} sélectionné(s)
+              </span>
+              <button
+                onClick={handleBulkDelete}
+                disabled={selectedIds.size === 0 || isDeletingMany}
+                className="flex items-center gap-1.5 px-4 py-2 bg-red-500/20 text-red-400 font-bold text-sm rounded-full active:scale-95 transition-all disabled:opacity-50"
+              >
+                {isDeletingMany ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                Supprimer
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Lightbox ── */}
       <AnimatePresence>
