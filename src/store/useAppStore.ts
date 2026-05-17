@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { User, Session } from '@supabase/supabase-js';
 
 interface AppState {
-  currentView: 'chat' | 'camera' | 'stories';
-  setCurrentView: (view: 'chat' | 'camera' | 'stories') => void;
+  currentView: 'chat' | 'camera' | 'stories' | 'map';
+  setCurrentView: (view: 'chat' | 'camera' | 'stories' | 'map') => void;
   user: User | null;
   session: Session | null;
   setUser: (user: User | null) => void;

@@ -7,6 +7,7 @@ import { usePushNotifications, useNotificationCount, updateAppBadge } from './ho
 import CameraView from './components/camera/CameraView';
 import ChatScreen from './screens/ChatScreen';
 import StoriesScreen from './screens/StoriesScreen';
+import MapScreen from './screens/MapScreen';
 import TabBar from './components/navigation/TabBar';
 import AuthScreen from './screens/AuthScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -14,7 +15,7 @@ import FriendsScreen from './screens/FriendsScreen';
 import UserProfileScreen from './screens/UserProfileScreen';
 
 
-type ViewKey = 'chat' | 'camera' | 'stories';
+type ViewKey = 'chat' | 'camera' | 'stories' | 'map';
 
 type Dimensions = {
   width: number;
@@ -23,7 +24,7 @@ type Dimensions = {
 };
 
 
-const VIEWS = ['chat', 'camera', 'stories'] as const;
+const VIEWS = ['map', 'chat', 'camera', 'stories'] as const;
 
 const isViewKey = (value: string): value is ViewKey =>
   (VIEWS as readonly string[]).includes(value);
@@ -320,19 +321,23 @@ export default function App() {
             }
           }}
         >
+          {/* Map */}
+          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+            {Math.abs(currentIndex - 0) <= 1 && <MapScreen />}
+          </div>
           {/* Chat */}
           <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
             <ChatScreen />
           </div>
           {/* Camera */}
           <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
-            {Math.abs(currentIndex - 1) <= 1 && (
+            {Math.abs(currentIndex - 2) <= 1 && (
               <CameraView isActive={currentView === 'camera'} />
             )}
           </div>
           {/* Stories */}
           <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
-            {Math.abs(currentIndex - (VIEWS.length - 1)) <= 1 && <StoriesScreen />}
+            {Math.abs(currentIndex - 3) <= 1 && <StoriesScreen />}
           </div>
         </motion.div>
 

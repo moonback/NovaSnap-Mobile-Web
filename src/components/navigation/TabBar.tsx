@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageCircle, Camera, Play } from 'lucide-react';
+import { MessageCircle, Camera, Play, Compass } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../../store/useAppStore';
 
@@ -18,7 +18,38 @@ export default function TabBar() {
       />
 
       {/* Barre de navigation */}
-      <div className="relative pointer-events-auto flex items-end justify-between px-8 pb-8 pt-6">
+      <div className="relative pointer-events-auto flex items-end justify-between px-6 pb-8 pt-6">
+
+        {/* ── Carte ── */}
+        <button
+          onClick={() => setCurrentView('map')}
+          aria-label="Carte"
+          className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
+        >
+          <div className="relative">
+            <Compass
+              size={27}
+              strokeWidth={currentView === 'map' ? 2.5 : 1.8}
+              className={`transition-all duration-200 ${
+                currentView === 'map' ? 'text-white' : 'text-white/45'
+              }`}
+              fill={currentView === 'map' ? 'rgba(255,255,255,0.12)' : 'none'}
+            />
+          </div>
+          <span
+            className={`text-[10px] font-bold tracking-wide transition-all duration-200 ${
+              currentView === 'map' ? 'text-white' : 'text-white/35'
+            }`}
+          >
+            Carte
+          </span>
+          {currentView === 'map' && (
+            <motion.span
+              layoutId="tab-dot"
+              className="w-1 h-1 rounded-full bg-white"
+            />
+          )}
+        </button>
 
         {/* ── Chat ── */}
         <button

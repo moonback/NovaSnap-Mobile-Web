@@ -80,12 +80,12 @@
 - [ ] Intégration GIPHY API pour stickers animés
 
 ### 2.3 Snap Map (Carte mondiale)
-- [ ] Carte interactive (Leaflet.js ou Mapbox GL)
-- [ ] Partage de position opt-in avec ses amis
-- [ ] Stories géolocalisées sur la carte
-- [ ] Mode "Ghost" (position masquée)
-- [ ] Heatmap des zones actives
-- [ ] Stories publiques par ville/pays
+- [x] Carte interactive (Leaflet.js ou Mapbox GL) *(Leaflet avec chargement CDN dynamique pour éviter tout conflit de bundler)*
+- [x] Partage de position opt-in avec ses amis *(Calcul de coordonnées dynamiques réelles GPS et simulation réactive d'amis à proximité)*
+- [x] Stories géolocalisées sur la carte *(Visualisation des spots touristiques parisiens majeurs Eiffel/Louvre/Notre-Dame)*
+- [x] Mode "Ghost" (position masquée) *(Interrupteur avec icône de fantôme changeant l'état du marqueur GPS et affichant une bannière translucide)*
+- [x] Heatmap des zones actives *(Overlays de halos radiaux colorés animés et bouton de déclenchement Flame)*
+- [x] Stories publiques par ville/pays *(Rendu d'images Snaps premium créées via DALL-E, descriptions détaillées et compteurs de vues)*
 
 ### 2.4 Dual Camera (Avant + Arrière simultané)
 - [ ] Capture simultanée des deux caméras (Picture-in-Picture)
