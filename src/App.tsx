@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MapPin } from 'lucide-react';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './lib/supabase';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
@@ -125,6 +125,44 @@ export default function App() {
   // NOUVEAU: Gestion des dimensions réactives pour le conteneur centré
   const [dimensions, setDimensions] = useState<Dimensions>(getInitialDimensions);
 
+  const [showLocationModal, setShowLocationModal] = useState(false);
+
+  const requestLocationAccess = async () => {
+    if (!session?.user) return;
+
+    const promptKey = `novasnap_location_prompted_${session.user.id}`;
+    localStorage.setItem(promptKey, 'true');
+
+    if (!navigator.geolocation) {
+      setShowLocationModal(false);
+      return;
+    }
+
+    const position = await new Promise<GeolocationPosition | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 },
+      );
+    });
+
+    await supabase.rpc('update_user_heartbeat', {
+      p_lat: position?.coords.latitude ?? null,
+      p_lng: position?.coords.longitude ?? null,
+      p_ghost: false,
+    });
+
+    setShowLocationModal(false);
+  };
+
+  const dismissLocationPrompt = () => {
+    if (session?.user) {
+      const promptKey = `novasnap_location_prompted_${session.user.id}`;
+      localStorage.setItem(promptKey, 'true');
+    }
+    setShowLocationModal(false);
+  };
+
   useEffect(() => {
     let rafId = 0;
 
@@ -164,6 +202,17 @@ export default function App() {
     };
   }, []);
 
+
+  useEffect(() => {
+    if (!session?.user) {
+      setShowLocationModal(false);
+      return;
+    }
+
+    const promptKey = `novasnap_location_prompted_${session.user.id}`;
+    const alreadyPrompted = localStorage.getItem(promptKey) === 'true';
+    if (!alreadyPrompted) setShowLocationModal(true);
+  }, [session?.user?.id]);
   const resolvedIndex = isViewKey(currentView) ? VIEWS.indexOf(currentView) : -1;
   const currentIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
 
@@ -393,6 +442,49 @@ export default function App() {
 
         <AnimatePresence>
           {viewingProfileUserId && <UserProfileScreen key="user-profile" />}
+
+
+          <AnimatePresence>
+            {showLocationModal && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-[90] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+              >
+                <motion.div
+                  initial={{ y: 20, opacity: 0, scale: 0.96 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  exit={{ y: 10, opacity: 0, scale: 0.96 }}
+                  className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#121214] text-white p-5 space-y-4 shadow-2xl"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-snap-yellow text-black flex items-center justify-center">
+                    <MapPin size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black">Partager ta localisation ?</h3>
+                    <p className="text-sm text-white/60 mt-1">
+                      Active la localisation pour voir tes amis proches sur Snap Map.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={dismissLocationPrompt}
+                      className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/15 font-bold text-sm"
+                    >
+                      Plus tard
+                    </button>
+                    <button
+                      onClick={requestLocationAccess}
+                      className="flex-1 py-3 rounded-xl bg-snap-yellow text-black font-black text-sm"
+                    >
+                      Autoriser
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </AnimatePresence>
 
         <AnimatePresence>
