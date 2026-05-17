@@ -15,6 +15,7 @@ import {
   Users
 } from 'lucide-react';
 import { useFriends } from '../hooks/useFriends';
+import { useFriendLocations } from '../hooks/useFriendLocations';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
 
@@ -77,6 +78,9 @@ export default function MapScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [userCoords, setUserCoords] = useState<[number, number]>([48.8566, 2.3522]); // Default: Paris Center
+  const { data: friendLocations = [] } = useFriendLocations(
+    userCoords[0], userCoords[1],
+  );
   const [coordsLoading, setCoordsLoading] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [mapStyle, setMapStyle] = useState<'dark' | 'satellite'>('dark');
@@ -293,39 +297,35 @@ export default function MapScreen() {
       });
     }
 
-    // --- Friends Locations Simulation ---
-    friendMarkersRef.current.forEach((m) => map.removeLayer(m));
+    friendMarkersRef.current.forEach(m => map.removeLayer(m));
     friendMarkersRef.current = [];
 
-    if (showFriendsOnMap && !friendsLoading && friends.length > 0) {
-      // Place friends randomly within a 2.5km radius of the user
-      friends.forEach((friend, idx) => {
-        const latOffset = (Math.sin(idx * 2.3) * 0.015);
-        const lngOffset = (Math.cos(idx * 3.7) * 0.015);
-        const fLat = userCoords[0] + latOffset;
-        const fLng = userCoords[1] + lngOffset;
+    if (showFriendsOnMap && !isGhostMode) {
+      friendLocations.forEach(friend => {
+        const html = friend.avatar_url
+          ? `
+<img src="${friend.avatar_url}" style="width: 32px; height: 32px; border-radius: 50%;" />
+`
+          : `
+<div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(to right, #eab308, #f97316); display: flex; align-items: center; justify-content: center; font-weight: bold; color: black; font-size: 10px;">
+  ${(friend.username || 'U').substring(0, 2).toUpperCase()}
+</div>
+`;
 
-        const avatarMarkup = friend.user.avatar_url 
-          ? `<img src="${friend.user.avatar_url}" style="width: 32px; height: 32px; border-radius: 50%;" />`
-          : `<div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(to right, #eab308, #f97316); display: flex; align-items: center; justify-content: center; font-weight: bold; color: black; font-size: 10px;">${(friend.user.username || 'U').substring(0, 2).toUpperCase()}</div>`;
-
-        const friendIcon = L.divIcon({
-          className: 'friend-avatar-marker',
-          html: avatarMarkup,
-          iconSize: [36, 36],
+        const icon = L.divIcon({
+          className:  'friend-avatar-marker',
+          html,
+          iconSize:   [36, 36],
           iconAnchor: [18, 18],
         });
 
-        const marker = L.marker([fLat, fLng], { icon: friendIcon }).addTo(map);
-        
-        // Add elegant micro tooltip with friend name
-        marker.bindTooltip(friend.user.username || 'Ami', {
-          permanent: true,
-          direction: 'bottom',
-          offset: [0, 8],
-          className: 'glass-dark text-white border-none shadow-[0_2px_8px_rgba(0,0,0,0.3)] rounded-lg text-[9px] font-black tracking-wide px-1.5 py-0.5'
+        const marker = L.marker([friend.lat, friend.lng], { icon }).addTo(map);
+        marker.bindTooltip(friend.username || 'Friend', {
+          permanent:  true,
+          direction:  'bottom',
+          offset:     [0, 8],
+          className:  'glass-dark text-white text-[9px] font-black',
         });
-
         friendMarkersRef.current.push(marker);
       });
     }
@@ -352,7 +352,7 @@ export default function MapScreen() {
       landmarkMarkersRef.current.push(marker);
     });
 
-  }, [mapLoaded, userCoords, isGhostMode, showHeatmap, friends, friendsLoading, showFriendsOnMap]);
+  }, [mapLoaded, userCoords, isGhostMode, showHeatmap, friendLocations, showFriendsOnMap]);
 
   // 5. Autoplay & Progress Bars for City Public Stories
   useEffect(() => {
