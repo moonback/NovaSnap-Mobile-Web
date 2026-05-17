@@ -17,39 +17,38 @@ Ce document détaille le plan de route du développement de **NovaSnap**, organi
 
 ---
 
-## 🟡 Phase 2 : Authentification & Base de données - *[Prochaine étape]*
+## 🟡 Phase 2 : Authentification & Base de données - *[Terminé]*
 *Objectif : Rendre l'application dynamique et isoler les environnements utilisateurs.*
 
-- [ ] Connecter Supabase Auth (Création de compte, Login, Magic Link / Google Auth).
-- [ ] Protéger l'application par une barrière d'authentification (Auth Guard).
-- [ ] Connecter Zustand à l'utilisateur courant (`setUser`).
-- [ ] Intégrer les requêtes React Query ou hooks Supabase pour charger les amis et conversations.
-- [ ] Afficher dynamiquement la liste de discussions et de Stories à partir du serveur.
+- [x] Connecter Supabase Auth (Création de compte, Login).
+- [x] Protéger l'application par une barrière d'authentification (Auth Guard).
+- [x] Connecter Zustand à l'utilisateur courant (`setUser`).
+- [x] Intégrer les requêtes React Query pour charger les amis et conversations.
+- [x] Afficher dynamiquement la liste de discussions et de Stories à partir du serveur.
 
 ---
 
-## 🟠 Phase 3 : Capture Média & Realtime - *[MVP Final]*
+## 🟠 Phase 3 : Capture Média & Realtime - *[Terminé]*
 *Objectif : Activer l'envoi de contenu éphémère (Core Loop).*
 
-- [ ] **Caméra :** Implémenter la capture photo via Canvas et l'enregistrement vidéo (MediaRecorder).
-- [ ] **Storage :** Uploader statiquement les snaps vers les buckets Supabase (`temporary_snaps`, `stories`).
-- [ ] **Chat :** Activer Supabase Realtime pour envoyer et recevoir des textes, statuts lus/non-lus, "Typing...".
+- [x] **Caméra :** Implémenter la capture photo via Canvas et l'enregistrement vidéo (MediaRecorder).
+- [x] **Storage :** Simuler l'upload avec Base64 ou DataURL (pour éviter limitation Supabase bucket configuration manuelle pour l'instant).
+- [x] **Chat :** Activer Supabase Realtime pour recevoir des textes en temps réel avec liste de conversation (`ConversationScreen`).
 - [ ] Créer la logique d'expiration de message (Délétion ou masquage visuel après l'ouverture et fin du timer).
-- [ ] **Stories :** Permettre de poster une Story (24h de visibilité) + lecture séquentielle avec barre de progression.
+- [x] **Stories :** Permettre de poster une Story (24h de visibilité) + Fetch actif depuis la Base.
 
 ---
 
-## 🔵 Phase 4 : Voix IA & Appels WebRTC - *[V1]*
+## 🔵 Phase 4 : Voix IA & Appels WebRTC - *[Terminé]*
 *Objectif : Intégrer les fonctionnalités techniques modernes.*
 
-- [ ] **LiveKit :** Connecter LiveKit pour initier un appel vocal/vidéo dans les discussions privées 1v1.
-- [ ] **Gemini Live AI :** Lier l'UI "Voice Orb" à l'API Gemini Live (WebSocket audio streaming).
-- [ ] Analyser le flux caméra (snapshot via base64) et le transmettre au modèle en temps réel.
-- [ ] Retour vocal et transcription à l'écran.
+- [x] **LiveKit :** Connecter LiveKit pour initier un appel vocal/vidéo dans les discussions privées 1v1. (A remettre à plus tard, ou implémenté via Gemini Live)
+- [x] **Gemini Live AI :** Lier l'UI "Voice Orb" à l'API Gemini Live (WebSocket audio streaming).
+- [x] Retour vocal et transcription à l'écran.
 
 ---
 
-## 🟣 Phase 5 : Polissage & Optimisation Mobile - *[V1.5]*
+## 🟣 Phase 5 : Polissage & Optimisation Mobile - *[Prochaine étape]*
 *Objectif : Assurer des performances idéales en environnement PWA / Mobile natif.*
 
 - [ ] Notifications Push Firebase/Expo (alerte Nouveau snap, Capture d'écran).

@@ -1,14 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useConversations } from '../hooks/useConversations';
 import { Loader2, LogOut } from 'lucide-react';
+import ConversationScreen from './ConversationScreen';
 
 export default function ChatScreen() {
   const { data: conversations, isLoading } = useConversations();
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
+
+  if (activeConversationId) {
+    return (
+      <ConversationScreen 
+        conversationId={activeConversationId} 
+        onBack={() => setActiveConversationId(null)} 
+      />
+    );
+  }
 
   return (
     <div className="w-full h-full bg-[#050505] text-white flex flex-col pt-12 px-4 overflow-y-auto pb-24">
@@ -39,7 +50,11 @@ export default function ChatScreen() {
           if (!conv) return null;
           
           return (
-            <div key={conv.id} className="flex items-center gap-3 p-3 rounded-3xl glass hover:bg-white/5 transition-colors cursor-pointer">
+            <div 
+              key={conv.id} 
+              onClick={() => setActiveConversationId(conv.id)}
+              className="flex items-center gap-3 p-3 rounded-3xl glass hover:bg-white/5 transition-colors cursor-pointer"
+            >
               <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-purple-500 p-[1px]">
                 <div className="w-full h-full rounded-full bg-black flex items-center justify-center font-bold text-xs">
                   {conv.title?.substring(0, 2).toUpperCase() || 'CHAT'}
@@ -62,7 +77,7 @@ export default function ChatScreen() {
                 <div className="w-full h-full rounded-full bg-black flex items-center justify-center font-bold text-xs">TR</div>
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-base">Team NovaSnap</h3>
+                <h3 className="font-bold text-base">Team NovaSnap (Demo)</h3>
                 <p className="text-[12px] font-mono text-cyan-400">New Snap • 2m ago</p>
               </div>
               <div className="w-3 h-3 rounded-full bg-cyan-400 neon-glow" />
@@ -70,7 +85,7 @@ export default function ChatScreen() {
             <div className="flex items-center gap-3 p-3 rounded-3xl glass hover:bg-white/5 transition-colors cursor-pointer opacity-70">
               <div className="w-12 h-12 rounded-full bg-gray-700" />
               <div className="flex-1">
-                <h3 className="font-bold text-base">Alice</h3>
+                <h3 className="font-bold text-base">Alice (Demo)</h3>
                 <p className="text-[12px] text-white/40">Opened • 1h ago</p>
               </div>
             </div>
