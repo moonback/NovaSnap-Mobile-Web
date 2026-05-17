@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../ui/ToastProvider';
 
-export default function CameraView() {
+export default function CameraView({ isActive = true }: { isActive?: boolean }) {
   const { user, directChatId, setDirectChatId, setShowProfile } = useAppStore();
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -53,15 +53,15 @@ export default function CameraView() {
         throw new Error("Camera API not available in this browser context.");
       }
 
+      const isLowPowerDevice = navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4;
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode,
-          // ✅ Preview at 640×1280 — full 1080p on mobile burns battery and causes lag.
-          // The canvas captures at full sensor resolution at snap time.
-          width:  { ideal: 640 },
-          height: { ideal: 1280 },
+          width: { ideal: isLowPowerDevice ? 480 : 640 },
+          height: { ideal: isLowPowerDevice ? 854 : 1280 },
+          frameRate: { ideal: isLowPowerDevice ? 24 : 30, max: 30 },
         },
-        audio: true 
+        audio: true,
       });
       
       streamRef.current = newStream;
@@ -77,11 +77,16 @@ export default function CameraView() {
   }, [facingMode, stopStream]);
 
   useEffect(() => {
+    if (!isActive) {
+      stopStream();
+      return;
+    }
+
     startCamera();
     return () => {
       stopStream();
     };
-  }, [startCamera, stopStream]);
+  }, [isActive, startCamera, stopStream]);
 
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');

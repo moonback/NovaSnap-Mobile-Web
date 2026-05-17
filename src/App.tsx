@@ -115,7 +115,7 @@ export default function App() {
           <ChatScreen />
         </div>
         <div className="w-[100vw] h-full flex-shrink-0 relative bg-[#050505]">
-          {Math.abs(currentIndex - 1) <= 1 && <CameraView />}
+          {Math.abs(currentIndex - 1) <= 1 && <CameraView isActive={currentView === "camera"} />}
         </div>
         <div className="w-[100vw] h-full flex-shrink-0 bg-[#050505]">
           {Math.abs(currentIndex - 2) <= 1 && <StoriesScreen />}
