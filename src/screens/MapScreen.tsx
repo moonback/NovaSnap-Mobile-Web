@@ -10,7 +10,9 @@ import {
   Navigation, 
   Play, 
   MapPin, 
-  Loader2 
+  Loader2,
+  Layers,
+  Users
 } from 'lucide-react';
 import { useFriends } from '../hooks/useFriends';
 import { useAppStore } from '../store/useAppStore';
@@ -77,6 +79,8 @@ export default function MapScreen() {
   const [userCoords, setUserCoords] = useState<[number, number]>([48.8566, 2.3522]); // Default: Paris Center
   const [coordsLoading, setCoordsLoading] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+  const [mapStyle, setMapStyle] = useState<'dark' | 'satellite'>('dark');
+  const [showFriendsOnMap, setShowFriendsOnMap] = useState(true);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -160,11 +164,6 @@ export default function MapScreen() {
 
     mapInstanceRef.current = map;
 
-    // CartoDB Dark Matter Tile Layer (Premium Night Theme)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20,
-    }).addTo(map);
-
     // Custom CSS styles injection for Leaflet components
     const style = document.createElement('style');
     style.innerHTML = `
@@ -233,6 +232,24 @@ export default function MapScreen() {
 
   }, [mapLoaded, userCoords]);
 
+  // 3.5 Dynamic Tile Layer
+  const tileLayerRef = useRef<any>(null);
+  useEffect(() => {
+    const L = (window as any).L;
+    const map = mapInstanceRef.current;
+    if (!L || !map) return;
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+
+    const url = mapStyle === 'dark' 
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+    tileLayerRef.current = L.tileLayer(url, { maxZoom: 20 }).addTo(map);
+  }, [mapStyle, mapLoaded]);
+
   // 4. Update elements on the map (User, Friends, Landmarks, Heatmap)
   useEffect(() => {
     const L = (window as any).L;
@@ -280,7 +297,7 @@ export default function MapScreen() {
     friendMarkersRef.current.forEach((m) => map.removeLayer(m));
     friendMarkersRef.current = [];
 
-    if (!friendsLoading && friends.length > 0) {
+    if (showFriendsOnMap && !friendsLoading && friends.length > 0) {
       // Place friends randomly within a 2.5km radius of the user
       friends.forEach((friend, idx) => {
         const latOffset = (Math.sin(idx * 2.3) * 0.015);
@@ -335,7 +352,7 @@ export default function MapScreen() {
       landmarkMarkersRef.current.push(marker);
     });
 
-  }, [mapLoaded, userCoords, isGhostMode, showHeatmap, friends, friendsLoading]);
+  }, [mapLoaded, userCoords, isGhostMode, showHeatmap, friends, friendsLoading, showFriendsOnMap]);
 
   // 5. Autoplay & Progress Bars for City Public Stories
   useEffect(() => {
@@ -648,6 +665,50 @@ export default function MapScreen() {
                     <div
                       className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${
                         showHeatmap ? 'translate-x-5.5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Map Style Configuration */}
+                <div className="flex items-center justify-between bg-white/3 border border-white/5 rounded-2xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                      <Layers size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold">Style de Carte</p>
+                      <p className="text-[9px] text-white/40 mt-0.5">{mapStyle === 'dark' ? 'Sombre (Mode Nuit)' : 'Vue Satellite'}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setMapStyle(prev => prev === 'dark' ? 'satellite' : 'dark')}
+                    className="px-3 py-1.5 rounded-full bg-white/10 text-[10px] font-bold active:scale-95 transition-transform"
+                  >
+                    Changer
+                  </button>
+                </div>
+
+                {/* Show Friends Configuration */}
+                <div className="flex items-center justify-between bg-white/3 border border-white/5 rounded-2xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-green-400">
+                      <Users size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold">Afficher les Amis</p>
+                      <p className="text-[9px] text-white/40 mt-0.5">Voir la position de tes amis sur la carte.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowFriendsOnMap(!showFriendsOnMap)}
+                    className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${
+                      showFriendsOnMap ? 'bg-green-500' : 'bg-white/10'
+                    }`}
+                  >
+                    <div
+                      className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${
+                        showFriendsOnMap ? 'translate-x-5.5' : 'translate-x-0'
                       }`}
                     />
                   </button>
