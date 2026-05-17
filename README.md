@@ -118,6 +118,8 @@ Sur desktop, l'app s'affiche dans un **mockup iPhone** centré (430×932px) avec
 - Statistiques : Nova Score, Stories actives, Souvenirs, Amis
 - **Panneau Réglages** complet (drawer slide-in) :
   - **Thème** dark/light avec toggle persisté (localStorage)
+  - **Sécurité** :
+    - **Changement de mot de passe** : formulaire avec validation (mot de passe actuel, nouveau, confirmation)
   - **Mode Fantôme** (synchronisé avec la DB)
   - **Mise à jour manuelle de la localisation**
   - **Confidentialité des Stories** : Public / Amis / Privé

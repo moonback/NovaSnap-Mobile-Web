@@ -9,6 +9,7 @@ import {
   Award,
   Ghost,
   Eye,
+  EyeOff,
   Loader2,
   Edit2,
   Users,
