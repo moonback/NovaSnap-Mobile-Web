@@ -25,6 +25,9 @@ type Dimensions = {
 
 const VIEWS = ['chat', 'camera', 'stories'] as const;
 
+const isViewKey = (value: string): value is ViewKey =>
+  (VIEWS as readonly string[]).includes(value);
+
 const getInitialDimensions = (): Dimensions => {
   if (typeof window === 'undefined') {
     return { width: 390, height: 844, isDesktop: false };
@@ -155,7 +158,7 @@ export default function App() {
     };
   }, []);
 
-  const resolvedIndex = VIEWS.indexOf(currentView as ViewKey);
+  const resolvedIndex = isViewKey(currentView) ? VIEWS.indexOf(currentView) : -1;
   const currentIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
 
   useEffect(() => {
@@ -299,17 +302,19 @@ export default function App() {
 
         <motion.div
           className="flex h-full touch-pan-y"
-          style={{ width: dimensions.width * 3 }}
+          style={{ width: dimensions.width * VIEWS.length }}
           animate={controls}
           drag="x"
-          dragConstraints={{ left: -dimensions.width * 2, right: 0 }}
+          dragConstraints={{ left: -dimensions.width * (VIEWS.length - 1), right: 0 }}
           dragElastic={0.15}
           onDragEnd={(_e, { offset, velocity }) => {
             const swipe = swipePower(offset.x, velocity.x);
-            if (swipe < -swipeConfidenceThreshold && currentIndex < 2) {
-              setCurrentView(VIEWS[currentIndex + 1]);
+            if (swipe < -swipeConfidenceThreshold && currentIndex < VIEWS.length - 1) {
+              const nextView = VIEWS[currentIndex + 1];
+              setCurrentView(nextView);
             } else if (swipe > swipeConfidenceThreshold && currentIndex > 0) {
-              setCurrentView(VIEWS[currentIndex - 1]);
+              const previousView = VIEWS[currentIndex - 1];
+              setCurrentView(previousView);
             } else {
               controls.start({ x: -currentIndex * dimensions.width });
             }
@@ -327,7 +332,7 @@ export default function App() {
           </div>
           {/* Stories */}
           <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
-            {Math.abs(currentIndex - 2) <= 1 && <StoriesScreen />}
+            {Math.abs(currentIndex - (VIEWS.length - 1)) <= 1 && <StoriesScreen />}
           </div>
         </motion.div>
 
