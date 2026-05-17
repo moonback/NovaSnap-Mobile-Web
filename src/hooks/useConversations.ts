@@ -35,16 +35,23 @@ export type ConversationRow = {
 
 type RawConversationMember = {
   user_id: string;
-  users: { username: string | null; avatar_url: string | null }[] | null;
+  users: { username: string | null; avatar_url: string | null } | { username: string | null; avatar_url: string | null }[] | null;
 };
+
 type RawConversation = Omit<ConversationDetails, 'conversation_members'> & {
   conversation_members: RawConversationMember[] | null;
 };
+
 type RawConversationRow = {
   joined_at: string;
   last_read_at: string | null;
-  conversations: RawConversation[] | null;
+  conversations: RawConversation | RawConversation[] | null;
 };
+
+function pickFirst<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
 
 export const useConversations = () => {
   const { user } = useAppStore();
@@ -65,35 +72,41 @@ export const useConversations = () => {
         return [];
       }
 
-      const rows = ((data ?? []) as unknown as RawConversationRow[]);
-      return Promise.all(rows.map(async (row) => {
-        const firstConversation = row.conversations?.[0] ?? null;
-        if (!firstConversation) return { ...row, conversations: null };
-
-        const members = firstConversation.conversation_members ?? [];
-        const normalizedMembers = await Promise.all(members.map(async (member): Promise<ConversationMember> => {
-          const firstUser = member.users?.[0] ?? null;
-          if (!firstUser?.avatar_url) {
-            return { user_id: member.user_id, users: firstUser };
+      const rows = (data ?? []) as unknown as RawConversationRow[];
+      return Promise.all(
+        rows.map(async (row) => {
+          const conversation = pickFirst(row.conversations);
+          if (!conversation) {
+            return { ...row, conversations: null };
           }
+
+          const members = conversation.conversation_members ?? [];
+          const normalizedMembers = await Promise.all(
+            members.map(async (member): Promise<ConversationMember> => {
+              const firstUser = pickFirst(member.users);
+              if (!firstUser?.avatar_url) {
+                return { user_id: member.user_id, users: firstUser };
+              }
+              return {
+                user_id: member.user_id,
+                users: {
+                  ...firstUser,
+                  avatar_url: await getValidMediaUrl('avatars', firstUser.avatar_url),
+                },
+              };
+            })
+          );
+
           return {
-            user_id: member.user_id,
-            users: {
-              ...firstUser,
-              avatar_url: await getValidMediaUrl('avatars', firstUser.avatar_url),
+            joined_at: row.joined_at,
+            last_read_at: row.last_read_at,
+            conversations: {
+              ...conversation,
+              conversation_members: normalizedMembers,
             },
           };
-        }));
-
-        return {
-          joined_at: row.joined_at,
-          last_read_at: row.last_read_at,
-          conversations: {
-            ...firstConversation,
-            conversation_members: normalizedMembers,
-          },
-        };
-      }));
+        })
+      );
     },
     enabled: !!user,
     staleTime: 20_000,
