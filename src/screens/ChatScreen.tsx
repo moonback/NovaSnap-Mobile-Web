@@ -146,7 +146,7 @@ export default function ChatScreen() {
   return (
     <div className={`w-full h-full flex flex-col overflow-hidden ${t.bg} ${t.text}`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-14 pb-4">
+      <div className="flex items-center justify-between px-5 pt-5 pb-4">
         <button onClick={() => setShowProfile(true)} className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}>
           <User size={18} />
         </button>

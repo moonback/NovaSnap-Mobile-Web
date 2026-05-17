@@ -127,7 +127,7 @@ export default function StoriesScreen() {
   return (
     <div className={`relative w-full h-full flex flex-col overflow-hidden ${t.bg} ${t.text}`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-14 pb-4">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4">
           <div>
             <h1 className="text-xl font-black tracking-tight">Stories</h1>
             <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>{totalStories} story{totalStories > 1 ? 'ies' : ''} · {uniqueCreators} créateur{uniqueCreators > 1 ? 's' : ''}</p>

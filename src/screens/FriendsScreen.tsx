@@ -564,7 +564,7 @@ export default function FriendsScreen() {
       className={`fixed inset-0 z-50 ${theme.bg} ${theme.text} flex flex-col overflow-hidden`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-14 pb-4 shrink-0">
+      <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
         <button
           onClick={() => setShowFriends(false)}
           className={`w-9 h-9 rounded-full ${theme.iconBtn} transition-colors`}

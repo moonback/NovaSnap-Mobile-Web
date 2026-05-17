@@ -11,6 +11,7 @@ import StoriesScreen from './screens/StoriesScreen';
 import MapScreen from './screens/MapScreen';
 import TabBar from './components/navigation/TabBar';
 import AuthScreen from './screens/AuthScreen';
+import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import FriendsScreen from './screens/FriendsScreen';
 import UserProfileScreen from './screens/UserProfileScreen';
@@ -121,6 +122,7 @@ export default function App() {
   } = useAppStore();
   const controls = useAnimation();
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
 
   // NOUVEAU: Gestion des dimensions réactives pour le conteneur centré
   const [dimensions, setDimensions] = useState<Dimensions>(getInitialDimensions);
@@ -256,6 +258,22 @@ export default function App() {
       }
     };
 
+    // Détecter si on arrive via un lien de réinitialisation de mot de passe
+    const checkPasswordReset = () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const queryParams = new URLSearchParams(window.location.search);
+      
+      // Supabase envoie access_token dans le hash ou type=recovery
+      const hasAccessToken = hashParams.has('access_token');
+      const isRecovery = hashParams.get('type') === 'recovery' || queryParams.get('type') === 'recovery';
+      
+      if (hasAccessToken || isRecovery) {
+        setIsPasswordReset(true);
+      }
+    };
+
+    checkPasswordReset();
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -269,10 +287,15 @@ export default function App() {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) checkAndCreateProfile(session.user);
+      
+      // Si l'utilisateur vient de se connecter après un reset, on sort du mode reset
+      if (_event === 'SIGNED_IN' && isPasswordReset) {
+        setIsPasswordReset(false);
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, [setSession, setUser]);
+  }, [setSession, setUser, isPasswordReset]);
 
   // NOUVEAU: Animation de transition basée sur la largeur calculée du conteneur
   useEffect(() => {
@@ -336,6 +359,10 @@ export default function App() {
   }
 
   if (!session) {
+    // Si on est en mode reset password, afficher ResetPasswordScreen
+    if (isPasswordReset) {
+      return <ResetPasswordScreen />;
+    }
     return <AuthScreen />;
   }
 
@@ -383,11 +410,11 @@ export default function App() {
         }}
       >
         {/* NOUVEAU: Dynamic Island factice sur Desktop pour accentuer le look premium */}
-        {dimensions.isDesktop && (
+        {/* {dimensions.isDesktop && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-full z-50 flex items-center justify-center border border-white/5 shadow-inner">
             <div className="w-2 h-2 rounded-full bg-zinc-900 ml-auto mr-4" />
           </div>
-        )}
+        )} */}
 
         <motion.div
           className="flex h-full touch-pan-y"

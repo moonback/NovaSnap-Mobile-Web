@@ -311,7 +311,7 @@ export default function UserProfileScreen() {
       onClick={() => setShowRemoveConfirm(false)}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-14 pb-4 shrink-0">
+      <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
         <button
           onClick={() => setViewingProfileUserId(null)}
           className={`w-9 h-9 rounded-full ${t.surface} flex items-center justify-center ${t.surfaceHover} transition-colors`}

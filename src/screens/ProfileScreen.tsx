@@ -349,7 +349,7 @@ export default function ProfileScreen() {
       className={`fixed inset-0 z-50 flex flex-col overflow-y-auto scroll-hide ${t.bg} ${t.text}`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-14 pb-4">
+      <div className="flex items-center justify-between px-5 pt-5 pb-4">
         <button
           onClick={() => setShowProfile(false)}
           className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}
@@ -589,7 +589,7 @@ export default function ProfileScreen() {
             className={`absolute inset-0 z-50 flex flex-col overflow-y-auto scroll-hide pb-12 ${t.settings} ${t.text}`}
           >
             {/* Header */}
-            <div className={`flex items-center justify-between px-5 pt-14 pb-4 border-b sticky top-0 z-10 backdrop-blur-md ${t.settings} ${t.borderMuted}`}>
+            <div className={`flex items-center justify-between px-5 pt-5 pb-4 border-b sticky top-0 z-10 backdrop-blur-md ${t.settings} ${t.borderMuted}`}>
               <button onClick={() => setShowSettings(false)} className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}>
                 <ChevronLeft size={20} />
               </button>

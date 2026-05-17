@@ -479,7 +479,7 @@ export default function MemoriesScreen() {
       className={`absolute inset-0 z-50 flex flex-col overflow-hidden ${t.bg} ${t.text}`}
     >
       {/* ── Header ── */}
-      <div className="flex-shrink-0 px-5 pt-14 pb-3">
+      <div className="flex-shrink-0 px-5 pt-5 pb-3">
         <div className="flex items-center justify-between mb-1">
           <button onClick={() => setShowMemories(false)} className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}>
             <X size={18} />
