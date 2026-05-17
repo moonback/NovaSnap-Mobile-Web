@@ -1,0 +1,12 @@
+{
+  "name": "NovaSnap Mobile Web",
+  "description": "App mobile sociale centrée sur la caméra, messages éphémères et IA vocale realtime avec LiveKit.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .glass { 
+    background: rgba(255, 255, 255, 0.03); 
+    backdrop-filter: blur(16px); 
+    border: 1px solid rgba(255, 255, 255, 0.08); 
+  }
+  .glass-dark { 
+    background: rgba(0, 0, 0, 0.6); 
+    backdrop-filter: blur(12px); 
+    border: 1px solid rgba(255, 255, 255, 0.05); 
+  }
+  .neon-glow { 
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); 
+  }
+  .camera-gradient { 
+    background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%); 
+  }
+  .voice-orb { 
+    background: radial-gradient(circle at 30% 30%, #00ffff 0%, #0066ff 50%, #6600ff 100%); 
+  }
+  .scroll-hide::-webkit-scrollbar { 
+    display: none; 
+  }
+}
