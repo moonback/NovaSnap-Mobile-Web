@@ -31,12 +31,12 @@
 - [x] Compteur d'amis en temps réel
 
 ### 1.2 Notifications Push
-- [ ] Intégration Web Push API (service worker existant à étendre)
-- [ ] Notification à la réception d'un snap/message
-- [ ] Notification quand quelqu'un ouvre ton snap
-- [ ] Notification de demande d'ami
-- [ ] Notification de nouvelle story d'un ami
-- [ ] Badge de compteur sur l'icône de l'app (PWA)
+- [x] Intégration Web Push API (service worker existant à étendre)
+- [x] Notification à la réception d'un snap/message
+- [x] Notification quand quelqu'un ouvre ton snap
+- [x] Notification de demande d'ami
+- [x] Notification de nouvelle story d'un ami
+- [x] Badge de compteur sur l'icône de l'app (PWA)
 
 ### 1.3 Profils publics enrichis
 - [x] Page profil visiteur (voir les stories publiques d'un ami)

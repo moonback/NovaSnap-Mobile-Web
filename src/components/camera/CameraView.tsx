@@ -5,6 +5,7 @@ import { useFriends } from '../../hooks/useFriends';
 import { supabase, getValidMediaUrl } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../ui/ToastProvider';
+import NotificationBell from '../ui/NotificationBell';
 
 export default function CameraView({ isActive = true }: { isActive?: boolean }) {
   const { user, directChatId, setDirectChatId, setShowProfile, setShowFriends } = useAppStore();
@@ -172,29 +173,35 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     if (fileBlob.size > maxBytes) throw new Error(`Fichier trop lourd. Max ${Math.floor(maxBytes / (1024 * 1024))}MB.`);
   };
 
-  const uploadMedia = async (bucketName: string): Promise<string> => {
+  const uploadMedia = async (bucketName: string): Promise<{ path: string; signedUrl: string }> => {
     if (!user || !capturedMedia) throw new Error('Aucun média capturé');
     const response = await fetch(capturedMedia.url);
     const fileBlob = await response.blob();
     validateUploadBlob(fileBlob);
-    const fileExt = capturedMedia.type === 'image' ? 'jpg' : 'mp4';
-    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-    const { error } = await supabase.storage.from(bucketName).upload(fileName, fileBlob, { contentType: fileBlob.type, cacheControl: '3600', upsert: true });
+    const fileExt = capturedMedia.type === 'image' ? 'jpg' : 'webm';
+    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+    const { error } = await supabase.storage
+      .from(bucketName)
+      .upload(filePath, fileBlob, { contentType: fileBlob.type, cacheControl: '3600', upsert: true });
     if (error) throw error;
-    const { data: signedData, error: signedError } = await supabase.storage.from(bucketName).createSignedUrl(fileName, 3600);
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from(bucketName)
+      .createSignedUrl(filePath, 3600);
     if (signedError) throw signedError;
-    return signedData.signedUrl;
+    return { path: filePath, signedUrl: signedData.signedUrl };
   };
 
   const handleSendToChat = async (conversationId: string) => {
     if (!user || !capturedMedia) return;
     setIsSending(true);
     try {
-      const publicUrl = await uploadMedia('chats');
+      const { path } = await uploadMedia('chats');
       const { error } = await supabase.from('messages').insert({
-        conversation_id: conversationId, sender_id: user.id,
+        conversation_id: conversationId,
+        sender_id: user.id,
         message_type: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
-        media_url: publicUrl, content: '',
+        media_url: path,
+        content: '',
       });
       if (error) throw error;
       discardMedia();
@@ -210,12 +217,17 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     try {
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24);
-      const publicUrl = await uploadMedia('stories');
+      const { path } = await uploadMedia('stories');
       const { error } = await supabase.from('stories').insert({
-        user_id: user.id, media_type: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
-        media_url: publicUrl, expires_at: expiresAt.toISOString(),
+        user_id: user.id,
+        media_type: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
+        media_url: path,
       });
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase Insert Error:', error);
+        throw error;
+      }
+      toast('Story publiée !', 'success');
       discardMedia();
     } catch (err) {
       const parsedError = err instanceof Error ? err : new Error('Publication échouée');
@@ -396,6 +408,9 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
 
                 {/* Droite : actions groupées */}
                 <div className="flex items-center gap-2">
+                  {/* Notifications */}
+                  <NotificationBell />
+
                   {/* Recherche d'amis */}
                   <button
                     onClick={() => setShowFriends(true)}

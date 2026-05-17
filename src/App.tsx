@@ -3,6 +3,7 @@ import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './lib/supabase';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
+import { usePushNotifications, useNotificationCount, updateAppBadge } from './hooks/usePushNotifications';
 import CameraView from './components/camera/CameraView';
 import ChatScreen from './screens/ChatScreen';
 import StoriesScreen from './screens/StoriesScreen';
@@ -12,10 +13,61 @@ import ProfileScreen from './screens/ProfileScreen';
 import FriendsScreen from './screens/FriendsScreen';
 import UserProfileScreen from './screens/UserProfileScreen';
 
-// ── Composant interne qui active le heartbeat une fois connecté ──
+// ── Heartbeat de présence ─────────────────────────────────────
 function HeartbeatProvider() {
-  // useOnlineStatus sans userId = mode heartbeat uniquement (effet dans le hook)
   useOnlineStatus();
+  return null;
+}
+
+// ── Gestion des notifications push + badge + navigation SW ───
+function NotificationProvider() {
+  const { setCurrentView, setDirectChatId, setShowFriends } = useAppStore();
+  const { subscribe } = usePushNotifications();
+  const { data: unreadCount = 0 } = useNotificationCount();
+
+  // Mettre à jour le badge PWA quand le compteur change
+  useEffect(() => {
+    updateAppBadge(unreadCount);
+  }, [unreadCount]);
+
+  // Demander la permission push au premier chargement (après 3s pour ne pas être intrusif)
+  useEffect(() => {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      const timer = setTimeout(() => subscribe(), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [subscribe]);
+
+  // Écouter les navigations depuis le service worker (clic sur notification)
+  useEffect(() => {
+    const handleSwNavigate = (e: Event) => {
+      const { view, url } = (e as CustomEvent<{ view: string; url: string }>).detail;
+      const urlParams = new URLSearchParams(new URL(url, window.location.origin).search);
+
+      switch (view) {
+        case 'chat': {
+          const convId = urlParams.get('conversation');
+          if (convId) setDirectChatId(convId);
+          setCurrentView('chat');
+          break;
+        }
+        case 'stories':
+          setCurrentView('stories');
+          break;
+        case 'friends':
+          setShowFriends(true);
+          break;
+        case 'camera':
+          setCurrentView('camera');
+          break;
+      }
+    };
+
+    window.addEventListener('sw-navigate', handleSwNavigate);
+    return () => window.removeEventListener('sw-navigate', handleSwNavigate);
+  }, [setCurrentView, setDirectChatId, setShowFriends]);
+
   return null;
 }
 
@@ -126,6 +178,7 @@ export default function App() {
     <div className="fixed inset-0 bg-black overflow-hidden font-sans">
       {/* Heartbeat actif dès que l'utilisateur est connecté */}
       {session && <HeartbeatProvider />}
+      {session && <NotificationProvider />}
 
       <motion.div
         className="flex w-[300vw] h-full touch-pan-y"
