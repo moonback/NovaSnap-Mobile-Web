@@ -237,7 +237,7 @@ function Lightbox({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-[60] bg-black flex flex-col"
+      className="absolute inset-0 z-[60] screen-shell flex flex-col"
     >
       {/* Header */}
       <div className="absolute top-0 inset-x-0 z-10 px-4 pt-12 pb-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent">
@@ -512,7 +512,7 @@ export default function MemoriesScreen() {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className="fixed inset-0 z-50 bg-black text-white flex flex-col overflow-hidden"
+      className="fixed inset-0 z-50 screen-shell text-white flex flex-col overflow-hidden"
     >
       {/* ── Header ── */}
       <div className="flex-shrink-0 px-5 pt-14 pb-3">
