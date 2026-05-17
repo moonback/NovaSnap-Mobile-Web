@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
+import { useTheme } from '../hooks/useTheme';
 import { ChevronLeft, Send, Camera as CameraIcon, Loader2, BookmarkCheck, MoreVertical } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
