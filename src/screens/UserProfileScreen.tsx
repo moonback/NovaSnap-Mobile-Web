@@ -121,10 +121,13 @@ export default function UserProfileScreen() {
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
       if (error) return [];
-      return (data as StoryThumb[]).map((s) => ({
-        ...s,
-        media_url: s.media_url, // signed URL resolution could be added here
-      }));
+      const now = new Date().getTime();
+      return (data as StoryThumb[])
+        .filter(s => new Date(s.created_at).getTime() + 86400000 > now) // Add local expiry check just in case
+        .map((s) => ({
+          ...s,
+          media_url: s.media_url, // signed URL resolution could be added here
+        }));
     },
     enabled: !!targetId,
   });

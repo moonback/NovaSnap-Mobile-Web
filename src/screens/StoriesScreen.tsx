@@ -37,10 +37,18 @@ export default function StoriesScreen() {
       stories: typeof stories;
     }> = {};
 
+    const now = new Date().getTime();
+
     // Trier les stories par date croissante afin qu'elles défilent dans l'ordre chronologique de publication
     const sortedStories = [...stories].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
     for (const story of sortedStories) {
+      // Ignorer les stories expirées localement ou dont le média a échoué
+      const isExpired = new Date(story.expires_at).getTime() <= now;
+      if (isExpired || failedUrls[story.media_url]) {
+        continue;
+      }
+
       const userId = story.user_id;
       if (!groups[userId]) {
         groups[userId] = {
@@ -54,12 +62,14 @@ export default function StoriesScreen() {
     }
 
     // Trier les groupes par date de publication de leur story la plus récente (ordre décroissant)
-    return Object.values(groups).sort((a, b) => {
-      const latestA = new Date(a.stories[a.stories.length - 1].created_at).getTime();
-      const latestB = new Date(b.stories[b.stories.length - 1].created_at).getTime();
-      return latestB - latestA;
-    });
-  }, [stories]);
+    return Object.values(groups)
+      .filter((g) => g.stories.length > 0)
+      .sort((a, b) => {
+        const latestA = new Date(a.stories[a.stories.length - 1].created_at).getTime();
+        const latestB = new Date(b.stories[b.stories.length - 1].created_at).getTime();
+        return latestB - latestA;
+      });
+  }, [stories, failedUrls]);
 
   const handleOpenStoryFromGrid = (storyId: string) => {
     const groupIdx = groupedStories.findIndex((g) => g.stories.some((s) => s.id === storyId));
@@ -247,17 +257,20 @@ export default function StoriesScreen() {
                 <Skeleton key={`dsk-${i}`} className="aspect-[9/16] rounded-2xl" />
               ))}
               {stories?.map((story) => {
-                const isFailed = failedUrls[story.media_url];
+                const now = new Date().getTime();
+                const isExpired = new Date(story.expires_at).getTime() <= now;
+                if (isExpired || failedUrls[story.media_url]) return null;
+
                 return (
                   <button
                     key={`grid-${story.id}`}
                     onClick={() => handleOpenStoryFromGrid(story.id)}
                     className="aspect-[9/16] rounded-2xl overflow-hidden relative bg-zinc-900 border border-white/10 hover:border-white/20 transition-colors"
                   >
-                    {!isFailed && story.media_type === 'IMAGE' && (
+                    {story.media_type === 'IMAGE' && (
                       <img src={story.media_url} className="w-full h-full object-cover" alt="" onError={() => setFailedUrls((prev) => ({ ...prev, [story.media_url]: true }))} />
                     )}
-                    {!isFailed && story.media_type === 'VIDEO' && (
+                    {story.media_type === 'VIDEO' && (
                       <video src={story.media_url} muted playsInline className="w-full h-full object-cover" onError={() => setFailedUrls((prev) => ({ ...prev, [story.media_url]: true }))} />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />

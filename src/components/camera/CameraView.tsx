@@ -486,6 +486,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
         user_id: user.id,
         media_type: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
         media_url: path,
+        expires_at: expiresAt.toISOString(),
       });
       if (error) {
         console.error('Supabase Insert Error:', error);
