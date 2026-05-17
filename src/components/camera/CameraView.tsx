@@ -85,12 +85,15 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera API non disponible.');
       const isLowPower = navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4;
+      // On demande du 1920x1080 (paysage) même sur mobile.
+      // Les navigateurs mobiles (iOS/Android) utilisent les résolutions standards du capteur (qui sont en paysage) 
+      // et les retournent automatiquement (rotate) en portrait. 
+      // Si on demande du 1080x1920, beaucoup tombent en erreur et renvoient un ratio 4:3 basique, ce qui cause le zoom abusif.
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode, 
-          width: { ideal: isLowPower ? 720 : 1080 }, 
-          height: { ideal: isLowPower ? 1280 : 1920 }, 
-          frameRate: { ideal: isLowPower ? 24 : 30, max: 30 } 
+          width: { ideal: 1920 }, 
+          height: { ideal: 1080 }
         },
         audio: true,
       });
