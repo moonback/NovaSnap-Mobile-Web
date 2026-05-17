@@ -117,6 +117,7 @@ export default function App() {
     viewingProfileUserId,
     showMemories,
     isEditingSnap,
+    theme,
   } = useAppStore();
   const controls = useAnimation();
   const [isInitializing, setIsInitializing] = useState(true);
@@ -321,9 +322,9 @@ export default function App() {
           width: dimensions.width,
           height: dimensions.height,
           borderRadius: dimensions.isDesktop ? '40px' : '0px',
-          border: dimensions.isDesktop ? '8px solid #1c1c24' : 'none',
+          border: dimensions.isDesktop ? `8px solid ${theme === 'light' ? '#c8cad8' : '#1c1c24'}` : 'none',
           boxShadow: dimensions.isDesktop
-            ? '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 252, 0, 0.05)'
+            ? `0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 252, 0, 0.05)`
             : 'none',
           background: 'linear-gradient(180deg, #070910 0%, #05070d 100%)',
         }}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
+import { useTheme } from '../hooks/useTheme';
 import { ChevronLeft, Send, Camera as CameraIcon, Loader2, BookmarkCheck, MoreVertical } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -48,6 +49,7 @@ export default function ConversationScreen({
   avatarUrl?: string;
 }) {
   const { user, setCurrentView, setDirectChatId } = useAppStore();
+  const t = useTheme();
   const [newMessage, setNewMessage] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -353,8 +355,8 @@ export default function ConversationScreen({
         </div>
 
         <div className="flex-1 min-w-0">
-          <h2 className="text-white font-black text-[15px] leading-tight truncate">{title}</h2>
-          <p className="text-white/30 text-xs">Messages éphémères</p>
+          <h2 className={`font-black ${t.text} text-[15px] leading-tight truncate`}>{title}</h2>
+          <p className={`${t.textMuted} text-xs`}>Messages éphémères</p>
         </div>
 
         <button className="w-10 h-10 rounded-2xl flex items-center justify-center text-white/50 hover:bg-white/10 transition-colors">
@@ -369,6 +371,13 @@ export default function ConversationScreen({
             {[...Array(4)].map((_, i) => (
               <Skeleton key={i} className={`h-10 rounded-2xl ${i % 2 === 0 ? 'w-2/3' : 'w-1/2 ml-auto'}`} />
             ))}
+          </div>
+        )}
+
+        {!isLoading && (!messages || messages.length === 0) && (
+          <div className={`my-auto mx-auto max-w-[260px] rounded-3xl px-5 py-6 text-center border ${t.border} ${t.surface}`}>
+            <p className={`font-bold text-sm ${t.text}`}>Aucun message pour le moment</p>
+            <p className={`text-xs mt-1 ${t.textMuted}`}>Écris le premier message pour démarrer la conversation.</p>
           </div>
         )}
 
@@ -394,12 +403,16 @@ export default function ConversationScreen({
                 ${(msg.message_type === 'TEXT' || isMe || isSaved) ? 'relative' : ''}
                 ${msg.message_type === 'TEXT' ? (
                   isMe
-                    ? isSaved ? 'bg-white/10 border border-white/15 text-white rounded-br-sm' : 'bg-snap-yellow text-black rounded-br-sm'
-                    : isSaved ? 'bg-white/10 border border-white/15 text-white rounded-bl-sm' : 'bg-white/12 text-white rounded-bl-sm'
+                    ? isSaved
+                      ? `${t.isLight ? 'bg-black/8 border border-black/15 text-[#0d0e1a]' : 'bg-white/10 border border-white/15 text-white'} rounded-br-sm`
+                      : 'bg-snap-yellow text-black rounded-br-sm'
+                    : isSaved
+                      ? `${t.isLight ? 'bg-black/8 border border-black/15 text-[#0d0e1a]' : 'bg-white/10 border border-white/15 text-white'} rounded-bl-sm`
+                      : `${t.isLight ? 'bg-white border border-black/10 text-[#0d0e1a]' : 'bg-white/12 text-white'} rounded-bl-sm`
                 ) : ''}
               `}>
                 {msg.message_type === 'TEXT' && (
-                  <p className={`text-[15px] leading-relaxed break-words font-medium ${isMe && !isSaved ? 'text-black' : 'text-white'}`}>
+                  <p className={`text-[15px] leading-relaxed break-words font-medium ${isMe && !isSaved ? 'text-black' : t.isLight ? 'text-[#0d0e1a]' : 'text-white'}`}>
                     {msg.content}
                   </p>
                 )}
@@ -407,15 +420,15 @@ export default function ConversationScreen({
                   <EphemeralMedia messageId={msg.id} mediaUrl={msg.media_url} mediaType={msg.message_type} isMe={isMe} isSaved={isSaved} />
                 )}
                 {isSaved && (
-                  <span className={`absolute -top-2 ${isMe ? '-left-2' : '-right-2'} w-5 h-5 rounded-full bg-white/15 flex items-center justify-center`}>
-                    {isSaving ? <Loader2 size={10} className="animate-spin text-white" /> : <BookmarkCheck size={10} className="text-snap-yellow" />}
+                  <span className={`absolute -top-2 ${isMe ? '-left-2' : '-right-2'} w-5 h-5 rounded-full ${t.isLight ? 'bg-black/12' : 'bg-white/15'} flex items-center justify-center`}>
+                    {isSaving ? <Loader2 size={10} className={`animate-spin ${t.isLight ? 'text-[#0d0e1a]' : 'text-white'}`} /> : <BookmarkCheck size={10} className="text-snap-yellow" />}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] text-white/25 mt-1 flex items-center gap-1">
+              <span className={`text-[10px] ${t.textFaint} mt-1 flex items-center gap-1`}>
                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 {msg.pending && <Loader2 size={9} className="animate-spin" />}
-                {isSaved && <span className="text-white/30">· Enregistré</span>}
+                {isSaved && <span className={t.textMuted}>· Enregistré</span>}
               </span>
             </div>
           );
@@ -431,7 +444,7 @@ export default function ConversationScreen({
             <span className="w-1.5 h-1.5 rounded-full bg-snap-yellow animate-bounce" style={{ animationDelay: '150ms' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-snap-yellow animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
-          <span className="text-white/45 text-[11px] font-bold italic tracking-wide">
+          <span className={`${t.textSubtle} text-[11px] font-bold italic tracking-wide`}>
             {Object.values(typingUsers).join(', ')} {Object.keys(typingUsers).length > 1 ? 'sont' : 'est'} en train d'écrire...
           </span>
         </div>
@@ -446,8 +459,8 @@ export default function ConversationScreen({
             exit={{ height: 0, opacity: 0 }}
             className="border-t border-white/10 glass-panel overflow-hidden flex flex-col pointer-events-auto shrink-0 z-40"
           >
-            <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
-              <span className="text-[10px] font-black text-white/30 uppercase tracking-wider">Emojis</span>
+            <div className={`flex items-center justify-between px-4 py-2 border-b ${t.borderMuted}`}>
+              <span className={`text-[10px] font-black ${t.textMuted} uppercase tracking-wider`}>Emojis</span>
               <button 
                 onClick={() => setShowEmojiPicker(false)}
                 className="text-[11px] font-bold text-snap-yellow hover:text-yellow-400 active:scale-95 transition-all"
@@ -461,7 +474,7 @@ export default function ConversationScreen({
                   key={emoji}
                   type="button"
                   onClick={() => setNewMessage((prev) => prev + emoji)}
-                  className="text-2xl flex items-center justify-center hover:bg-white/10 p-1.5 rounded-xl active:scale-75 transition-all"
+                  className={`text-2xl flex items-center justify-center p-1.5 rounded-xl active:scale-75 transition-all ${t.isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
                 >
                   {emoji}
                 </button>
@@ -503,14 +516,14 @@ export default function ConversationScreen({
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-all ${
-                showEmojiPicker ? 'bg-snap-yellow text-black' : 'bg-white/8 text-white/40 hover:text-white hover:bg-white/12'
+                showEmojiPicker ? 'bg-snap-yellow text-black' : `${t.input} ${t.textMuted} ${t.surfaceHover}`
               }`}
             >
               <span className="text-lg">😊</span>
             </button>
           )}
         </form>
-        <p className="text-center text-white/15 text-[10px] mt-2">Appui long pour enregistrer</p>
+        <p className={`text-center text-[10px] mt-2 ${t.textFaint}`}>Appui long pour enregistrer</p>
       </div>
     </div>
   );

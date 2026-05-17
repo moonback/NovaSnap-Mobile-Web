@@ -8,10 +8,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Skeleton from '../components/ui/Skeleton';
 import GeminiOrb from '../components/GeminiOrb';
 import { useAppStore } from '../store/useAppStore';
+import { useTheme } from '../hooks/useTheme';
 
 export default function StoriesScreen() {
   const { data: stories, isLoading } = useStories();
   const { setCurrentView } = useAppStore();
+  const t = useTheme();
   const [activeGroupIndex, setActiveGroupIndex] = useState<number | null>(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
   const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
@@ -151,7 +153,7 @@ export default function StoriesScreen() {
               </div>
               <GeminiOrb />
               <div className="px-4 pb-4">
-                <p className="text-[11px] text-white/40 italic text-center">
+                <p className={`text-[11px] italic text-center ${t.textFaint}`}>
                   "Analyse ma vue et dis-moi ce que tu vois..." (Bientôt disponible)
                 </p>
               </div>
@@ -163,7 +165,7 @@ export default function StoriesScreen() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-extrabold">Ton fil Stories</p>
-                  <p className="text-[11px] text-white/50 mt-1">Publie régulièrement pour augmenter ta visibilité.</p>
+                  <p className={`text-[11px] mt-1 ${t.textMuted}`}>Publie régulièrement pour augmenter ta visibilité.</p>
                 </div>
                 <button
                   onClick={() => setCurrentView('camera')}
@@ -183,10 +185,10 @@ export default function StoriesScreen() {
                 onClick={() => setCurrentView('camera')}
                 className="flex-shrink-0 flex flex-col items-center gap-2"
               >
-                <div className="w-[72px] h-[72px] rounded-full bg-white/8 border-2 border-dashed border-white/20 flex items-center justify-center hover:bg-white/12 transition-colors">
-                  <Plus size={24} className="text-white/50" />
+                <div className={`w-[72px] h-[72px] rounded-full ${t.surface} border-2 border-dashed ${t.borderMuted} flex items-center justify-center ${t.surfaceHover} transition-colors`}>
+                  <Plus size={24} className={t.textFaint} />
                 </div>
-                <span className="text-[11px] text-white/50 font-medium">Ma story</span>
+                <span className={`text-[11px] font-medium ${t.textFaint}`}>Ma story</span>
               </button>
 
               {isLoading && [...Array(4)].map((_, i) => (
@@ -210,10 +212,10 @@ export default function StoriesScreen() {
                     className="flex-shrink-0 flex flex-col items-center gap-2"
                   >
                     <div className="w-[72px] h-[72px] rounded-full p-[2px] story-ring">
-                      <div className="w-full h-full rounded-full overflow-hidden bg-black border-2 border-black">
+                      <div className={`w-full h-full rounded-full overflow-hidden border-2 ${t.isLight ? 'bg-black border-black' : 'bg-black border-black'}`}>
                         {isFailed ? (
-                          <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
-                            <span className="text-[9px] text-white/30 font-bold uppercase">Exp.</span>
+                          <div className={`w-full h-full flex items-center justify-center ${t.isLight ? 'bg-zinc-200' : 'bg-zinc-900'}`}>
+                            <span className={`text-[9px] font-bold uppercase ${t.textFaint}`}>Exp.</span>
                           </div>
                         ) : latestStory.media_type === 'IMAGE' ? (
                           <img
@@ -233,14 +235,14 @@ export default function StoriesScreen() {
                         )}
                       </div>
                     </div>
-                    <span className="text-[11px] text-white/70 font-medium truncate max-w-[72px]">{username}</span>
+                    <span className={`text-[11px] font-medium truncate max-w-[72px] ${t.textSubtle}`}>{username}</span>
                   </button>
                 );
               })}
 
               {!isLoading && !hasStories && (
                 <div className="flex items-center justify-center min-w-[200px] py-4">
-                  <p className="text-sm text-white/30">Aucune story active</p>
+                  <p className={`text-sm ${t.textFaint}`}>Aucune story active</p>
                 </div>
               )}
             </div>
@@ -249,8 +251,8 @@ export default function StoriesScreen() {
           {/* Discover section */}
           <div className="px-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider">Découvrir</h2>
-              <span className="text-[10px] text-white/35 uppercase tracking-wider">Tendance</span>
+              <h2 className={`text-sm font-bold uppercase tracking-wider ${t.textMuted}`}>Découvrir</h2>
+              <span className={`text-[10px] uppercase tracking-wider ${t.textFaint}`}>Tendance</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {isLoading && [...Array(4)].map((_, i) => (
@@ -265,7 +267,7 @@ export default function StoriesScreen() {
                   <button
                     key={`grid-${story.id}`}
                     onClick={() => handleOpenStoryFromGrid(story.id)}
-                    className="aspect-[9/16] rounded-2xl overflow-hidden relative bg-zinc-900 border border-white/10 hover:border-white/20 transition-colors"
+                    className={`aspect-[9/16] rounded-2xl overflow-hidden relative bg-zinc-900 border ${t.border} hover:${t.borderMuted} transition-colors`}
                   >
                     {story.media_type === 'IMAGE' && (
                       <img src={story.media_url} className="w-full h-full object-cover" alt="" onError={() => setFailedUrls((prev) => ({ ...prev, [story.media_url]: true }))} />
@@ -275,15 +277,15 @@ export default function StoriesScreen() {
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                     <div className="absolute bottom-2 left-2 right-2 text-left">
-                      <p className="text-white text-xs font-bold truncate">{story.users?.username || 'User'}</p>
-                      <p className="text-[10px] text-white/60">{story.media_type === 'VIDEO' ? 'Vidéo' : 'Photo'}</p>
+                      <p className={`text-xs font-bold truncate ${t.text}`}>{story.users?.username || 'User'}</p>
+                      <p className={`text-[10px] ${t.textMuted}`}>{story.media_type === 'VIDEO' ? 'Vidéo' : 'Photo'}</p>
                     </div>
                   </button>
                 );
               })}
               {!isLoading && !hasStories && (
                 <div className="col-span-2 py-8 text-center">
-                  <p className="text-white/30 text-sm">Poste ta première story depuis la caméra</p>
+                  <p className={`text-sm ${t.textFaint}`}>Poste ta première story depuis la caméra</p>
                   <button
                     onClick={() => setCurrentView('camera')}
                     className="mt-3 px-5 py-2.5 bg-snap-yellow text-black font-black rounded-full text-sm shadow-snap-sm active:scale-95 transition-all"
@@ -305,15 +307,15 @@ export default function StoriesScreen() {
         const username = currentGroup.username;
 
         return (
-          <div className="absolute inset-0 z-50 bg-black flex flex-col">
+          <div className={`absolute inset-0 z-50 flex flex-col ${t.isLight ? 'bg-[#e8eaf2]' : 'bg-black'}`}>
             {/* Progress bars */}
             <div className="absolute top-0 inset-x-0 pt-12 px-3 flex gap-1 z-10">
               {currentGroup.stories.map((_, idx) => (
-                <div key={idx} className="h-[3px] flex-1 bg-white/25 rounded-full overflow-hidden">
+                <div key={idx} className={`h-[3px] flex-1 rounded-full overflow-hidden ${t.isLight ? 'bg-black/15' : 'bg-white/25'}`}>
                   {idx === activeStoryIndex ? (
-                    <div className="h-full bg-white rounded-full animate-[progress_5s_linear_forwards]" />
+                    <div className={`h-full rounded-full animate-[progress_5s_linear_forwards] ${t.isLight ? 'bg-black' : 'bg-white'}`} />
                   ) : idx < activeStoryIndex ? (
-                    <div className="h-full bg-white rounded-full" />
+                    <div className={`h-full rounded-full ${t.isLight ? 'bg-black' : 'bg-white'}`} />
                   ) : null}
                 </div>
               ))}
@@ -332,8 +334,8 @@ export default function StoriesScreen() {
                   )}
                 </div>
                 <div>
-                  <p className="text-white font-bold text-sm leading-tight">{username}</p>
-                  <p className="text-white/50 text-xs">
+                  <p className={`font-bold text-sm leading-tight ${t.text}`}>{username}</p>
+                  <p className={`text-xs ${t.textMuted}`}>
                     {new Date(currentStory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
@@ -350,7 +352,7 @@ export default function StoriesScreen() {
                 )}
                 <button 
                   onClick={(e) => { e.stopPropagation(); setActiveGroupIndex(null); }} 
-                  className="w-9 h-9 rounded-full glass-dark flex items-center justify-center text-white pointer-events-auto"
+                  className={`w-9 h-9 rounded-full glass-dark flex items-center justify-center pointer-events-auto ${t.text}`}
                 >
                   <X size={20} />
                 </button>
@@ -359,10 +361,10 @@ export default function StoriesScreen() {
 
             {/* Media */}
             {isFailed ? (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-zinc-950">
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-white/30 text-2xl font-bold">!</div>
-                <p className="text-white font-bold">Story expirée</p>
-                <p className="text-white/40 text-xs">Ce contenu n'est plus disponible</p>
+              <div className={`w-full h-full flex flex-col items-center justify-center gap-3 ${t.isLight ? 'bg-zinc-200' : 'bg-zinc-950'}`}>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold ${t.isLight ? 'bg-black/5 text-black/30' : 'bg-white/5 text-white/30'}`}>!</div>
+                <p className={`font-bold ${t.text}`}>Story expirée</p>
+                <p className={`text-xs ${t.textMuted}`}>Ce contenu n'est plus disponible</p>
               </div>
             ) : currentStory.media_type === 'IMAGE' ? (
               <img
@@ -413,7 +415,7 @@ export default function StoriesScreen() {
             <AnimatePresence>
               {storyToDeleteId !== null && (
                 <div 
-                  className="absolute inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-6 pointer-events-auto"
+                  className={`absolute inset-0 z-50 backdrop-blur-md flex items-center justify-center p-6 pointer-events-auto ${t.isLight ? 'bg-black/50' : 'bg-black/70'}`}
                   onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(null); }}
                 >
                   <motion.div
@@ -429,8 +431,8 @@ export default function StoriesScreen() {
                     </div>
                     
                     <div className="flex flex-col gap-1.5">
-                      <h3 className="text-white font-black text-base">Supprimer la story ?</h3>
-                      <p className="text-white/40 text-[11px] leading-normal px-2">
+                      <h3 className={`font-black text-base ${t.text}`}>Supprimer la story ?</h3>
+                      <p className={`text-[11px] leading-normal px-2 ${t.textMuted}`}>
                         Es-tu sûr de vouloir supprimer cette story ? Cette action est irréversible.
                       </p>
                     </div>
@@ -438,7 +440,7 @@ export default function StoriesScreen() {
                     <div className="flex gap-2 w-full mt-2">
                       <button
                         onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(null); }}
-                        className="flex-1 py-3 bg-white/10 hover:bg-white/15 text-white rounded-2xl font-bold text-xs active:scale-95 transition-all"
+                        className={`flex-1 py-3 rounded-2xl font-bold text-xs active:scale-95 transition-all ${t.surfaceHover} ${t.text}`}
                       >
                         Annuler
                       </button>

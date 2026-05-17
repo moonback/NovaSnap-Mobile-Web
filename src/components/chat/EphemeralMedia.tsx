@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '../../hooks/useTheme';
 
 interface EphemeralMediaProps {
   messageId: string;
@@ -21,6 +22,7 @@ export default function EphemeralMedia({
 }: EphemeralMediaProps) {
   const [viewState, setViewState] = useState<'HIDDEN' | 'VIEWING' | 'EXPIRED'>('HIDDEN');
   const [timeLeft, setTimeLeft] = useState(10);
+  const t = useTheme();
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
@@ -59,7 +61,7 @@ export default function EphemeralMedia({
         ) : (
           <video src={mediaUrl} controls playsInline className="w-full rounded-2xl animate-fade-in" />
         )}
-        <span className="absolute bottom-2 right-2 text-[9px] text-white/70 bg-black/60 px-2 py-0.5 rounded-full font-semibold">
+        <span className={`absolute bottom-2 right-2 text-[9px] text-white/70 px-2 py-0.5 rounded-full font-semibold ${t.isLight ? 'bg-black/40' : 'bg-black/60'}`}>
           Envoyé
         </span>
       </div>
@@ -75,7 +77,7 @@ export default function EphemeralMedia({
         ) : (
           <video src={mediaUrl} controls playsInline className="w-full rounded-2xl animate-fade-in" />
         )}
-        <span className="absolute bottom-2 right-2 text-[9px] text-white/70 bg-black/60 px-2 py-0.5 rounded-full font-semibold">
+        <span className={`absolute bottom-2 right-2 text-[9px] text-white/70 px-2 py-0.5 rounded-full font-semibold ${t.isLight ? 'bg-black/40' : 'bg-black/60'}`}>
           Enregistré
         </span>
       </div>
@@ -123,7 +125,7 @@ export default function EphemeralMedia({
             onDragEnd={(_e, info) => {
               if (info.offset.y > 150) handleExpire();
             }}
-            className="absolute inset-0 z-[100] bg-black flex flex-col items-center justify-center cursor-grab active:cursor-grabbing"
+            className={`absolute inset-0 z-[100] flex flex-col items-center justify-center cursor-grab active:cursor-grabbing ${t.isLight ? 'bg-[#e8eaf2]' : 'bg-black'}`}
           >
             {/* Controls */}
             <div className="absolute top-12 right-4 z-10 flex items-center gap-3">

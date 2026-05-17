@@ -2,6 +2,7 @@ import React from 'react';
 import { MessageCircle, Camera, Play, Compass, Images } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../../store/useAppStore';
+import { useTheme } from '../../hooks/useTheme';
 
 const tabs = [
   { key: 'map', label: 'Carte', Icon: Compass },
@@ -11,6 +12,7 @@ const tabs = [
 
 export default function TabBar() {
   const { currentView, setCurrentView, showMemories, setShowMemories } = useAppStore();
+  const t = useTheme();
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(18px,env(safe-area-inset-bottom))] pointer-events-none">
