@@ -8,10 +8,17 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const GEMINI_LIVE_MODEL =
+  process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025';
+
 // ── Gemini AI client (server-side only) ──
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY,
-});
+const geminiApiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+if (!geminiApiKey) {
+  console.error('❌ FATAL: GEMINI_API_KEY or VITE_GEMINI_API_KEY is not set.');
+  process.exit(1);
+}
+
+const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
 // ── Supabase admin client for JWT verification ──
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -44,6 +51,30 @@ function getRawDataSize(data: unknown): number {
   return 0;
 }
 
+function getWsCloseDetail(event: unknown): { code?: number; reason: string } {
+  if (!event || typeof event !== 'object') {
+    return { reason: String(event ?? 'unknown') };
+  }
+  const ev = event as { code?: number; reason?: string };
+  if (ev.reason) return { code: ev.code, reason: ev.reason };
+
+  for (const sym of Object.getOwnPropertySymbols(event)) {
+    if (sym.toString().includes('kReason')) {
+      return { code: ev.code, reason: String((event as Record<symbol, unknown>)[sym]) };
+    }
+  }
+
+  const target = (event as { target?: { _closeMessage?: Buffer; _closeCode?: number } }).target;
+  if (target?._closeMessage) {
+    return {
+      code: target._closeCode,
+      reason: target._closeMessage.toString('utf8'),
+    };
+  }
+
+  return { reason: '{}' };
+}
+
 async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -70,6 +101,7 @@ async function startServer() {
   const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 NovaSnap server running on http://localhost:${PORT}`);
     console.log(`🎙️  Gemini Live WebSocket available at ws://localhost:${PORT}/gemini-live`);
+    console.log(`🤖 Gemini Live model: ${GEMINI_LIVE_MODEL}`);
   });
 
   // ── WebSocket Server pour Gemini Live ──
@@ -146,18 +178,38 @@ async function startServer() {
         try {
           console.log(`🎙️  Creating Gemini Live session for user ${userId}...`);
           
+          let clientNotified = false;
+          const notifyClientConnected = () => {
+            if (clientNotified || clientWs.readyState !== WebSocket.OPEN) return;
+            clientNotified = true;
+            clientWs.send(JSON.stringify({ type: 'connected', message: 'Gemini Live session established' }));
+          };
+
+          const forwardToGemini = (payload: Record<string, unknown>) => {
+            if (!geminiSession || !geminiReady) return;
+            try {
+              geminiSession.sendRealtimeInput(payload);
+            } catch (e) {
+              console.error(`❌ sendRealtimeInput failed for user ${userId}:`, e);
+            }
+          };
+
           geminiSession = await ai.live.connect({
-            model: 'models/gemini-2.0-flash-exp',
+            model: GEMINI_LIVE_MODEL,
             callbacks: {
               onopen: () => {
                 console.log(`✅ Gemini Live session opened for user ${userId}`);
-                geminiReady = true; // Mark session as ready
-                if (clientWs.readyState === WebSocket.OPEN) {
-                  clientWs.send(JSON.stringify({ type: 'connected', message: 'Gemini Live session established' }));
-                }
+                geminiReady = true;
+                notifyClientConnected();
               },
               onmessage: (message) => {
                 if (clientWs.readyState !== WebSocket.OPEN) return;
+
+                if (message.setupComplete) {
+                  console.log(`✅ Gemini setupComplete for user ${userId}`);
+                  geminiReady = true;
+                  notifyClientConnected();
+                }
 
                 const parts = message.serverContent?.modelTurn?.parts || [];
 
@@ -184,10 +236,24 @@ async function startServer() {
                   clientWs.send(JSON.stringify({ type: 'error', message: 'Gemini Live error', error: String(error) }));
                 }
               },
-              onclose: () => {
-                console.log(`📴 Gemini Live session closed for user ${userId}`);
+              onclose: (event) => {
+                const { code, reason } = getWsCloseDetail(event);
+                console.log(
+                  `📴 Gemini Live session closed for user ${userId}` +
+                  (code != null ? ` (code ${code})` : '') +
+                  `: ${reason}`,
+                );
+                geminiReady = false;
                 if (clientWs.readyState === WebSocket.OPEN) {
-                  clientWs.send(JSON.stringify({ type: 'disconnected', message: 'Gemini Live session closed' }));
+                  const userMessage = reason && reason !== '{}'
+                    ? reason
+                    : 'Gemini Live session closed';
+                  clientWs.send(JSON.stringify({
+                    type: 'error',
+                    message: userMessage,
+                    code,
+                  }));
+                  clientWs.send(JSON.stringify({ type: 'disconnected', message: userMessage }));
                 }
               },
             },
@@ -222,17 +288,15 @@ Réponds toujours en français de manière naturelle et conversationnelle.`,
                 return;
               }
 
-              // Forward audio to Gemini
-              if (msg.type === 'audio' && msg.data && geminiSession) {
-                geminiSession.sendRealtimeInput({
-                  audio: { mimeType: "audio/pcm;rate=16000", data: msg.data }
+              if (msg.type === 'audio' && msg.data) {
+                forwardToGemini({
+                  audio: { mimeType: 'audio/pcm;rate=16000', data: msg.data },
                 });
               }
 
-              // Forward video to Gemini
-              if (msg.type === 'video' && msg.data && geminiSession) {
-                geminiSession.sendRealtimeInput({
-                  media: { mimeType: "image/jpeg", data: msg.data }
+              if (msg.type === 'video' && msg.data) {
+                forwardToGemini({
+                  media: { mimeType: 'image/jpeg', data: msg.data },
                 });
               }
             } catch (e) {

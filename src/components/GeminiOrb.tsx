@@ -8,16 +8,22 @@ export default function GeminiOrb() {
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [transcription, setTranscription] = useState<string>('');
-  const [isGeminiReady, setIsGeminiReady] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const mediaSessionRef = useRef(0);
+  const isActiveRef = useRef(false);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const videoIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const isSessionAlive = (sessionId: number) =>
+    mediaSessionRef.current === sessionId && wsRef.current?.readyState === WebSocket.OPEN;
+
   const startVoice = async () => {
     try {
+      const sessionId = ++mediaSessionRef.current;
       setIsConnecting(true);
       resetAudioSync();
 
@@ -51,9 +57,11 @@ export default function GeminiOrb() {
           switch (msg.type) {
             case 'connected':
               console.log('[Nova AI] ✅ Session Gemini établie');
+              if (!isSessionAlive(sessionId)) return;
               setIsConnecting(false);
               setIsActive(true);
-              initializeMediaStreams(ws);
+              isActiveRef.current = true;
+              initializeMediaStreams(ws, sessionId);
               break;
 
             case 'audio':
@@ -80,7 +88,8 @@ export default function GeminiOrb() {
               break;
 
             case 'disconnected':
-              console.log('[Nova AI] Session Gemini fermée');
+              console.warn('[Nova AI] Session Gemini fermée par le serveur');
+              toast('Session Nova AI terminée', 'error');
               stopVoice();
               break;
           }
@@ -97,10 +106,10 @@ export default function GeminiOrb() {
 
       ws.onclose = () => {
         console.log('[Nova AI] 📴 WebSocket fermé');
-        if (isActive) {
+        if (isActiveRef.current) {
           toast('Connexion perdue', 'error');
-          stopVoice();
         }
+        stopVoice();
       };
 
     } catch (err: any) {
@@ -111,17 +120,73 @@ export default function GeminiOrb() {
     }
   };
 
-  const initializeMediaStreams = async (ws: WebSocket) => {
-    try {
-      // Initialiser le contexte audio
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      audioCtxRef.current = audioCtx;
+  const startAudioCapture = async (
+    ws: WebSocket,
+    sessionId: number,
+    stream: MediaStream,
+    audioCtx: AudioContext,
+  ) => {
+    const workletUrl = `${import.meta.env.BASE_URL}pcm-capture-processor.js`;
+    const sendPcm = (pcm: Float32Array) => {
+      if (!isSessionAlive(sessionId)) return;
+      ws.send(JSON.stringify({ type: 'audio', data: pcmToBase64(pcm) }));
+    };
 
-      // Demander l'accès à la caméra et au micro
+    try {
+      await audioCtx.audioWorklet.addModule(workletUrl);
+      if (!isSessionAlive(sessionId) || audioCtx.state === 'closed') return;
+
+      const workletNode = new AudioWorkletNode(audioCtx, 'pcm-capture-processor', {
+        processorOptions: { bufferSize: 2048 },
+      });
+      workletNodeRef.current = workletNode;
+      workletNode.port.onmessage = (e: MessageEvent) => {
+        if (e.data?.pcm) sendPcm(e.data.pcm);
+      };
+      audioCtx.createMediaStreamSource(stream).connect(workletNode);
+      console.log('[Nova AI] ✅ AudioWorklet initialisé');
+    } catch (error) {
+      if (!isSessionAlive(sessionId) || audioCtx.state === 'closed') return;
+      console.warn('[Nova AI] AudioWorklet indisponible, fallback ScriptProcessor', error);
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      const processor = audioCtx.createScriptProcessor(2048, 1, 1);
+      scriptProcessorRef.current = processor;
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+      processor.onaudioprocess = (e: AudioProcessingEvent) => {
+        sendPcm(e.inputBuffer.getChannelData(0));
+      };
+    }
+  };
+
+  const startVideoCapture = (ws: WebSocket, sessionId: number) => {
+    const sendVideoFrame = () => {
+      if (!isSessionAlive(sessionId)) return;
+
+      const video = videoPreviewRef.current;
+      if (!video || video.videoWidth === 0) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 240;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.drawImage(video, 0, 0, 320, 240);
+      const base64Data = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+      ws.send(JSON.stringify({ type: 'video', data: base64Data }));
+    };
+
+    videoIntervalRef.current = setInterval(sendVideoFrame, 4000);
+    sendVideoFrame();
+  };
+
+  const initializeMediaStreams = async (ws: WebSocket, sessionId: number) => {
+    try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
-          sampleRate: 16000,
           echoCancellation: true,
           noiseSuppression: true,
         },
@@ -132,71 +197,39 @@ export default function GeminiOrb() {
         },
       });
 
+      if (!isSessionAlive(sessionId)) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
       streamRef.current = stream;
-      if (videoPreviewRef.current) {
-        videoPreviewRef.current.srcObject = stream;
+      const videoEl = videoPreviewRef.current;
+      if (videoEl) {
+        videoEl.srcObject = stream;
+        await videoEl.play().catch(() => undefined);
       }
 
       console.log('[Nova AI] ✅ Accès média accordé');
 
-      // Capturer et envoyer des frames vidéo périodiquement
-      const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack) {
-        const imageCapture = new (window as any).ImageCapture(videoTrack);
-        
-        const sendVideoFrame = async () => {
-          if (ws.readyState !== WebSocket.OPEN) return;
-          
-          try {
-            const bitmap = await imageCapture.grabFrame();
-            const canvas = document.createElement('canvas');
-            canvas.width = 320;
-            canvas.height = 240;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(bitmap, 0, 0, 320, 240);
-            
-            const base64Data = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
-            
-            ws.send(JSON.stringify({ type: 'video', data: base64Data }));
-          } catch (error) {
-            console.warn('[Nova AI] Erreur capture vidéo:', error);
-          }
-        };
-
-        videoIntervalRef.current = setInterval(sendVideoFrame, 4000);
-        sendVideoFrame();
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
+        sampleRate: 16000,
+      });
+      audioCtxRef.current = audioCtx;
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
       }
 
-      // Capturer et envoyer l'audio en temps réel
-      try {
-        await audioCtx.audioWorklet.addModule('/pcm-capture-processor.js');
-        const workletNode = new AudioWorkletNode(audioCtx, 'pcm-capture-processor', {
-          processorOptions: { bufferSize: 4096 },
-        });
-        workletNodeRef.current = workletNode;
+      await startAudioCapture(ws, sessionId, stream, audioCtx);
 
-        workletNode.port.onmessage = (e: any) => {
-          if (ws.readyState === WebSocket.OPEN && e.data?.pcm) {
-            ws.send(JSON.stringify({ type: 'audio', data: pcmToBase64(e.data.pcm) }));
-          }
-        };
+      if (!isSessionAlive(sessionId)) return;
 
-        audioCtx.createMediaStreamSource(stream).connect(workletNode);
-        console.log('[Nova AI] ✅ AudioWorklet initialisé');
-      } catch (error) {
-        console.warn('[Nova AI] AudioWorklet non disponible, utilisation de ScriptProcessor');
-        const source = audioCtx.createMediaStreamSource(stream);
-        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-        source.connect(processor);
-        processor.connect(audioCtx.destination);
-
-        processor.onaudioprocess = (e: any) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'audio', data: pcmToBase64(e.inputBuffer.getChannelData(0)) }));
-          }
-        };
+      if (stream.getVideoTracks().length > 0) {
+        setTimeout(() => {
+          if (isSessionAlive(sessionId)) startVideoCapture(ws, sessionId);
+        }, 500);
       }
     } catch (err) {
+      if (!isSessionAlive(sessionId)) return;
       console.error('[Nova AI] Erreur initialisation média:', err);
       toast('Erreur d\'accès à la caméra/micro', 'error');
       stopVoice();
@@ -204,6 +237,8 @@ export default function GeminiOrb() {
   };
 
   const stopVoice = () => {
+    mediaSessionRef.current += 1;
+    isActiveRef.current = false;
     setIsActive(false);
     setIsConnecting(false);
 
@@ -219,10 +254,12 @@ export default function GeminiOrb() {
       wsRef.current = null;
     }
 
-    // Nettoyer l'audio worklet
+    // Nettoyer l'audio worklet / script processor
     workletNodeRef.current?.port.postMessage({ type: 'stop' });
     workletNodeRef.current?.disconnect();
     workletNodeRef.current = null;
+    scriptProcessorRef.current?.disconnect();
+    scriptProcessorRef.current = null;
 
     // Fermer le contexte audio
     audioCtxRef.current?.close().catch(console.error);
