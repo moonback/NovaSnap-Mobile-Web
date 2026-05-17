@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { User, Session } from '@supabase/supabase-js';
 
+export type Theme = 'dark' | 'light';
+
 interface AppState {
   currentView: 'chat' | 'camera' | 'stories' | 'map';
   setCurrentView: (view: 'chat' | 'camera' | 'stories' | 'map') => void;
@@ -20,7 +22,16 @@ interface AppState {
   setShowMemories: (show: boolean) => void;
   isEditingSnap: boolean;
   setIsEditingSnap: (isEditing: boolean) => void;
+  theme: Theme;
+  toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
 }
+
+const getInitialTheme = (): Theme => {
+  const stored = localStorage.getItem('novasnap_theme');
+  if (stored === 'light' || stored === 'dark') return stored;
+  return 'dark';
+};
 
 export const useAppStore = create<AppState>((set) => ({
   currentView: 'camera',
@@ -41,4 +52,15 @@ export const useAppStore = create<AppState>((set) => ({
   setShowMemories: (show) => set({ showMemories: show }),
   isEditingSnap: false,
   setIsEditingSnap: (isEditing) => set({ isEditingSnap: isEditing }),
+  theme: getInitialTheme(),
+  toggleTheme: () =>
+    set((state) => {
+      const next: Theme = state.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('novasnap_theme', next);
+      return { theme: next };
+    }),
+  setTheme: (theme) => {
+    localStorage.setItem('novasnap_theme', theme);
+    set({ theme });
+  },
 }));

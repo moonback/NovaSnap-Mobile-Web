@@ -5,6 +5,31 @@
   --snap-bg: #07080f;
   --snap-surface: rgba(255, 255, 255, 0.06);
   --snap-border: rgba(255, 255, 255, 0.14);
+  --snap-text: #f7f8ff;
+  --snap-text-muted: rgba(255, 255, 255, 0.4);
+  --snap-card: rgba(255, 255, 255, 0.05);
+  --snap-card-border: rgba(255, 255, 255, 0.08);
+  --snap-input: rgba(255, 255, 255, 0.08);
+  --snap-divider: rgba(255, 255, 255, 0.05);
+  --snap-overlay: rgba(0, 0, 0, 0.58);
+  --snap-settings-bg: #0d0d0f;
+  --snap-profile-bg: #000000;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --snap-bg: #f0f2f8;
+  --snap-surface: rgba(0, 0, 0, 0.04);
+  --snap-border: rgba(0, 0, 0, 0.12);
+  --snap-text: #0d0e1a;
+  --snap-text-muted: rgba(0, 0, 0, 0.45);
+  --snap-card: rgba(0, 0, 0, 0.04);
+  --snap-card-border: rgba(0, 0, 0, 0.08);
+  --snap-input: rgba(0, 0, 0, 0.06);
+  --snap-divider: rgba(0, 0, 0, 0.06);
+  --snap-overlay: rgba(255, 255, 255, 0.75);
+  --snap-settings-bg: #e8eaf2;
+  --snap-profile-bg: #f0f2f8;
 }
 
 @layer utilities {
@@ -17,17 +42,17 @@
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
   }
   .glass-dark {
-    background: rgba(0, 0, 0, 0.58);
+    background: var(--snap-overlay);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--snap-border);
   }
   .glass-card {
-    background: linear-gradient(170deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+    background: var(--snap-card);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--snap-card-border);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
   }
 
   /* ── Snap Yellow ── */
@@ -93,9 +118,22 @@
 html, body, #root {
   min-height: 100%;
   background: radial-gradient(circle at top, #15182c 0%, var(--snap-bg) 58%, #05060b 100%);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+[data-theme="light"] html,
+[data-theme="light"] body,
+[data-theme="light"] #root {
+  background: radial-gradient(circle at top, #dde1f0 0%, var(--snap-bg) 58%, #e4e7f5 100%);
 }
 body {
   overscroll-behavior: none;
-  color: #f7f8ff;
+  color: var(--snap-text);
   text-rendering: optimizeLegibility;
+}
+
+/* Smooth theme transitions on all elements */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
 }

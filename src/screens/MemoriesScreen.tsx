@@ -1,28 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X,
-  Trash2,
-  Download,
-  Edit3,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Image,
-  Video,
-  Camera,
-  MessageCircle,
-  Play,
-  Loader2,
-  BookOpen,
-  Search,
-  Grid3X3,
-  LayoutList,
+  X, Trash2, Download, Edit3, Check, ChevronLeft, ChevronRight,
+  Image, Video, Camera, MessageCircle, Play, Loader2, BookOpen, Search, Grid3X3, LayoutList,
 } from 'lucide-react';
 import { useMemories, useDeleteMemory, useUpdateMemoryCaption } from '../hooks/useMemories';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
 import Skeleton from '../components/ui/Skeleton';
+import { useTheme } from '../hooks/useTheme';
 import type { MemoryRow, MemorySource } from '../lib/types';
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -60,14 +46,9 @@ const MediaThumbnail: React.FC<{
   layout: 'grid' | 'list';
   selectionMode?: boolean;
   selected?: boolean;
-}> = ({
-  memory,
-  onClick,
-  layout,
-  selectionMode,
-  selected,
-}) => {
+}> = ({ memory, onClick, layout, selectionMode, selected }) => {
   const [failed, setFailed] = useState(false);
+  const t = useTheme();
   const src = memory.media_url;
   const isVideo = memory.media_type === 'VIDEO';
   const sourceInfo = SOURCE_LABELS[memory.source];
@@ -76,23 +57,20 @@ const MediaThumbnail: React.FC<{
     return (
       <button
         onClick={onClick}
-        className={`flex items-center gap-3 w-full p-3 rounded-2xl bg-white/4 border hover:bg-white/7 active:scale-[0.98] transition-all text-left ${selectionMode && selected ? 'border-snap-yellow bg-snap-yellow/10' : 'border-white/8'}`}
+        className={`flex items-center gap-3 w-full p-3 rounded-2xl border active:scale-[0.98] transition-all text-left ${t.surfaceHover} ${selectionMode && selected ? 'border-snap-yellow bg-snap-yellow/10' : t.border}`}
       >
         {selectionMode && (
-          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 ${selected ? 'bg-snap-yellow border-snap-yellow text-black' : 'border-white/50 bg-black/20'}`}>
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 ${selected ? 'bg-snap-yellow border-snap-yellow text-black' : t.isLight ? 'border-black/30 bg-black/5' : 'border-white/50 bg-black/20'}`}>
             {selected && <Check size={12} />}
           </div>
         )}
-        {/* Thumbnail */}
-        <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-900 border border-white/10">
+        <div className={`relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 border ${t.isLight ? 'bg-black/8 border-black/10' : 'bg-zinc-900 border-white/10'}`}>
           {!failed && isVideo ? (
             <video src={src} muted playsInline className="w-full h-full object-cover" onError={() => setFailed(true)} />
           ) : !failed ? (
             <img src={src} alt="" className="w-full h-full object-cover" onError={() => setFailed(true)} />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-white/20">
-              <Image size={20} />
-            </div>
+            <div className={`w-full h-full flex items-center justify-center ${t.textFaint}`}><Image size={20} /></div>
           )}
           {isVideo && (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -102,20 +80,15 @@ const MediaThumbnail: React.FC<{
             </div>
           )}
         </div>
-
-        {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="text-white text-sm font-bold truncate">
-            {memory.caption || (isVideo ? 'Vidéo' : 'Photo')}
-          </p>
-          <p className="text-white/40 text-xs mt-0.5">{formatTime(memory.created_at)}</p>
+          <p className={`text-sm font-bold truncate ${t.text}`}>{memory.caption || (isVideo ? 'Vidéo' : 'Photo')}</p>
+          <p className={`text-xs mt-0.5 ${t.textMuted}`}>{formatTime(memory.created_at)}</p>
           <div className={`flex items-center gap-1 mt-1 ${sourceInfo.color}`}>
             {sourceInfo.icon}
             <span className="text-[10px] font-bold">{sourceInfo.label}</span>
           </div>
         </div>
-
-        <ChevronRight size={16} className="text-white/20 flex-shrink-0" />
+        <ChevronRight size={16} className={t.textFaint + ' flex-shrink-0'} />
       </button>
     );
   }
@@ -123,39 +96,29 @@ const MediaThumbnail: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`relative aspect-square rounded-xl overflow-hidden bg-zinc-900 border hover:border-white/20 active:scale-95 transition-all ${selectionMode && selected ? 'border-snap-yellow scale-95 ring-2 ring-snap-yellow ring-offset-2 ring-offset-black' : 'border-white/8'}`}
+      className={`relative aspect-square rounded-xl overflow-hidden border active:scale-95 transition-all ${t.isLight ? 'bg-black/8' : 'bg-zinc-900'} ${selectionMode && selected ? 'border-snap-yellow scale-95 ring-2 ring-snap-yellow ring-offset-2 ' + (t.isLight ? 'ring-offset-[#f0f2f8]' : 'ring-offset-black') : t.border}`}
     >
       {!failed && isVideo ? (
         <video src={src} muted playsInline className="w-full h-full object-cover" onError={() => setFailed(true)} />
       ) : !failed ? (
         <img src={src} alt="" className="w-full h-full object-cover" onError={() => setFailed(true)} />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-white/20">
-          <Image size={24} />
-        </div>
+        <div className={`w-full h-full flex items-center justify-center ${t.textFaint}`}><Image size={24} /></div>
       )}
-
-      {/* Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-
-      {/* Video badge */}
       {isVideo && (
         <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center backdrop-blur-sm">
           <Play size={9} className="text-white ml-0.5" fill="white" />
         </div>
       )}
-
-      {/* Source badge */}
       <div className={`absolute bottom-1.5 left-1.5 flex items-center gap-0.5 ${sourceInfo.color} drop-shadow-md`}>
         {sourceInfo.icon}
       </div>
-
-      {/* Selection badge */}
       {selectionMode && (
         <div className="absolute top-1.5 left-1.5 z-10">
-           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shadow-sm ${selected ? 'bg-snap-yellow border-snap-yellow text-black' : 'border-white/50 bg-black/40'}`}>
-              {selected && <Check size={12} />}
-           </div>
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shadow-sm ${selected ? 'bg-snap-yellow border-snap-yellow text-black' : t.isLight ? 'border-black/30 bg-white/60' : 'border-white/50 bg-black/40'}`}>
+            {selected && <Check size={12} />}
+          </div>
         </div>
       )}
     </button>
@@ -438,6 +401,7 @@ type FilterType = 'all' | 'IMAGE' | 'VIDEO';
 
 export default function MemoriesScreen() {
   const { setShowMemories } = useAppStore();
+  const t = useTheme();
   const { data: memories, isLoading } = useMemories();
 
   const [filter, setFilter] = useState<FilterType>('all');
@@ -512,67 +476,43 @@ export default function MemoriesScreen() {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className="fixed inset-0 z-50 bg-black text-white flex flex-col overflow-hidden"
+      className={`fixed inset-0 z-50 flex flex-col overflow-hidden ${t.bg} ${t.text}`}
     >
       {/* ── Header ── */}
       <div className="flex-shrink-0 px-5 pt-14 pb-3">
         <div className="flex items-center justify-between mb-1">
-          <button
-            onClick={() => setShowMemories(false)}
-            className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
-          >
+          <button onClick={() => setShowMemories(false)} className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}>
             <X size={18} />
           </button>
-
           <div className="text-center">
             <h1 className="text-lg font-black tracking-tight">Mes Souvenirs</h1>
           </div>
-
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setSelectionMode(!selectionMode);
-                setSelectedIds(new Set());
-              }}
-              className={`px-3 h-9 rounded-full flex items-center justify-center transition-colors text-xs font-bold ${
-                selectionMode ? 'bg-snap-yellow text-black shadow-snap-sm' : 'bg-white/10 text-white hover:bg-white/15'
-              }`}
+              onClick={() => { setSelectionMode(!selectionMode); setSelectedIds(new Set()); }}
+              className={`px-3 h-9 rounded-full flex items-center justify-center transition-colors text-xs font-bold ${selectionMode ? 'bg-snap-yellow text-black shadow-snap-sm' : t.iconBtn}`}
             >
               {selectionMode ? 'Annuler' : 'Sélect.'}
             </button>
             <button
               onClick={() => setShowSearch((s) => !s)}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                showSearch ? 'bg-snap-yellow text-black' : 'bg-white/10 text-white hover:bg-white/15'
-              }`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${showSearch ? 'bg-snap-yellow text-black' : t.iconBtn}`}
             >
               <Search size={16} />
             </button>
-            <button
-              onClick={() => setLayout((l) => (l === 'grid' ? 'list' : 'grid'))}
-              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
-            >
+            <button onClick={() => setLayout((l) => (l === 'grid' ? 'list' : 'grid'))} className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}>
               {layout === 'grid' ? <LayoutList size={16} /> : <Grid3X3 size={16} />}
             </button>
           </div>
         </div>
 
-        {/* Search bar */}
         <AnimatePresence>
           {showSearch && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden mt-3"
-            >
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden mt-3">
               <input
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                autoFocus value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher par légende, source, date..."
-                className="w-full bg-white/8 border border-white/10 rounded-xl h-10 px-4 text-white text-sm placeholder-white/30 focus:outline-none focus:border-snap-yellow/40 transition-all"
+                className={`w-full border rounded-xl h-10 px-4 text-sm focus:outline-none focus:border-snap-yellow/40 transition-all ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'}`}
               />
             </motion.div>
           )}
@@ -582,17 +522,17 @@ export default function MemoriesScreen() {
       {/* ── Stats strip ── */}
       <div className="flex-shrink-0 px-5 mb-5">
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-gradient-to-br from-snap-yellow/20 to-snap-yellow/5 border border-snap-yellow/30 rounded-3xl py-4 flex flex-col items-center gap-1 shadow-[0_4px_20px_rgba(255,252,0,0.05)]">
+          <div className="bg-gradient-to-br from-snap-yellow/20 to-snap-yellow/5 border border-snap-yellow/30 rounded-3xl py-4 flex flex-col items-center gap-1">
             <span className="text-2xl font-black text-snap-yellow drop-shadow-md">{isLoading ? '—' : totalCount}</span>
             <span className="text-[10px] text-snap-yellow/70 uppercase tracking-widest font-black">Total</span>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-3xl py-4 flex flex-col items-center gap-1 shadow-lg">
-            <span className="text-2xl font-black text-white">{isLoading ? '—' : imageCount}</span>
-            <span className="text-[10px] text-white/40 uppercase tracking-widest font-black">Photos</span>
+          <div className={`border rounded-3xl py-4 flex flex-col items-center gap-1 ${t.surface} ${t.border}`}>
+            <span className={`text-2xl font-black ${t.text}`}>{isLoading ? '—' : imageCount}</span>
+            <span className={`text-[10px] uppercase tracking-widest font-black ${t.textMuted}`}>Photos</span>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-3xl py-4 flex flex-col items-center gap-1 shadow-lg">
-            <span className="text-2xl font-black text-white">{isLoading ? '—' : videoCount}</span>
-            <span className="text-[10px] text-white/40 uppercase tracking-widest font-black">Vidéos</span>
+          <div className={`border rounded-3xl py-4 flex flex-col items-center gap-1 ${t.surface} ${t.border}`}>
+            <span className={`text-2xl font-black ${t.text}`}>{isLoading ? '—' : videoCount}</span>
+            <span className={`text-[10px] uppercase tracking-widest font-black ${t.textMuted}`}>Vidéos</span>
           </div>
         </div>
       </div>
@@ -602,24 +542,12 @@ export default function MemoriesScreen() {
         <div className="flex gap-2.5 overflow-x-auto scroll-hide pb-2">
           {(['all', 'IMAGE', 'VIDEO'] as FilterType[]).map((f) => {
             const labels: Record<FilterType, string> = { all: 'Tous les souvenirs', IMAGE: 'Photos', VIDEO: 'Vidéos' };
-            const icons: Record<FilterType, React.ReactNode> = {
-              all: <BookOpen size={14} />,
-              IMAGE: <Image size={14} />,
-              VIDEO: <Video size={14} />,
-            };
+            const icons: Record<FilterType, React.ReactNode> = { all: <BookOpen size={14} />, IMAGE: <Image size={14} />, VIDEO: <Video size={14} /> };
             const active = filter === f;
             return (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-black transition-all whitespace-nowrap ${
-                  active
-                    ? 'bg-snap-yellow text-black shadow-snap-sm scale-105'
-                    : 'bg-white/8 text-white/60 border border-white/10 hover:bg-white/15'
-                }`}
-              >
-                {icons[f]}
-                {labels[f]}
+              <button key={f} onClick={() => setFilter(f)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-black transition-all whitespace-nowrap ${active ? 'bg-snap-yellow text-black shadow-snap-sm scale-105' : `border ${t.surface} ${t.border} ${t.textMuted}`}`}>
+                {icons[f]}{labels[f]}
               </button>
             );
           })}
@@ -631,26 +559,18 @@ export default function MemoriesScreen() {
         {isLoading ? (
           <div className={layout === 'grid' ? 'grid grid-cols-3 gap-2' : 'flex flex-col gap-2'}>
             {[...Array(9)].map((_, i) =>
-              layout === 'grid' ? (
-                <Skeleton key={i} className="aspect-square rounded-xl" />
-              ) : (
-                <Skeleton key={i} className="h-20 rounded-2xl" />
-              )
+              layout === 'grid' ? <Skeleton key={i} className="aspect-square rounded-xl" /> : <Skeleton key={i} className="h-20 rounded-2xl" />
             )}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-              <BookOpen size={32} className="text-white/20" />
+            <div className={`w-20 h-20 rounded-full border flex items-center justify-center ${t.surface} ${t.border}`}>
+              <BookOpen size={32} className={t.textFaint} />
             </div>
             <div className="text-center">
-              <p className="text-white font-bold text-base">
-                {search || filter !== 'all' ? 'Aucun résultat' : 'Aucun souvenir'}
-              </p>
-              <p className="text-white/35 text-sm mt-1 max-w-[220px] leading-relaxed">
-                {search || filter !== 'all'
-                  ? 'Essaie un autre filtre ou terme de recherche.'
-                  : 'Sauvegarde tes snaps depuis la caméra pour les retrouver ici.'}
+              <p className={`font-bold text-base ${t.text}`}>{search || filter !== 'all' ? 'Aucun résultat' : 'Aucun souvenir'}</p>
+              <p className={`text-sm mt-1 max-w-[220px] leading-relaxed ${t.textMuted}`}>
+                {search || filter !== 'all' ? 'Essaie un autre filtre ou terme de recherche.' : 'Sauvegarde tes snaps depuis la caméra pour les retrouver ici.'}
               </p>
             </div>
           </div>
@@ -658,14 +578,10 @@ export default function MemoriesScreen() {
           <div className="space-y-6">
             {/* Flashback Banner */}
             {!search && filter === 'all' && flashbackMemory && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className={`relative h-56 rounded-[32px] overflow-hidden cursor-pointer group mb-6 active:scale-[0.98] transition-all border shadow-2xl ${selectionMode && selectedIds.has(flashbackMemory.id) ? 'border-snap-yellow ring-4 ring-snap-yellow/50 ring-offset-4 ring-offset-black scale-95' : 'border-white/10'}`}
-                onClick={() => {
-                   if (selectionMode) toggleSelection(flashbackMemory.id);
-                   else setLightboxIndex(filtered.indexOf(flashbackMemory));
-                }}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                className={`relative h-56 rounded-[32px] overflow-hidden cursor-pointer mb-6 active:scale-[0.98] transition-all border shadow-2xl ${selectionMode && selectedIds.has(flashbackMemory.id) ? `border-snap-yellow ring-4 ring-snap-yellow/50 ring-offset-4 ${t.isLight ? 'ring-offset-[#f0f2f8]' : 'ring-offset-black'} scale-95` : t.border}`}
+                onClick={() => { if (selectionMode) toggleSelection(flashbackMemory.id); else setLightboxIndex(filtered.indexOf(flashbackMemory)); }}
               >
                 {flashbackMemory.media_type === 'IMAGE' ? (
                   <img src={flashbackMemory.media_url} className="w-full h-full object-cover" alt="" />
@@ -673,22 +589,19 @@ export default function MemoriesScreen() {
                   <video src={flashbackMemory.media_url} className="w-full h-full object-cover" muted playsInline />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90 pointer-events-none" />
-                
                 <div className="absolute top-4 left-4 px-4 py-2 bg-black/40 backdrop-blur-xl rounded-full border border-white/20 shadow-lg">
                   <span className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-2">
                     <BookOpen size={14} className="text-snap-yellow" /> À la une
                   </span>
                 </div>
-                
                 <div className="absolute bottom-5 left-5 right-5">
                   <p className="text-white text-xl font-black drop-shadow-md truncate">{flashbackMemory.caption || 'Un souvenir inoubliable'}</p>
                   <p className="text-snap-yellow text-xs mt-1.5 uppercase tracking-widest font-black drop-shadow-md">{formatDate(flashbackMemory.created_at)}</p>
                 </div>
-
                 {selectionMode && (
                   <div className="absolute top-4 right-4 z-10">
                     <div className={`w-7 h-7 rounded-full border-[3px] flex items-center justify-center transition-colors shadow-2xl ${selectedIds.has(flashbackMemory.id) ? 'bg-snap-yellow border-snap-yellow text-black scale-110' : 'border-white/50 bg-black/40'}`}>
-                        {selectedIds.has(flashbackMemory.id) && <Check size={16} strokeWidth={3} />}
+                      {selectedIds.has(flashbackMemory.id) && <Check size={16} strokeWidth={3} />}
                     </div>
                   </div>
                 )}
@@ -697,52 +610,23 @@ export default function MemoriesScreen() {
 
             {groups.map((group) => (
               <div key={group.label}>
-                {/* Date header */}
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-white/40">
-                    {group.label}
-                  </span>
-                  <div className="flex-1 h-px bg-white/8" />
-                  <span className="text-[10px] text-white/25">{group.items.length}</span>
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${t.textMuted}`}>{group.label}</span>
+                  <div className={`flex-1 h-px ${t.isLight ? 'bg-black/8' : 'bg-white/8'}`} />
+                  <span className={`text-[10px] ${t.textFaint}`}>{group.items.length}</span>
                 </div>
-
-                {/* Items */}
                 {layout === 'grid' ? (
                   <div className="grid grid-cols-3 gap-1.5">
                     {group.items.map((memory) => {
                       const globalIdx = filtered.indexOf(memory);
-                      return (
-                        <MediaThumbnail
-                          key={memory.id}
-                          memory={memory}
-                          layout="grid"
-                          selectionMode={selectionMode}
-                          selected={selectedIds.has(memory.id)}
-                          onClick={() => {
-                            if (selectionMode) toggleSelection(memory.id);
-                            else setLightboxIndex(globalIdx);
-                          }}
-                        />
-                      );
+                      return <MediaThumbnail key={memory.id} memory={memory} layout="grid" selectionMode={selectionMode} selected={selectedIds.has(memory.id)} onClick={() => { if (selectionMode) toggleSelection(memory.id); else setLightboxIndex(globalIdx); }} />;
                     })}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {group.items.map((memory) => {
                       const globalIdx = filtered.indexOf(memory);
-                      return (
-                        <MediaThumbnail
-                          key={memory.id}
-                          memory={memory}
-                          layout="list"
-                          selectionMode={selectionMode}
-                          selected={selectedIds.has(memory.id)}
-                          onClick={() => {
-                            if (selectionMode) toggleSelection(memory.id);
-                            else setLightboxIndex(globalIdx);
-                          }}
-                        />
-                      );
+                      return <MediaThumbnail key={memory.id} memory={memory} layout="list" selectionMode={selectionMode} selected={selectedIds.has(memory.id)} onClick={() => { if (selectionMode) toggleSelection(memory.id); else setLightboxIndex(globalIdx); }} />;
                     })}
                   </div>
                 )}
@@ -755,21 +639,12 @@ export default function MemoriesScreen() {
       {/* ── Selection Bottom Bar ── */}
       <AnimatePresence>
         {selectionMode && (
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            className="absolute bottom-0 inset-x-0 p-5 bg-gradient-to-t from-black via-black/90 to-transparent flex justify-center z-40"
-          >
-            <div className="flex items-center gap-4 bg-zinc-900 border border-white/10 p-2 rounded-full shadow-2xl">
-              <span className="text-white text-xs font-bold px-3">
-                {selectedIds.size} sélectionné(s)
-              </span>
-              <button
-                onClick={handleBulkDelete}
-                disabled={selectedIds.size === 0 || isDeletingMany}
-                className="flex items-center gap-1.5 px-4 py-2 bg-red-500/20 text-red-400 font-bold text-sm rounded-full active:scale-95 transition-all disabled:opacity-50"
-              >
+          <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            className={`absolute bottom-0 inset-x-0 p-5 flex justify-center z-40 ${t.isLight ? 'bg-gradient-to-t from-[#f0f2f8] via-[#f0f2f8]/90 to-transparent' : 'bg-gradient-to-t from-black via-black/90 to-transparent'}`}>
+            <div className={`flex items-center gap-4 border p-2 rounded-full shadow-2xl ${t.isLight ? 'bg-white border-black/10' : 'bg-zinc-900 border-white/10'}`}>
+              <span className={`text-xs font-bold px-3 ${t.text}`}>{selectedIds.size} sélectionné(s)</span>
+              <button onClick={handleBulkDelete} disabled={selectedIds.size === 0 || isDeletingMany}
+                className="flex items-center gap-1.5 px-4 py-2 bg-red-500/20 text-red-400 font-bold text-sm rounded-full active:scale-95 transition-all disabled:opacity-50">
                 {isDeletingMany ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 Supprimer
               </button>
@@ -781,11 +656,7 @@ export default function MemoriesScreen() {
       {/* ── Lightbox ── */}
       <AnimatePresence>
         {lightboxIndex !== null && (
-          <Lightbox
-            memories={filtered}
-            initialIndex={lightboxIndex}
-            onClose={() => setLightboxIndex(null)}
-          />
+          <Lightbox memories={filtered} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} />
         )}
       </AnimatePresence>
     </motion.div>

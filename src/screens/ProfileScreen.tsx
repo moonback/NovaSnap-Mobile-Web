@@ -22,16 +22,20 @@ import {
   Trash2,
   Shield,
   Lock,
-  HardDrive
+  HardDrive,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
 import { useFriends } from '../hooks/useFriends';
 import { useMemories } from '../hooks/useMemories';
+import { useTheme } from '../hooks/useTheme';
 
 export default function ProfileScreen() {
-  const { user, setShowProfile, setShowFriends, setShowMemories } = useAppStore();
+  const { user, setShowProfile, setShowFriends, setShowMemories, theme, toggleTheme } = useAppStore();
+  const t = useTheme();
   const { toast } = useToast();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -256,20 +260,20 @@ export default function ProfileScreen() {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className="fixed inset-0 z-50 bg-black text-white flex flex-col overflow-y-auto scroll-hide"
+      className={`fixed inset-0 z-50 flex flex-col overflow-y-auto scroll-hide ${t.bg} ${t.text}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <button
           onClick={() => setShowProfile(false)}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+          className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}
         >
           <X size={18} />
         </button>
         <h1 className="text-lg font-black">Profil</h1>
         <button
           onClick={() => setShowSettings(true)}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors active:scale-95"
+          className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors active:scale-95 ${t.iconBtn}`}
         >
           <Settings size={17} />
         </button>
@@ -285,20 +289,22 @@ export default function ProfileScreen() {
             accept="image/*"
             onChange={handleAvatarUpload}
           />
-          <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-snap-yellow ring-offset-4 ring-offset-black cursor-pointer">
+          <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-snap-yellow ring-offset-4 cursor-pointer"
+            style={{ '--tw-ring-offset-color': t.isLight ? '#f0f2f8' : '#000' } as React.CSSProperties}>
             {isUploading ? (
-              <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+              <div className={`w-full h-full flex items-center justify-center ${t.isLight ? 'bg-black/8' : 'bg-zinc-900'}`}>
                 <Loader2 size={28} className="animate-spin text-snap-yellow" />
               </div>
             ) : profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
-                <Ghost size={40} className="text-white/20" />
+              <div className={`w-full h-full flex items-center justify-center ${t.isLight ? 'bg-black/8' : 'bg-zinc-900'}`}>
+                <Ghost size={40} className={t.textFaint} />
               </div>
             )}
           </div>
-          <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-snap-yellow rounded-full flex items-center justify-center border-2 border-black shadow-snap-sm cursor-pointer hover:scale-110 transition-transform">
+          <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-snap-yellow rounded-full flex items-center justify-center border-2 shadow-snap-sm cursor-pointer hover:scale-110 transition-transform"
+            style={{ borderColor: t.isLight ? '#f0f2f8' : '#000' }}>
             <Camera size={15} className="text-black" />
           </div>
         </div>
@@ -307,59 +313,60 @@ export default function ProfileScreen() {
         <div className="text-center mb-3">
           {isLoading ? (
             <>
-              <div className="h-7 w-36 bg-white/10 rounded-lg animate-pulse mx-auto mb-2" />
-              <div className="h-4 w-24 bg-white/5 rounded-lg animate-pulse mx-auto" />
+              <div className={`h-7 w-36 rounded-lg animate-pulse mx-auto mb-2 ${t.skeleton}`} />
+              <div className={`h-4 w-24 rounded-lg animate-pulse mx-auto ${t.skeleton}`} />
             </>
           ) : (
             <>
               <h2 className="text-2xl font-black tracking-tight">
                 {profile?.display_name || 'Nova User'}
               </h2>
-              <p className="text-white/40 text-sm mt-1">@{profile?.username || 'user'}</p>
+              <p className={`text-sm mt-1 ${t.textMuted}`}>@{profile?.username || 'user'}</p>
             </>
           )}
         </div>
 
         {/* Bio */}
         {profile?.bio && (
-          <p className="text-white/50 text-sm text-center mb-5 max-w-xs leading-relaxed">
+          <p className={`text-sm text-center mb-5 max-w-xs leading-relaxed ${t.textSubtle}`}>
             {profile.bio}
           </p>
         )}
 
         {/* Stats */}
         <div className="w-full grid grid-cols-4 gap-2 mb-6">
-          <div className="bg-white/5 rounded-2xl py-4 flex flex-col items-center gap-1 border border-white/8">
+          <div className={`rounded-2xl py-4 flex flex-col items-center gap-1 border ${t.surface} ${t.border}`}>
             <span className="text-xl font-black text-snap-yellow">
               {isLoading ? '—' : formatScore(profile?.snap_score ?? null)}
             </span>
-            <span className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Score</span>
+            <span className={`text-[10px] uppercase tracking-wider font-bold ${t.textMuted}`}>Score</span>
           </div>
-          <div className="bg-white/5 rounded-2xl py-4 flex flex-col items-center gap-1 border border-white/8">
-            <span className="text-xl font-black text-white">
+          <div className={`rounded-2xl py-4 flex flex-col items-center gap-1 border ${t.surface} ${t.border}`}>
+            <span className={`text-xl font-black ${t.text}`}>
               {isLoading ? '—' : storiesCount}
             </span>
-            <span className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Stories</span>
+            <span className={`text-[10px] uppercase tracking-wider font-bold ${t.textMuted}`}>Stories</span>
           </div>
           <button
             onClick={() => { setShowProfile(false); setShowMemories(true); }}
-            className="bg-white/5 rounded-2xl py-4 flex flex-col items-center gap-1 border border-white/8 hover:bg-white/8 transition-colors active:scale-95"
+            className={`rounded-2xl py-4 flex flex-col items-center gap-1 border transition-colors active:scale-95 ${t.surface} ${t.border} ${t.surfaceHover}`}
           >
-            <span className="text-xl font-black text-white">
+            <span className={`text-xl font-black ${t.text}`}>
               {isLoading ? '—' : memoriesCount}
             </span>
-            <span className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Souvenirs</span>
+            <span className={`text-[10px] uppercase tracking-wider font-bold ${t.textMuted}`}>Souvenirs</span>
           </button>
           <button
             onClick={() => { setShowProfile(false); setShowFriends(true); }}
-            className="relative bg-white/5 rounded-2xl py-4 flex flex-col items-center gap-1 border border-white/8 hover:bg-white/8 transition-colors active:scale-95"
+            className={`relative rounded-2xl py-4 flex flex-col items-center gap-1 border transition-colors active:scale-95 ${t.surface} ${t.border} ${t.surfaceHover}`}
           >
-            <span className="text-xl font-black text-white">
+            <span className={`text-xl font-black ${t.text}`}>
               {isLoading ? '—' : friendCount}
             </span>
-            <span className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Amis</span>
+            <span className={`text-[10px] uppercase tracking-wider font-bold ${t.textMuted}`}>Amis</span>
             {pendingCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-black">
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center border-2"
+                style={{ borderColor: t.isLight ? '#f0f2f8' : '#000' }}>
                 {pendingCount > 9 ? '9+' : pendingCount}
               </span>
             )}
@@ -372,8 +379,8 @@ export default function ProfileScreen() {
             <Award size={20} className="text-snap-yellow" />
           </div>
           <div className="flex-1">
-            <p className="text-white font-bold text-sm">Nova Score</p>
-            <p className="text-white/40 text-xs">Continue à snapper pour augmenter ton score</p>
+            <p className={`font-bold text-sm ${t.text}`}>Nova Score</p>
+            <p className={`text-xs ${t.textMuted}`}>Continue à snapper pour augmenter ton score</p>
           </div>
           <span className="text-snap-yellow font-black text-lg">
             {formatScore(profile?.snap_score ?? null)}
@@ -390,10 +397,10 @@ export default function ProfileScreen() {
               transition={{ duration: 0.2 }}
               className="w-full overflow-hidden mb-4"
             >
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
-                <p className="text-white font-bold text-sm mb-1">Modifier le profil</p>
+              <div className={`border rounded-2xl p-4 space-y-3 ${t.surface} ${t.border}`}>
+                <p className={`font-bold text-sm mb-1 ${t.text}`}>Modifier le profil</p>
                 <div>
-                  <label className="text-white/40 text-xs font-bold uppercase tracking-wider block mb-1.5">
+                  <label className={`text-xs font-bold uppercase tracking-wider block mb-1.5 ${t.textMuted}`}>
                     Nom affiché
                   </label>
                   <input
@@ -402,11 +409,11 @@ export default function ProfileScreen() {
                     onChange={(e) => setEditDisplayName(e.target.value)}
                     placeholder="Ton nom..."
                     maxLength={50}
-                    className="w-full bg-white/8 border border-white/10 rounded-xl h-11 px-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 transition-all text-sm"
+                    className={`w-full border rounded-xl h-11 px-4 placeholder-black/30 focus:outline-none focus:border-snap-yellow/50 transition-all text-sm ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'}`}
                   />
                 </div>
                 <div>
-                  <label className="text-white/40 text-xs font-bold uppercase tracking-wider block mb-1.5">
+                  <label className={`text-xs font-bold uppercase tracking-wider block mb-1.5 ${t.textMuted}`}>
                     Bio
                   </label>
                   <textarea
@@ -415,14 +422,14 @@ export default function ProfileScreen() {
                     placeholder="Parle de toi en quelques mots..."
                     maxLength={140}
                     rows={3}
-                    className="w-full bg-white/8 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 transition-all text-sm resize-none"
+                    className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-snap-yellow/50 transition-all text-sm resize-none ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'}`}
                   />
-                  <p className="text-white/20 text-xs text-right mt-1">{editBio.length}/140</p>
+                  <p className={`text-xs text-right mt-1 ${t.textFaint}`}>{editBio.length}/140</p>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => setShowEditForm(false)}
-                    className="flex-1 py-2.5 bg-white/8 text-white/60 font-bold text-sm rounded-xl active:scale-95 transition-all"
+                    className={`flex-1 py-2.5 font-bold text-sm rounded-xl active:scale-95 transition-all ${t.surface} ${t.textMuted}`}
                   >
                     Annuler
                   </button>
@@ -446,19 +453,17 @@ export default function ProfileScreen() {
 
         {/* Actions */}
         <div className="w-full space-y-3 mt-auto">
-          {/* Memories button */}
           <button
             onClick={() => { setShowProfile(false); setShowMemories(true); }}
-            className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/12 transition-colors active:scale-98"
+            className={`w-full border rounded-2xl py-4 font-bold text-sm flex items-center justify-center gap-2 transition-colors active:scale-[0.98] ${t.surface} ${t.border} ${t.surfaceHover} ${t.text}`}
           >
             <BookOpen size={16} />
             Mes Souvenirs
           </button>
 
-          {/* Friends button */}
           <button
             onClick={() => { setShowProfile(false); setShowFriends(true); }}
-            className="relative w-full bg-white/8 border border-white/10 rounded-2xl py-4 font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/12 transition-colors active:scale-98"
+            className={`relative w-full border rounded-2xl py-4 font-bold text-sm flex items-center justify-center gap-2 transition-colors active:scale-[0.98] ${t.surface} ${t.border} ${t.surfaceHover} ${t.text}`}
           >
             <Users size={16} />
             Mes amis
@@ -471,7 +476,7 @@ export default function ProfileScreen() {
 
           <button
             onClick={handleOpenEdit}
-            className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/12 transition-colors active:scale-98"
+            className={`w-full border rounded-2xl py-4 font-bold text-sm flex items-center justify-center gap-2 transition-colors active:scale-[0.98] ${t.surface} ${t.border} ${t.surfaceHover} ${t.text}`}
           >
             <Edit2 size={16} />
             Modifier le profil
@@ -479,7 +484,7 @@ export default function ProfileScreen() {
 
           <button
             onClick={handleLogout}
-            className="w-full bg-red-500/8 border border-red-500/15 rounded-2xl py-4 font-bold text-sm text-red-400 flex items-center justify-center gap-2 hover:bg-red-500/12 transition-colors active:scale-98"
+            className="w-full bg-red-500/8 border border-red-500/15 rounded-2xl py-4 font-bold text-sm text-red-400 flex items-center justify-center gap-2 hover:bg-red-500/12 transition-colors active:scale-[0.98]"
           >
             <LogOut size={16} />
             Se déconnecter
@@ -495,14 +500,11 @@ export default function ProfileScreen() {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 240 }}
-            className="absolute inset-0 z-50 bg-[#0d0d0f] text-white flex flex-col overflow-y-auto scroll-hide pb-12"
+            className={`absolute inset-0 z-50 flex flex-col overflow-y-auto scroll-hide pb-12 ${t.settings} ${t.text}`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-14 pb-4 border-b border-white/5 bg-[#0d0d0f]/90 backdrop-blur-md sticky top-0 z-10">
-              <button
-                onClick={() => setShowSettings(false)}
-                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
-              >
+            <div className={`flex items-center justify-between px-5 pt-14 pb-4 border-b sticky top-0 z-10 backdrop-blur-md ${t.settings} ${t.borderMuted}`}>
+              <button onClick={() => setShowSettings(false)} className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}>
                 <ChevronLeft size={20} />
               </button>
               <h2 className="text-lg font-black tracking-tight">Réglages</h2>
@@ -512,83 +514,45 @@ export default function ProfileScreen() {
             <div className="px-5 space-y-6 mt-4">
               {/* Group 1: Account */}
               <div>
-                <p className="text-white/40 text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2">Mon Compte</p>
-                <div className="bg-white/5 border border-white/8 rounded-2xl overflow-hidden divide-y divide-white/5">
+                <p className={`text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2 ${t.textMuted}`}>Mon Compte</p>
+                <div className={`border rounded-2xl overflow-hidden ${t.surface} ${t.border} divide-y ${t.divider}`}>
                   <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                      <User size={18} className="text-snap-yellow" />
-                      <span className="text-sm font-bold">Nom d'utilisateur</span>
-                    </div>
-                    <span className="text-sm text-white/40">@{profile?.username || user?.user_metadata?.username || 'user'}</span>
+                    <div className="flex items-center gap-3"><User size={18} className="text-snap-yellow" /><span className="text-sm font-bold">Nom d'utilisateur</span></div>
+                    <span className={`text-sm ${t.textMuted}`}>@{profile?.username || user?.user_metadata?.username || 'user'}</span>
                   </div>
                   <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                      <Mail size={18} className="text-snap-yellow" />
-                      <span className="text-sm font-bold">Adresse e-mail</span>
-                    </div>
-                    <span className="text-sm text-white/40 max-w-[180px] truncate">{user?.email || 'non renseigné'}</span>
+                    <div className="flex items-center gap-3"><Mail size={18} className="text-snap-yellow" /><span className="text-sm font-bold">Adresse e-mail</span></div>
+                    <span className={`text-sm max-w-[180px] truncate ${t.textMuted}`}>{user?.email || 'non renseigné'}</span>
                   </div>
                   <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                      <Calendar size={18} className="text-snap-yellow" />
-                      <span className="text-sm font-bold">Créé le</span>
-                    </div>
-                    <span className="text-sm text-white/40">
-                      {user?.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      }) : '—'}
-                    </span>
+                    <div className="flex items-center gap-3"><Calendar size={18} className="text-snap-yellow" /><span className="text-sm font-bold">Créé le</span></div>
+                    <span className={`text-sm ${t.textMuted}`}>{user?.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</span>
                   </div>
                 </div>
               </div>
 
               {/* Group 2: Privacy */}
               <div>
-                <p className="text-white/40 text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2">Confidentialité</p>
-                <div className="bg-white/5 border border-white/8 rounded-2xl overflow-hidden divide-y divide-white/5">
-                  {/* Ghost Mode */}
+                <p className={`text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2 ${t.textMuted}`}>Confidentialité</p>
+                <div className={`border rounded-2xl overflow-hidden ${t.surface} ${t.border} divide-y ${t.divider}`}>
                   <div className="flex items-center justify-between p-4">
                     <div className="flex-1 pr-4">
-                      <div className="flex items-center gap-3">
-                        <Ghost size={18} className="text-purple-400" />
-                        <span className="text-sm font-bold">Mode Fantôme</span>
-                      </div>
-                      <p className="text-white/40 text-[11px] mt-0.5">Masque ta position sur la carte</p>
+                      <div className="flex items-center gap-3"><Ghost size={18} className="text-purple-400" /><span className="text-sm font-bold">Mode Fantôme</span></div>
+                      <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>Masque ta position sur la carte</p>
                     </div>
-                    <button
-                      onClick={toggleGhostMode}
-                      className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${
-                        ghostMode ? 'bg-purple-500' : 'bg-white/10'
-                      }`}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full bg-white shadow-md transform duration-200 ${
-                          ghostMode ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
+                    <button onClick={toggleGhostMode} className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${ghostMode ? 'bg-purple-500' : t.isLight ? 'bg-black/15' : 'bg-white/10'}`}>
+                      <div className={`w-5 h-5 rounded-full bg-white shadow-md transform duration-200 ${ghostMode ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
-
-                  {/* Story privacy selector */}
                   <div className="p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <Eye size={18} className="text-purple-400" />
-                      <span className="text-sm font-bold">Qui peut voir ma Story</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1 bg-black/40 border border-white/5 rounded-xl p-1">
+                    <div className="flex items-center gap-3"><Eye size={18} className="text-purple-400" /><span className="text-sm font-bold">Qui peut voir ma Story</span></div>
+                    <div className={`grid grid-cols-3 gap-1 rounded-xl p-1 border ${t.isLight ? 'bg-black/8 border-black/8' : 'bg-black/40 border-white/5'}`}>
                       {(['everyone', 'friends', 'private'] as const).map((opt) => {
                         const active = storyPrivacy === opt;
                         const label = opt === 'everyone' ? 'Public' : opt === 'friends' ? 'Amis' : 'Privé';
                         return (
-                          <button
-                            key={opt}
-                            onClick={() => updateStoryPrivacy(opt)}
-                            className={`py-1.5 rounded-lg text-xs font-bold transition-all col-span-1 ${
-                              active ? 'bg-purple-500 text-white shadow' : 'text-white/50 hover:text-white/80'
-                            }`}
-                          >
+                          <button key={opt} onClick={() => updateStoryPrivacy(opt)}
+                            className={`py-1.5 rounded-lg text-xs font-bold transition-all ${active ? 'bg-purple-500 text-white shadow' : t.textMuted}`}>
                             {label}
                           </button>
                         );
@@ -600,72 +564,49 @@ export default function ProfileScreen() {
 
               {/* Group 3: Preferences */}
               <div>
-                <p className="text-white/40 text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2">Préférences</p>
-                <div className="bg-white/5 border border-white/8 rounded-2xl overflow-hidden divide-y divide-white/5">
-                  {/* Notifications */}
+                <p className={`text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2 ${t.textMuted}`}>Préférences</p>
+                <div className={`border rounded-2xl overflow-hidden ${t.surface} ${t.border} divide-y ${t.divider}`}>
                   <div className="flex items-center justify-between p-4">
                     <div className="flex-1 pr-4">
                       <div className="flex items-center gap-3">
-                        <Bell size={18} className="text-cyan-400" />
-                        <span className="text-sm font-bold">Notifications</span>
+                        {theme === 'light' ? <Sun size={18} className="text-snap-yellow" /> : <Moon size={18} className="text-snap-yellow" />}
+                        <span className="text-sm font-bold">Thème</span>
                       </div>
-                      <p className="text-white/40 text-[11px] mt-0.5">Alertes de nouveaux messages</p>
+                      <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>{theme === 'light' ? 'Mode clair activé' : 'Mode sombre activé'}</p>
                     </div>
-                    <button
-                      onClick={toggleNotifications}
-                      className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${
-                        notificationsEnabled ? 'bg-cyan-500' : 'bg-white/10'
-                      }`}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full bg-white shadow-md transform duration-200 ${
-                          notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
+                    <button onClick={toggleTheme} className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${theme === 'light' ? 'bg-snap-yellow' : 'bg-white/10'}`}>
+                      <div className={`w-5 h-5 rounded-full shadow-md transform duration-200 flex items-center justify-center ${theme === 'light' ? 'translate-x-5 bg-black' : 'translate-x-0 bg-white'}`}>
+                        {theme === 'light' ? <Sun size={10} className="text-snap-yellow" /> : <Moon size={10} className="text-zinc-600" />}
+                      </div>
                     </button>
                   </div>
-
-                  {/* Auto save */}
                   <div className="flex items-center justify-between p-4">
                     <div className="flex-1 pr-4">
-                      <div className="flex items-center gap-3">
-                        <Camera size={18} className="text-cyan-400" />
-                        <span className="text-sm font-bold">Enregistrement auto</span>
-                      </div>
-                      <p className="text-white/40 text-[11px] mt-0.5">Sauvegarder les snaps créés dans la galerie</p>
+                      <div className="flex items-center gap-3"><Bell size={18} className="text-cyan-400" /><span className="text-sm font-bold">Notifications</span></div>
+                      <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>Alertes de nouveaux messages</p>
                     </div>
-                    <button
-                      onClick={toggleAutoSave}
-                      className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${
-                        autoSaveSnaps ? 'bg-cyan-500' : 'bg-white/10'
-                      }`}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full bg-white shadow-md transform duration-200 ${
-                          autoSaveSnaps ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
+                    <button onClick={toggleNotifications} className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${notificationsEnabled ? 'bg-cyan-500' : t.isLight ? 'bg-black/15' : 'bg-white/10'}`}>
+                      <div className={`w-5 h-5 rounded-full bg-white shadow-md transform duration-200 ${notificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
-
-                  {/* Media quality */}
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex-1 pr-4">
+                      <div className="flex items-center gap-3"><Camera size={18} className="text-cyan-400" /><span className="text-sm font-bold">Enregistrement auto</span></div>
+                      <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>Sauvegarder les snaps créés dans la galerie</p>
+                    </div>
+                    <button onClick={toggleAutoSave} className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${autoSaveSnaps ? 'bg-cyan-500' : t.isLight ? 'bg-black/15' : 'bg-white/10'}`}>
+                      <div className={`w-5 h-5 rounded-full bg-white shadow-md transform duration-200 ${autoSaveSnaps ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
                   <div className="p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <HardDrive size={18} className="text-cyan-400" />
-                      <span className="text-sm font-bold">Qualité d'envoi des Médias</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1 bg-black/40 border border-white/5 rounded-xl p-1">
+                    <div className="flex items-center gap-3"><HardDrive size={18} className="text-cyan-400" /><span className="text-sm font-bold">Qualité d'envoi des Médias</span></div>
+                    <div className={`grid grid-cols-3 gap-1 rounded-xl p-1 border ${t.isLight ? 'bg-black/8 border-black/8' : 'bg-black/40 border-white/5'}`}>
                       {(['eco', 'standard', 'high'] as const).map((opt) => {
                         const active = mediaQuality === opt;
                         const label = opt === 'eco' ? 'Éco' : opt === 'standard' ? 'Standard' : 'HD';
                         return (
-                          <button
-                            key={opt}
-                            onClick={() => updateMediaQuality(opt)}
-                            className={`py-1.5 rounded-lg text-xs font-bold transition-all col-span-1 ${
-                              active ? 'bg-cyan-500 text-white shadow' : 'text-white/50 hover:text-white/80'
-                            }`}
-                          >
+                          <button key={opt} onClick={() => updateMediaQuality(opt)}
+                            className={`py-1.5 rounded-lg text-xs font-bold transition-all ${active ? 'bg-cyan-500 text-white shadow' : t.textMuted}`}>
                             {label}
                           </button>
                         );
@@ -675,30 +616,21 @@ export default function ProfileScreen() {
                 </div>
               </div>
 
-              {/* Group 4: Storage & Security */}
+              {/* Group 4: System Actions */}
               <div>
-                <p className="text-white/40 text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2">Actions Système</p>
-                <div className="bg-white/5 border border-white/8 rounded-2xl overflow-hidden divide-y divide-white/5">
-                  {/* Clear Cache */}
-                  <button
-                    onClick={handleClearCache}
-                    className="w-full flex items-center justify-between p-4 hover:bg-white/5 active:bg-white/8 transition-colors text-left"
-                  >
+                <p className={`text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2 ${t.textMuted}`}>Actions Système</p>
+                <div className={`border rounded-2xl overflow-hidden ${t.surface} ${t.border} divide-y ${t.divider}`}>
+                  <button onClick={handleClearCache} className={`w-full flex items-center justify-between p-4 transition-colors text-left ${t.surfaceHover}`}>
                     <div className="flex items-center gap-3">
                       <Trash2 size={18} className="text-red-400" />
                       <div>
                         <span className="text-sm font-bold">Vider le cache</span>
-                        <p className="text-white/40 text-[11px] mt-0.5">Libère de l'espace de stockage</p>
+                        <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>Libère de l'espace de stockage</p>
                       </div>
                     </div>
-                    <span className="text-xs bg-white/10 px-2 py-1 rounded-md text-white/60 font-bold">14.2 Mo</span>
+                    <span className={`text-xs px-2 py-1 rounded-md font-bold ${t.surface} ${t.textMuted}`}>14.2 Mo</span>
                   </button>
-
-                  {/* Delete Account */}
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="w-full flex items-center justify-between p-4 hover:bg-red-500/5 active:bg-red-500/10 transition-colors text-left"
-                  >
+                  <button onClick={() => setShowDeleteConfirm(true)} className="w-full flex items-center justify-between p-4 hover:bg-red-500/5 transition-colors text-left">
                     <div className="flex items-center gap-3">
                       <Shield size={18} className="text-red-500" />
                       <div>
@@ -722,28 +654,22 @@ export default function ProfileScreen() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#121214] border border-red-500/20 rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-2xl text-center"
+              className={`border border-red-500/20 rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-2xl text-center ${t.isLight ? 'bg-white' : 'bg-[#121214]'} ${t.text}`}
             >
               <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto text-red-500">
                 <Shield size={24} />
               </div>
               <div className="space-y-2">
-                <h3 className="text-lg font-black text-white">Supprimer le compte ?</h3>
-                <p className="text-white/50 text-xs leading-relaxed">
+                <h3 className="text-lg font-black">Supprimer le compte ?</h3>
+                <p className={`text-xs leading-relaxed ${t.textSubtle}`}>
                   Cette action est définitive. Toutes tes conversations, photos, vidéos et ton score de snaps seront supprimés définitivement.
                 </p>
               </div>
               <div className="flex gap-2.5 pt-2">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-white font-bold text-sm active:scale-95 transition-all"
-                >
+                <button onClick={() => setShowDeleteConfirm(false)} className={`flex-1 py-3 rounded-xl font-bold text-sm active:scale-95 transition-all ${t.surface} ${t.text}`}>
                   Annuler
                 </button>
-                <button
-                  onClick={handleDeleteAccount}
-                  className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-bold text-sm active:scale-95 transition-all"
-                >
+                <button onClick={handleDeleteAccount} className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-bold text-sm active:scale-95 transition-all">
                   Supprimer
                 </button>
               </div>

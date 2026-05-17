@@ -117,6 +117,7 @@ export default function App() {
     viewingProfileUserId,
     showMemories,
     isEditingSnap,
+    theme,
   } = useAppStore();
   const controls = useAnimation();
   const [isInitializing, setIsInitializing] = useState(true);
@@ -290,7 +291,11 @@ export default function App() {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#07070a] flex items-center justify-center overflow-hidden font-sans">
+    <div
+      className="fixed inset-0 flex items-center justify-center overflow-hidden font-sans"
+      style={{ background: theme === 'light' ? '#e8eaf2' : '#07070a' }}
+      data-theme={theme}
+    >
       {/* NOUVEAU : Arrière-plan premium pour grand écran (effet de lumière néon jaune) */}
       {dimensions.isDesktop && (
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -321,11 +326,11 @@ export default function App() {
           width: dimensions.width,
           height: dimensions.height,
           borderRadius: dimensions.isDesktop ? '40px' : '0px',
-          border: dimensions.isDesktop ? '8px solid #1c1c24' : 'none',
+          border: dimensions.isDesktop ? `8px solid ${theme === 'light' ? '#c8cad8' : '#1c1c24'}` : 'none',
           boxShadow: dimensions.isDesktop
-            ? '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 252, 0, 0.05)'
+            ? `0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 252, 0, 0.05)`
             : 'none',
-          background: '#000',
+          background: theme === 'light' ? '#f0f2f8' : '#000',
         }}
       >
         {/* NOUVEAU: Dynamic Island factice sur Desktop pour accentuer le look premium */}
@@ -357,11 +362,11 @@ export default function App() {
           }}
         >
           {/* Map */}
-          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+          <div className="h-full flex-shrink-0" style={{ width: dimensions.width, background: theme === 'light' ? '#e8eaf2' : '#000' }}>
             {Math.abs(currentIndex - 0) <= 1 && <MapScreen />}
           </div>
           {/* Chat */}
-          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+          <div className="h-full flex-shrink-0" style={{ width: dimensions.width, background: theme === 'light' ? '#e8eaf2' : '#000' }}>
             <ChatScreen />
           </div>
           {/* Camera */}
@@ -371,7 +376,7 @@ export default function App() {
             )}
           </div>
           {/* Stories */}
-          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+          <div className="h-full flex-shrink-0" style={{ width: dimensions.width, background: theme === 'light' ? '#e8eaf2' : '#000' }}>
             {Math.abs(currentIndex - 3) <= 1 && <StoriesScreen />}
           </div>
         </motion.div>

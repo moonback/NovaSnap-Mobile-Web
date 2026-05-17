@@ -1,49 +1,24 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import {
-  X,
-  Search,
-  Ghost,
-  UserPlus,
-  Check,
-  Clock,
-  UserMinus,
-  MessageCircle,
-  Camera,
-  Users,
-} from 'lucide-react';
+import { X, Search, Ghost, UserPlus, Check, Clock, UserMinus, MessageCircle, Camera, Users } from 'lucide-react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { useFriends } from '../hooks/useFriends';
 import { useToast } from '../components/ui/ToastProvider';
+import { useTheme } from '../hooks/useTheme';
 import { AvatarOnlineBadge } from '../components/ui/OnlineIndicator';
 import type { AppUserProfile, FriendWithProfile } from '../lib/types';
 
 // ── Avatar component ─────────────────────────────────────────
-function Avatar({
-  url,
-  name,
-  size = 'md',
-}: {
-  url: string | null;
-  name: string | null;
-  size?: 'sm' | 'md' | 'lg';
-}) {
+function Avatar({ url, name, size = 'md' }: { url: string | null; name: string | null; size?: 'sm' | 'md' | 'lg' }) {
   const sizeClass = size === 'sm' ? 'w-10 h-10' : size === 'lg' ? 'w-16 h-16' : 'w-12 h-12';
   const textClass = size === 'sm' ? 'text-xs' : size === 'lg' ? 'text-lg' : 'text-sm';
   const initials = (name ?? '?').substring(0, 2).toUpperCase();
-
   return (
     <div className={`${sizeClass} rounded-full overflow-hidden shrink-0`}>
-      {url ? (
-        <img src={url} alt={name ?? ''} className="w-full h-full object-cover" />
-      ) : (
-        <div
-          className={`w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black ${textClass}`}
-        >
-          {initials}
-        </div>
+      {url ? <img src={url} alt={name ?? ''} className="w-full h-full object-cover" /> : (
+        <div className={`w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black ${textClass}`}>{initials}</div>
       )}
     </div>
   );
@@ -69,6 +44,7 @@ const FriendRow: React.FC<{
 }> = ({ friend, onSnap, onMessage, onRemove }) => {
   const [showActions, setShowActions] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const theme = useTheme();
 
   const handlePressStart = () => {
     longPressTimer.current = setTimeout(() => setShowActions(true), 500);
@@ -80,7 +56,7 @@ const FriendRow: React.FC<{
   return (
     <div className="relative overflow-hidden rounded-2xl mb-2">
       <div
-        className="flex items-center gap-3 px-3 py-3 bg-white/5 border border-white/8 rounded-2xl active:bg-white/8 transition-colors cursor-pointer select-none"
+        className={`flex items-center gap-3 px-3 py-3 ${theme.surface} border ${theme.border} rounded-2xl ${theme.surfaceHover} transition-colors cursor-pointer select-none`}
         onMouseDown={handlePressStart}
         onMouseUp={handlePressEnd}
         onMouseLeave={handlePressEnd}
@@ -93,10 +69,10 @@ const FriendRow: React.FC<{
           <AvatarOnlineBadge userId={friend.user.id} size="md" position="bottom-right" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-[15px] text-white truncate">
+          <p className={`font-bold text-[15px] ${theme.text} truncate`}>
             {friend.user.display_name || friend.user.username}
           </p>
-          <p className="text-xs text-white/40 truncate">@{friend.user.username}</p>
+          <p className={`text-xs ${theme.textMuted} truncate`}>@{friend.user.username}</p>
         </div>
         <SnapScoreBadge score={friend.user.snap_score} />
       </div>
@@ -108,7 +84,7 @@ const FriendRow: React.FC<{
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.18 }}
-            className="flex gap-2 px-3 pb-3 pt-1 bg-white/5 border-x border-b border-white/8 rounded-b-2xl -mt-2"
+            className={`flex gap-2 px-3 pb-3 pt-1 ${theme.surface} border-x border-b ${theme.border} rounded-b-2xl -mt-2`}
           >
             <button
               onClick={(e) => { e.stopPropagation(); onSnap(); setShowActions(false); }}
@@ -119,7 +95,7 @@ const FriendRow: React.FC<{
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onMessage(); setShowActions(false); }}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white/10 text-white font-bold text-xs rounded-full active:scale-95 transition-transform"
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 ${theme.iconBtn} font-bold text-xs rounded-full active:scale-95 transition-transform`}
             >
               <MessageCircle size={13} />
               Message
@@ -148,6 +124,8 @@ const SearchResultRow: React.FC<{
   onAdd: () => void;
   onAccept: () => void;
 }> = ({ user, friendshipStatus, onAdd, onAccept }) => {
+  const theme = useTheme();
+  
   const renderAction = () => {
     switch (friendshipStatus) {
       case 'none':
@@ -162,7 +140,7 @@ const SearchResultRow: React.FC<{
         );
       case 'pending_sent':
         return (
-          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white/50 font-bold text-xs rounded-full shrink-0">
+          <span className={`flex items-center gap-1.5 px-3 py-1.5 ${theme.surface} ${theme.textMuted} font-bold text-xs rounded-full shrink-0`}>
             <Clock size={12} />
             En attente
           </span>
@@ -194,13 +172,13 @@ const SearchResultRow: React.FC<{
   };
 
   return (
-    <div className="flex items-center gap-3 px-3 py-3 rounded-2xl hover:bg-white/5 transition-colors">
+    <div className={`flex items-center gap-3 px-3 py-3 rounded-2xl ${theme.surfaceHover} transition-colors`}>
       <Avatar url={user.avatar_url} name={user.display_name ?? user.username} size="md" />
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-[15px] text-white truncate">
+        <p className={`font-bold text-[15px] ${theme.text} truncate`}>
           {user.display_name || user.username}
         </p>
-        <p className="text-xs text-white/40 truncate">@{user.username}</p>
+        <p className={`text-xs ${theme.textMuted} truncate`}>@{user.username}</p>
       </div>
       {renderAction()}
     </div>
@@ -209,14 +187,15 @@ const SearchResultRow: React.FC<{
 
 // ── Skeleton loader ───────────────────────────────────────────
 function RowSkeleton() {
+  const theme = useTheme();
   return (
     <div className="flex items-center gap-3 px-3 py-3 animate-pulse">
-      <div className="w-12 h-12 rounded-full bg-white/10 shrink-0" />
+      <div className={`w-12 h-12 rounded-full ${theme.skeleton} shrink-0`} />
       <div className="flex-1 space-y-2">
-        <div className="h-4 w-1/3 bg-white/10 rounded-lg" />
-        <div className="h-3 w-1/4 bg-white/5 rounded-lg" />
+        <div className={`h-4 w-1/3 ${theme.skeleton} rounded-lg`} />
+        <div className={`h-3 w-1/4 ${theme.skeleton} rounded-lg`} />
       </div>
-      <div className="h-7 w-20 bg-white/10 rounded-full" />
+      <div className={`h-7 w-20 ${theme.skeleton} rounded-full`} />
     </div>
   );
 }
@@ -228,6 +207,7 @@ type Tab = 'friends' | 'requests' | 'add';
 export default function FriendsScreen() {
   const { setShowFriends, setCurrentView, setDirectChatId, user } = useAppStore();
   const { toast } = useToast();
+  const theme = useTheme();
   const {
     friends,
     pendingReceived,
@@ -379,13 +359,13 @@ export default function FriendsScreen() {
     <div className="flex-1 overflow-y-auto scroll-hide px-4 pb-8">
       {/* Search bar */}
       <div className="relative mb-4">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+        <Search size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${theme.textFaint} pointer-events-none`} />
         <input
           type="text"
           value={friendSearch}
           onChange={(e) => setFriendSearch(e.target.value)}
           placeholder="Rechercher un ami..."
-          className="w-full bg-white/8 border border-white/8 rounded-full h-10 pl-10 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition-all text-sm"
+          className={`w-full ${theme.input} border ${theme.border} rounded-full h-10 pl-10 pr-4 ${theme.text} placeholder-${theme.textFaint.split('-')[1]} focus:outline-none focus:border-${theme.border.split('-')[1]}/20 transition-all text-sm`}
         />
       </div>
 
@@ -397,12 +377,12 @@ export default function FriendsScreen() {
 
       {!isLoading && filteredFriends.length === 0 && (
         <div className="flex flex-col items-center justify-center pt-16 gap-4">
-          <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
-            <Ghost size={36} className="text-white/20" />
+          <div className={`w-20 h-20 rounded-full ${theme.surface} flex items-center justify-center`}>
+            <Ghost size={36} className={theme.textFaint} />
           </div>
           <div className="text-center">
-            <p className="text-white font-bold text-lg">Aucun ami pour l'instant</p>
-            <p className="text-white/40 text-sm mt-1">Commence à ajouter des amis</p>
+            <p className={`${theme.text} font-bold text-lg`}>Aucun ami pour l'instant</p>
+            <p className={`${theme.textMuted} text-sm mt-1`}>Commence à ajouter des amis</p>
           </div>
           <button
             onClick={() => setActiveTab('add')}
@@ -415,7 +395,7 @@ export default function FriendsScreen() {
 
       {!isLoading && filteredFriends.length > 0 && (
         <div>
-          <p className="text-white/30 text-xs font-bold uppercase tracking-wider mb-3">
+          <p className={`${theme.textFaint} text-xs font-bold uppercase tracking-wider mb-3`}>
             {filteredFriends.length} ami{filteredFriends.length > 1 ? 's' : ''}
           </p>
           {filteredFriends.map((friend) => (
@@ -442,12 +422,12 @@ export default function FriendsScreen() {
 
       {!isLoading && pendingReceived.length === 0 && pendingSent.length === 0 && (
         <div className="flex flex-col items-center justify-center pt-16 gap-4">
-          <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
-            <Users size={36} className="text-white/20" />
+          <div className={`w-20 h-20 rounded-full ${theme.surface} flex items-center justify-center`}>
+            <Users size={36} className={theme.textFaint} />
           </div>
           <div className="text-center">
-            <p className="text-white font-bold text-lg">Aucune demande</p>
-            <p className="text-white/40 text-sm mt-1">Les demandes d'amis apparaîtront ici</p>
+            <p className={`${theme.text} font-bold text-lg`}>Aucune demande</p>
+            <p className={`${theme.textMuted} text-sm mt-1`}>Les demandes d'amis apparaîtront ici</p>
           </div>
         </div>
       )}
@@ -455,20 +435,20 @@ export default function FriendsScreen() {
       {/* Received requests */}
       {!isLoading && pendingReceived.length > 0 && (
         <div className="mb-6">
-          <p className="text-white/30 text-xs font-bold uppercase tracking-wider mb-3">
+          <p className={`${theme.textFaint} text-xs font-bold uppercase tracking-wider mb-3`}>
             Reçues · {pendingReceived.length}
           </p>
           {pendingReceived.map((req) => (
             <div
               key={req.friendship_id}
-              className="flex items-center gap-3 px-3 py-3 bg-white/5 border border-white/8 rounded-2xl mb-2"
+              className={`flex items-center gap-3 px-3 py-3 ${theme.surface} border ${theme.border} rounded-2xl mb-2`}
             >
               <Avatar url={req.user.avatar_url} name={req.user.display_name ?? req.user.username} size="md" />
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-[15px] text-white truncate">
+                <p className={`font-bold text-[15px] ${theme.text} truncate`}>
                   {req.user.display_name || req.user.username}
                 </p>
-                <p className="text-xs text-white/40 truncate">@{req.user.username}</p>
+                <p className={`text-xs ${theme.textMuted} truncate`}>@{req.user.username}</p>
               </div>
               <div className="flex gap-2 shrink-0">
                 <button
@@ -480,7 +460,7 @@ export default function FriendsScreen() {
                 </button>
                 <button
                   onClick={() => handleDecline(req.friendship_id)}
-                  className="px-3 py-1.5 bg-white/10 text-white/60 font-bold text-xs rounded-full active:scale-95 transition-transform"
+                  className={`px-3 py-1.5 ${theme.surface} ${theme.textSubtle} font-bold text-xs rounded-full active:scale-95 transition-transform`}
                 >
                   Refuser
                 </button>
@@ -493,23 +473,23 @@ export default function FriendsScreen() {
       {/* Sent requests */}
       {!isLoading && pendingSent.length > 0 && (
         <div>
-          <p className="text-white/30 text-xs font-bold uppercase tracking-wider mb-3">
+          <p className={`${theme.textFaint} text-xs font-bold uppercase tracking-wider mb-3`}>
             Envoyées · {pendingSent.length}
           </p>
           {pendingSent.map((req) => (
             <div
               key={req.friendship_id}
-              className="flex items-center gap-3 px-3 py-3 bg-white/5 border border-white/8 rounded-2xl mb-2"
+              className={`flex items-center gap-3 px-3 py-3 ${theme.surface} border ${theme.border} rounded-2xl mb-2`}
             >
               <Avatar url={req.user.avatar_url} name={req.user.display_name ?? req.user.username} size="md" />
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-[15px] text-white truncate">
+                <p className={`font-bold text-[15px] ${theme.text} truncate`}>
                   {req.user.display_name || req.user.username}
                 </p>
-                <p className="text-xs text-white/40 truncate">@{req.user.username}</p>
+                <p className={`text-xs ${theme.textMuted} truncate`}>@{req.user.username}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="flex items-center gap-1 px-3 py-1.5 bg-white/8 text-white/40 font-bold text-xs rounded-full">
+                <span className={`flex items-center gap-1 px-3 py-1.5 ${theme.surface} ${theme.textMuted} font-bold text-xs rounded-full`}>
                   <Clock size={11} />
                   En attente...
                 </span>
@@ -532,14 +512,14 @@ export default function FriendsScreen() {
       {/* Search input */}
       <div className="px-4 pb-3">
         <div className="relative">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+          <Search size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${theme.textFaint} pointer-events-none`} />
           <input
             type="text"
             value={userSearch}
             onChange={(e) => setUserSearch(e.target.value)}
             placeholder="Rechercher par nom ou @username..."
             autoFocus
-            className="w-full bg-white/8 border border-white/8 rounded-full h-10 pl-10 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/40 transition-all text-sm"
+            className={`w-full ${theme.input} border ${theme.border} rounded-full h-10 pl-10 pr-4 ${theme.text} placeholder-${theme.textFaint.split('-')[1]} focus:outline-none focus:border-snap-yellow/40 transition-all text-sm`}
           />
         </div>
       </div>
@@ -552,7 +532,7 @@ export default function FriendsScreen() {
         )}
 
         {!isSearchLoading && filteredSearchUsers.length === 0 && (
-          <div className="text-center pt-12 text-white/30 text-sm">
+          <div className={`text-center pt-12 ${theme.textFaint} text-sm`}>
             {userSearch ? 'Aucun utilisateur trouvé' : 'Commence à taper pour rechercher'}
           </div>
         )}
@@ -581,20 +561,20 @@ export default function FriendsScreen() {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className="fixed inset-0 z-50 bg-black text-white flex flex-col overflow-hidden"
+      className={`fixed inset-0 z-50 ${theme.bg} ${theme.text} flex flex-col overflow-hidden`}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-14 pb-4 shrink-0">
         <button
           onClick={() => setShowFriends(false)}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+          className={`w-9 h-9 rounded-full ${theme.iconBtn} transition-colors`}
         >
           <X size={18} />
         </button>
         <h1 className="text-lg font-black">Amis</h1>
         <button
           onClick={() => setActiveTab('add')}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+          className={`w-9 h-9 rounded-full ${theme.iconBtn} transition-colors`}
         >
           <Search size={17} />
         </button>
@@ -615,12 +595,12 @@ export default function FriendsScreen() {
             className={`flex-1 relative py-2.5 rounded-full text-sm font-bold transition-all ${
               activeTab === key
                 ? 'bg-snap-yellow text-black shadow-snap-sm'
-                : 'bg-white/8 text-white/60 hover:bg-white/12'
+                : `${theme.surface} ${theme.textSubtle} ${theme.surfaceHover}`
             }`}
           >
             {label}
             {badge != null && badge > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-black">
+              <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-${theme.bg.split('-')[1]}`}>
                 {badge > 9 ? '9+' : badge}
               </span>
             )}

@@ -19,6 +19,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useFriends } from '../hooks/useFriends';
 import { useToast } from '../components/ui/ToastProvider';
 import { OnlineIndicator, AvatarOnlineBadge } from '../components/ui/OnlineIndicator';
+import { useTheme } from '../hooks/useTheme';
 
 // ── Types ─────────────────────────────────────────────────────
 type PublicProfile = {
@@ -39,13 +40,14 @@ type StoryThumb = {
 
 // ── Story thumbnail ───────────────────────────────────────────
 const StoryThumbnail: React.FC<{ story: StoryThumb }> = ({ story }) => {
+  const t = useTheme();
   return (
     <div className="w-16 h-24 rounded-xl overflow-hidden shrink-0 border border-snap-yellow/30">
       {story.media_type === 'IMAGE' ? (
         <img src={story.media_url} alt="Story" className="w-full h-full object-cover" />
       ) : (
-        <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
-          <Camera size={20} className="text-white/40" />
+        <div className={`w-full h-full flex items-center justify-center ${t.isLight ? 'bg-zinc-200' : 'bg-zinc-900'}`}>
+          <Camera size={20} className={t.textFaint} />
         </div>
       )}
     </div>
@@ -61,6 +63,7 @@ export default function UserProfileScreen() {
     setDirectChatId,
     user: currentUser,
   } = useAppStore();
+  const t = useTheme();
   const { toast } = useToast();
   const {
     friends,
@@ -221,7 +224,7 @@ export default function UserProfileScreen() {
         return (
           <button
             onClick={handleCancelOrRemove}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white/10 text-white/60 font-bold text-sm rounded-full active:scale-95 transition-all"
+            className={`flex items-center gap-2 px-5 py-2.5 ${t.surface} ${t.textMuted} font-bold text-sm rounded-full active:scale-95 transition-all`}
           >
             <Clock size={15} />
             En attente
@@ -304,14 +307,14 @@ export default function UserProfileScreen() {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className="fixed inset-0 z-50 bg-black text-white flex flex-col overflow-y-auto scroll-hide"
+      className={`fixed inset-0 z-50 flex flex-col overflow-y-auto scroll-hide ${t.bg} ${t.text}`}
       onClick={() => setShowRemoveConfirm(false)}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-14 pb-4 shrink-0">
         <button
           onClick={() => setViewingProfileUserId(null)}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+          className={`w-9 h-9 rounded-full ${t.surface} flex items-center justify-center ${t.surfaceHover} transition-colors`}
         >
           <X size={18} />
         </button>
@@ -323,14 +326,14 @@ export default function UserProfileScreen() {
         {/* Avatar */}
         <div className="mt-4 mb-5 relative">
           {profileLoading ? (
-            <div className="w-28 h-28 rounded-full bg-white/10 animate-pulse ring-4 ring-snap-yellow ring-offset-4 ring-offset-black" />
+            <div className={`w-28 h-28 rounded-full ${t.surface} animate-pulse ring-4 ring-snap-yellow ring-offset-4 ${t.ringOffset}`} />
           ) : (
-            <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-snap-yellow ring-offset-4 ring-offset-black relative">
+            <div className={`w-28 h-28 rounded-full overflow-hidden ring-4 ring-snap-yellow ring-offset-4 ${t.ringOffset} relative`}>
               {profile?.avatar_url ? (
                 <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
-                  <Ghost size={40} className="text-white/20" />
+                <div className={`w-full h-full flex items-center justify-center ${t.isLight ? 'bg-zinc-200' : 'bg-zinc-900'}`}>
+                  <Ghost size={40} className={t.textFaint} />
                 </div>
               )}
               {/* Badge de statut en ligne sur l'avatar */}
@@ -343,15 +346,15 @@ export default function UserProfileScreen() {
         <div className="text-center mb-4">
           {profileLoading ? (
             <>
-              <div className="h-7 w-40 bg-white/10 rounded-lg animate-pulse mx-auto mb-2" />
-              <div className="h-4 w-28 bg-white/5 rounded-lg animate-pulse mx-auto" />
+              <div className={`h-7 w-40 rounded-lg animate-pulse mx-auto mb-2 ${t.surface}`} />
+              <div className={`h-4 w-28 rounded-lg animate-pulse mx-auto ${t.input}`} />
             </>
           ) : (
             <>
               <h2 className="text-2xl font-black tracking-tight">
                 {profile?.display_name || 'Nova User'}
               </h2>
-              <p className="text-white/40 text-sm mt-1">@{profile?.username || 'user'}</p>
+              <p className={`text-sm mt-1 ${t.textMuted}`}>@{profile?.username || 'user'}</p>
               {/* Statut en ligne avec texte */}
               {targetId && (
                 <div className="mt-2 flex justify-center">
@@ -364,28 +367,28 @@ export default function UserProfileScreen() {
 
         {/* Bio */}
         {profile?.bio && (
-          <p className="text-white/60 text-sm text-center mb-5 max-w-xs leading-relaxed">
+          <p className={`text-sm text-center mb-5 max-w-xs leading-relaxed ${t.textMuted}`}>
             {profile.bio}
           </p>
         )}
 
         {/* Stats */}
         <div className="w-full grid grid-cols-2 gap-3 mb-6">
-          <div className="bg-white/5 rounded-2xl py-4 flex flex-col items-center gap-1 border border-white/8">
+          <div className={`${t.surface} rounded-2xl py-4 flex flex-col items-center gap-1 border ${t.borderMuted}`}>
             <div className="flex items-center gap-1.5">
               <Award size={14} className="text-snap-yellow" />
               <span className="text-xl font-black text-snap-yellow">
                 {formatScore(profile?.snap_score ?? null)}
               </span>
             </div>
-            <span className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Score</span>
+            <span className={`text-[10px] uppercase tracking-wider font-bold ${t.textFaint}`}>Score</span>
           </div>
-          <div className="bg-white/5 rounded-2xl py-4 flex flex-col items-center gap-1 border border-white/8">
+          <div className={`${t.surface} rounded-2xl py-4 flex flex-col items-center gap-1 border ${t.borderMuted}`}>
             <div className="flex items-center gap-1.5">
-              <Users size={14} className="text-white/60" />
-              <span className="text-xl font-black text-white">{friendCount}</span>
+              <Users size={14} className={t.textMuted} />
+              <span className={`text-xl font-black ${t.text}`}>{friendCount}</span>
             </div>
-            <span className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Amis</span>
+            <span className={`text-[10px] uppercase tracking-wider font-bold ${t.textFaint}`}>Amis</span>
           </div>
         </div>
 
@@ -408,7 +411,7 @@ export default function UserProfileScreen() {
             </button>
             <button
               onClick={handleMessage}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white/8 border border-white/10 text-white font-bold text-sm rounded-2xl active:scale-95 transition-all"
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 ${t.input} border ${t.border} ${t.text} font-bold text-sm rounded-2xl active:scale-95 transition-all`}
             >
               <MessageCircle size={16} />
               Message
@@ -419,7 +422,7 @@ export default function UserProfileScreen() {
         {/* Stories section */}
         {stories.length > 0 && (
           <div className="w-full">
-            <p className="text-white/30 text-xs font-bold uppercase tracking-wider mb-3">
+            <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${t.textFaint}`}>
               Stories · {stories.length}
             </p>
             <div className="flex gap-3 overflow-x-auto scroll-hide pb-2">
