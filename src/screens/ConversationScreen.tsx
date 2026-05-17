@@ -48,6 +48,7 @@ export default function ConversationScreen({
   avatarUrl?: string;
 }) {
   const { user, setCurrentView, setDirectChatId } = useAppStore();
+  const theme = useTheme();
   const [newMessage, setNewMessage] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
