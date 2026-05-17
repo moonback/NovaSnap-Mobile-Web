@@ -1,13 +1,15 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, User, Timer, Smile } from 'lucide-react';
+import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, Timer, Smile, UserPlus, Ghost } from 'lucide-react';
 import { useConversations } from '../../hooks/useConversations';
-import { supabase } from '../../lib/supabase';
+import { useFriends } from '../../hooks/useFriends';
+import { supabase, getValidMediaUrl } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../ui/ToastProvider';
 
 export default function CameraView({ isActive = true }: { isActive?: boolean }) {
-  const { user, directChatId, setDirectChatId, setShowProfile } = useAppStore();
+  const { user, directChatId, setDirectChatId, setShowProfile, setShowFriends } = useAppStore();
   const { toast } = useToast();
+  const { pendingCount } = useFriends();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -26,6 +28,23 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const [showSendTo, setShowSendTo] = useState(false);
   const { data: conversations, isLoading: convLoading } = useConversations();
   const [isSending, setIsSending] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // Fetch avatar de l'utilisateur connecté
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('users')
+      .select('avatar_url')
+      .eq('id', user.id)
+      .single()
+      .then(async ({ data }) => {
+        if (data?.avatar_url) {
+          const url = await getValidMediaUrl('avatars', data.avatar_url);
+          setAvatarUrl(url);
+        }
+      });
+  }, [user?.id]);
 
   const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
   const MAX_VIDEO_BYTES = 35 * 1024 * 1024;
@@ -342,22 +361,75 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
             {/* Gradient overlays */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/50 pointer-events-none" />
 
-            {/* Top controls */}
-            <div className="absolute top-5 inset-x-5 flex justify-between items-start z-10">
-              <button
-                onClick={() => setShowProfile(true)}
-                className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white"
-              >
-                <User size={20} />
-              </button>
+            {/* ── Topbar ── */}
+            <div className="absolute top-0 inset-x-0 z-10 px-4 pt-5 pb-3">
+              <div className="flex items-center justify-between">
 
-              <div className="flex flex-col gap-3">
-                <button onClick={() => setFacingMode((p) => p === 'user' ? 'environment' : 'user')} className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white">
-                  <RefreshCw size={20} />
+                {/* Gauche : avatar utilisateur */}
+                <button
+                  onClick={() => setShowProfile(true)}
+                  className="relative w-11 h-11 rounded-full overflow-hidden ring-2 ring-white/20 active:scale-90 transition-transform shrink-0"
+                >
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Mon profil" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
+                      <Ghost size={18} className="text-white/50" />
+                    </div>
+                  )}
                 </button>
-                <button onClick={() => setFlashMode(!flashMode)} className="w-11 h-11 glass-dark rounded-full flex items-center justify-center">
-                  {flashMode ? <Zap size={20} className="text-snap-yellow" /> : <ZapOff size={20} className="text-white" />}
-                </button>
+
+                {/* Centre : logo NovaSnap */}
+                <div className="flex flex-col items-center gap-0.5 select-none">
+                  <div className="w-8 h-8 rounded-[10px] bg-snap-yellow flex items-center justify-center shadow-snap">
+                    <svg viewBox="0 0 100 100" className="w-5 h-5" fill="none">
+                      <path
+                        d="M50 10C28 10 10 28 10 50c0 8 2.5 15.5 6.8 21.6L10 90l18.4-6.8C34.5 87.5 42 90 50 90c22 0 40-18 40-40S72 10 50 10z"
+                        fill="black"
+                      />
+                      <circle cx="35" cy="50" r="5" fill="white" />
+                      <circle cx="50" cy="50" r="5" fill="white" />
+                      <circle cx="65" cy="50" r="5" fill="white" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Droite : actions groupées */}
+                <div className="flex items-center gap-2">
+                  {/* Recherche d'amis */}
+                  <button
+                    onClick={() => setShowFriends(true)}
+                    className="relative w-11 h-11 glass-dark rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                  >
+                    <UserPlus size={18} className="text-white" />
+                    {pendingCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center border border-black">
+                        {pendingCount > 9 ? '9+' : pendingCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Retournement caméra */}
+                  <button
+                    onClick={() => setFacingMode((p) => p === 'user' ? 'environment' : 'user')}
+                    className="w-11 h-11 glass-dark rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                  >
+                    <RefreshCw size={18} className="text-white" />
+                  </button>
+
+                  {/* Flash */}
+                  <button
+                    onClick={() => setFlashMode(!flashMode)}
+                    className={`w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-all ${
+                      flashMode ? 'bg-snap-yellow shadow-snap' : 'glass-dark'
+                    }`}
+                  >
+                    {flashMode
+                      ? <Zap size={18} className="text-black" />
+                      : <ZapOff size={18} className="text-white/70" />
+                    }
+                  </button>
+                </div>
               </div>
             </div>
 
