@@ -118,6 +118,20 @@ VITE_LIVEKIT_API_KEY="votre_livekit_key"
 LIVEKIT_API_SECRET="votre_livekit_secret"
 ```
 
+
+
+## 🔒 Migrations Sécurité Recommandées (Supabase)
+
+En complément du schéma initial, appliquez aussi les migrations versionnées suivantes dans l’éditeur SQL Supabase, dans l’ordre :
+
+1. `supabase_migration_v5.sql` — durcissement des policies Storage `INSERT` par préfixe utilisateur (`<uid>/...`).
+2. `supabase_migration_v6.sql` — ajout `messages.client_message_id` + index unique partiel pour idempotence d’envoi.
+3. `supabase_migration_v7.sql` — policies Storage `UPDATE/DELETE` owner-only par préfixe utilisateur.
+4. `supabase_migration_v8.sql` — fonction de purge TTL des snaps éphémères expirés.
+
+### Planification purge TTL (optionnelle)
+Si `pg_cron` est activé sur votre projet Supabase, planifiez `public.purge_expired_temporary_snaps()` toutes les 5 minutes (snippet inclus dans `supabase_migration_v8.sql`).
+
 ## 🤝 Bonnes Pratiques pour Contribuer
 
 1. **Architecture Feat-First :** Si une fonctionnalité devient complexe, isolez-la dans un dossier spécifique (`features/Chat`, `features/Camera`).

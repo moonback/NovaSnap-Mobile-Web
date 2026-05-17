@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useConversations } from '../hooks/useConversations';
 import { Loader2, User, X } from 'lucide-react';
+import Skeleton from '../components/ui/Skeleton';
 import ConversationScreen from './ConversationScreen';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
+import type { AppUserProfile, ConversationRow } from '../lib/types';
 
 export default function ChatScreen() {
-  const { data: conversations, isLoading } = useConversations();
+  const { data: conversations, isLoading, realtimeStatus } = useConversations();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,7 +43,7 @@ export default function ChatScreen() {
 
 
 
-  const handleStartChat = async (targetUser: any) => {
+  const handleStartChat = async (targetUser: AppUserProfile) => {
     if (!user) return;
     setIsCreating(true);
     try {
@@ -101,25 +103,29 @@ export default function ChatScreen() {
       setActiveConversationId(newConv.id);
       setShowNewChatModal(false);
       
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      toast("Failed to start chat: " + e.message, "error");
+      const parsedError = e instanceof Error ? e : new Error('Failed to start chat');
+      toast('Failed to start chat: ' + parsedError.message, 'error');
     } finally {
       setIsCreating(false);
     }
   };
 
-  const otherUsers = allUsers?.filter(u => u.id !== user?.id) || [];
-  const filteredUsers = otherUsers.filter(u => 
+  const otherUsers = allUsers?.filter((u) => u.id !== user?.id) || [];
+  const filteredUsers = otherUsers.filter((u) => 
     u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (u.display_name && u.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  const activeConversation = useMemo(() => {
+    return conversations?.find((c: ConversationRow) => c.conversations?.id === activeConversationId)?.conversations;
+  }, [activeConversationId, conversations]);
+
   if (activeConversationId) {
-    const activeConvObj = conversations?.find((c: any) => c.conversations?.id === activeConversationId)?.conversations;
-    const otherMember = activeConvObj?.conversation_members?.find((m: any) => m.user_id !== user?.id);
+    const otherMember = activeConversation?.conversation_members?.find((m) => m.user_id !== user?.id);
     const otherAvatar = otherMember?.users?.avatar_url;
-    const chatTitle = activeConvObj?.title || 'Chat';
+    const chatTitle = activeConversation?.title || 'Chat';
 
     return (
       <ConversationScreen 
@@ -134,7 +140,12 @@ export default function ChatScreen() {
   return (
     <div className="w-full h-full bg-[#050505] text-white flex flex-col pt-12 px-4 overflow-y-auto pb-24 relative">
       <div className="flex justify-between items-center mb-6 mx-2">
-        <h1 className="text-2xl font-bold">Conversations</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Conversations</h1>
+          <p className={`text-[10px] mt-1 font-mono uppercase tracking-wider ${realtimeStatus === 'connected' ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {realtimeStatus === 'connected' ? 'Realtime connected' : 'Realtime reconnecting'}
+          </p>
+        </div>
         <div className="flex gap-2">
           <div 
             onClick={() => setShowNewChatModal(true)} 
@@ -150,8 +161,16 @@ export default function ChatScreen() {
       
       <div className="flex-1 flex flex-col gap-3">
         {isLoading && (
-          <div className="flex justify-center p-8 text-white/40">
-            <Loader2 className="animate-spin" />
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 rounded-3xl glass border border-white/5">
+                <Skeleton className="w-12 h-12 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-3 w-2/3" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -164,7 +183,7 @@ export default function ChatScreen() {
             const hasNew = lastMsg && lastMsg.sender_id !== user?.id;
             
             // Find the other member's avatar
-            const otherMember = conv.conversation_members?.find((m: any) => m.user_id !== user?.id);
+            const otherMember = conv.conversation_members?.find((m) => m.user_id !== user?.id);
             const otherAvatar = otherMember?.users?.avatar_url;
 
             return (

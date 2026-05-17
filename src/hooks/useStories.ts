@@ -1,54 +1,40 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
+import type { StoryRow } from '../lib/types';
+
+type RawStoryRow = Omit<StoryRow, 'users'> & {
+  users: { username: string | null; avatar_url: string | null }[] | null;
+};
 
 export const useStories = () => {
   const { user } = useAppStore();
 
-  return useQuery({
+  return useQuery<StoryRow[]>({
     queryKey: ['stories', user?.id],
     queryFn: async () => {
       if (!user) return [];
 
-      // Query active stories from friendships
-      // For MVP, we might just query all active stories (expires_at > now()) where user_id is in friends list + own stories
       const now = new Date().toISOString();
-      
       const { data, error } = await supabase
         .from('stories')
-        .select(`
-          id,
-          media_url,
-          media_type,
-          created_at,
-          expires_at,
-          user_id,
-          users!stories_user_id_fkey (
-            username,
-            avatar_url
-          )
-        `)
+        .select(`id,media_url,media_type,created_at,expires_at,user_id,users!stories_user_id_fkey (username,avatar_url)`)
         .gt('expires_at', now)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("Error fetching stories:", JSON.stringify(error, null, 2));
+        console.error('Error fetching stories:', error);
         return [];
       }
 
-      // Resolve signed URLs dynamically for stories (bucket: 'stories')
-      const storiesWithSignedUrls = await Promise.all(
-        (data as any[]).map(async (story) => {
-          const signedUrl = await getValidMediaUrl('stories', story.media_url);
-          return {
-            ...story,
-            media_url: signedUrl
-          };
-        })
-      );
-
-      return storiesWithSignedUrls;
+      const rows = (data ?? []) as unknown as RawStoryRow[];
+      return Promise.all(rows.map(async (story) => ({
+        ...story,
+        users: story.users?.[0] ?? null,
+        media_url: await getValidMediaUrl('stories', story.media_url),
+      })));
     },
     enabled: !!user,
+    staleTime: 15_000,
   });
 };
