@@ -4,6 +4,7 @@ import { X, Plus, Zap, Trash2, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/ui/ToastProvider';
+import { motion, AnimatePresence } from 'framer-motion';
 import Skeleton from '../components/ui/Skeleton';
 import GeminiOrb from '../components/GeminiOrb';
 import { useAppStore } from '../store/useAppStore';
@@ -19,9 +20,10 @@ export default function StoriesScreen() {
   const { user } = useAppStore();
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [storyToDeleteId, setStoryToDeleteId] = useState<string | null>(null);
 
-  const handleDeleteStory = async (storyId: string) => {
-    if (!confirm("Es-tu sûr de vouloir supprimer cette story ?")) return;
+  const handleDeleteStory = async (storyId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation(); // Évite que le clic ne passe à la story suivante
     setIsDeleting(true);
     try {
       const { error } = await supabase
@@ -32,6 +34,7 @@ export default function StoriesScreen() {
       if (error) throw error;
 
       toast('Story supprimée avec succès !', 'success');
+      setStoryToDeleteId(null);
       setActiveStoryIndex(null);
       queryClient.invalidateQueries({ queryKey: ['stories', user?.id] });
     } catch (err) {
@@ -215,8 +218,8 @@ export default function StoriesScreen() {
           </div>
 
           {/* Story header */}
-          <div className="absolute top-16 inset-x-0 px-4 flex items-center justify-between z-10">
-            <div className="flex items-center gap-2">
+          <div className="absolute top-16 inset-x-0 px-4 flex items-center justify-between z-30 pointer-events-none">
+            <div className="flex items-center gap-2 pointer-events-auto">
               <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-snap-yellow">
                 {stories[activeStoryIndex].users?.avatar_url ? (
                   <img src={stories[activeStoryIndex].users!.avatar_url!} alt="" className="w-full h-full object-cover" />
@@ -231,22 +234,20 @@ export default function StoriesScreen() {
                 <p className="text-white/50 text-xs">{new Date(stories[activeStoryIndex].created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pointer-events-auto">
               {stories[activeStoryIndex].user_id === user?.id && (
                 <button
-                  onClick={() => handleDeleteStory(stories[activeStoryIndex].id)}
-                  disabled={isDeleting}
+                  onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(stories[activeStoryIndex].id); }}
                   className="w-9 h-9 rounded-full bg-red-500/20 hover:bg-red-500/35 border border-red-500/30 flex items-center justify-center text-red-400 active:scale-90 transition-all pointer-events-auto"
                   title="Supprimer ma story"
                 >
-                  {isDeleting ? (
-                    <Loader2 className="animate-spin" size={15} />
-                  ) : (
-                    <Trash2 size={15} />
-                  )}
+                  <Trash2 size={15} />
                 </button>
               )}
-              <button onClick={() => setActiveStoryIndex(null)} className="w-9 h-9 rounded-full glass-dark flex items-center justify-center text-white pointer-events-auto">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setActiveStoryIndex(null); }} 
+                className="w-9 h-9 rounded-full glass-dark flex items-center justify-center text-white pointer-events-auto"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -279,6 +280,56 @@ export default function StoriesScreen() {
           {/* Tap zones */}
           <div className="absolute inset-y-0 left-0 w-1/3 z-20" onClick={() => setActiveStoryIndex(activeStoryIndex > 0 ? activeStoryIndex - 1 : activeStoryIndex)} />
           <div className="absolute inset-y-0 right-0 w-1/3 z-20" onClick={() => setActiveStoryIndex(activeStoryIndex < stories.length - 1 ? activeStoryIndex + 1 : activeStoryIndex)} />
+
+          {/* Delete Confirmation Modal */}
+          <AnimatePresence>
+            {storyToDeleteId !== null && (
+              <div 
+                className="absolute inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-6 pointer-events-auto"
+                onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(null); }}
+              >
+                <motion.div
+                  initial={{ scale: 0.92, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.92, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                  className="w-full max-w-[290px] glass-dark rounded-[28px] border border-white/10 p-6 flex flex-col items-center gap-4 text-center pointer-events-auto shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-1">
+                    <Trash2 size={20} />
+                  </div>
+                  
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="text-white font-black text-base">Supprimer la story ?</h3>
+                    <p className="text-white/40 text-[11px] leading-normal px-2">
+                      Es-tu sûr de vouloir supprimer cette story ? Cette action est irréversible.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 w-full mt-2">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(null); }}
+                      className="flex-1 py-3 bg-white/10 hover:bg-white/15 text-white rounded-2xl font-bold text-xs active:scale-95 transition-all"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteStory(storyToDeleteId, e); }}
+                      disabled={isDeleting}
+                      className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white rounded-2xl font-bold text-xs shadow-[0_4px_12px_rgba(239,68,68,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="animate-spin" size={13} />
+                      ) : (
+                        "Supprimer"
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       )}
     </div>
