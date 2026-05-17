@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './lib/supabase';
@@ -20,6 +20,25 @@ type Dimensions = {
   width: number;
   height: number;
   isDesktop: boolean;
+};
+
+
+const VIEWS = ['chat', 'camera', 'stories'] as const;
+
+const getInitialDimensions = (): Dimensions => {
+  if (typeof window === 'undefined') {
+    return { width: 390, height: 844, isDesktop: false };
+  }
+
+  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  const isDesktop = viewportWidth >= 768;
+
+  return {
+    width: Math.round(isDesktop ? Math.min(430, viewportWidth) : viewportWidth),
+    height: Math.round(isDesktop ? Math.min(932, viewportHeight) : viewportHeight),
+    isDesktop,
+  };
 };
 
 // ── Heartbeat de présence ─────────────────────────────────────
@@ -95,11 +114,7 @@ export default function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   
   // NOUVEAU: Gestion des dimensions réactives pour le conteneur centré
-  const [dimensions, setDimensions] = useState<Dimensions>({
-    width: typeof window !== 'undefined' ? window.innerWidth : 390,
-    height: typeof window !== 'undefined' ? window.innerHeight : 844,
-    isDesktop: false
-  });
+  const [dimensions, setDimensions] = useState<Dimensions>(getInitialDimensions);
 
   useEffect(() => {
     let rafId = 0;
@@ -140,9 +155,14 @@ export default function App() {
     };
   }, []);
 
-  const views = useMemo(() => ['chat', 'camera', 'stories'] as const, []);
-  const resolvedIndex = views.indexOf(currentView as ViewKey);
+  const resolvedIndex = VIEWS.indexOf(currentView as ViewKey);
   const currentIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
+
+  useEffect(() => {
+    if (resolvedIndex < 0) {
+      setCurrentView('chat');
+    }
+  }, [resolvedIndex, setCurrentView]);
 
   useEffect(() => {
     const checkAndCreateProfile = async (
@@ -287,9 +307,9 @@ export default function App() {
           onDragEnd={(_e, { offset, velocity }) => {
             const swipe = swipePower(offset.x, velocity.x);
             if (swipe < -swipeConfidenceThreshold && currentIndex < 2) {
-              setCurrentView(views[currentIndex + 1]);
+              setCurrentView(VIEWS[currentIndex + 1]);
             } else if (swipe > swipeConfidenceThreshold && currentIndex > 0) {
-              setCurrentView(views[currentIndex - 1]);
+              setCurrentView(VIEWS[currentIndex - 1]);
             } else {
               controls.start({ x: -currentIndex * dimensions.width });
             }
