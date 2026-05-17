@@ -6,11 +6,22 @@ import App from './App.tsx';
 import './index.css';
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
-      console.log('ServiceWorker registration failed: ', err);
+  if (import.meta.env.DEV) {
+    // Désactiver et désenregistrer le Service Worker en mode développement
+    // pour éviter les conflits de cache et les problèmes avec le serveur de dev Vite
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        registration.unregister();
+        console.log('ServiceWorker désenregistré en mode dev.');
+      }
     });
-  });
+  } else {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.log('ServiceWorker registration failed: ', err);
+      });
+    });
+  }
 }
 
 const queryClient = new QueryClient();

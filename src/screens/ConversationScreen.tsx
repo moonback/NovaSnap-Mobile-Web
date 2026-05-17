@@ -49,43 +49,70 @@ export default function ConversationScreen({
   const { data: messages, isLoading } = useQuery<Message[]>({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`id,content,message_type,media_url,created_at,sender_id,client_message_id,is_ephemeral,is_saved,opened_by,users (username)`)
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      return Promise.all(
-        ((data ?? []) as RawMessage[]).map(async (rawMsg) => {
-          const normalizedUser = Array.isArray(rawMsg.users) ? rawMsg.users[0] : rawMsg.users;
-          const msg: Message = { ...rawMsg, users: normalizedUser };
-          if (msg.media_url && (msg.message_type === 'IMAGE' || msg.message_type === 'VIDEO')) {
-            const signedUrl = await getValidMediaUrl('chats', msg.media_url);
-            return { ...msg, media_url: signedUrl };
-          }
-          return msg;
-        })
-      );
+      console.log(`[NovaChat:Query] Chargement des messages pour la conversation ${conversationId}...`);
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select(`id,content,message_type,media_url,created_at,sender_id,client_message_id,is_ephemeral,is_saved,opened_by,users:users!sender_id (username)`)
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true });
+        
+        if (error) {
+          console.error('[NovaChat:Query] Erreur Supabase lors du fetch des messages:', error);
+          throw error;
+        }
+        
+        console.log(`[NovaChat:Query] ${data?.length ?? 0} messages bruts récupérés.`);
+        
+        const processed = await Promise.all(
+          ((data ?? []) as RawMessage[]).map(async (rawMsg) => {
+            const normalizedUser = Array.isArray(rawMsg.users) ? rawMsg.users[0] : rawMsg.users;
+            const msg: Message = { ...rawMsg, users: normalizedUser };
+            if (msg.media_url && (msg.message_type === 'IMAGE' || msg.message_type === 'VIDEO')) {
+              const signedUrl = await getValidMediaUrl('chats', msg.media_url);
+              return { ...msg, media_url: signedUrl };
+            }
+            return msg;
+          })
+        );
+        
+        console.log('[NovaChat:Query] Traitement des messages terminé.', processed);
+        return processed;
+      } catch (err) {
+        console.error('[NovaChat:Query] Exception attrapée dans queryFn:', err);
+        throw err;
+      }
     },
   });
 
   useEffect(() => {
+    console.log(`[NovaChat:Realtime] Initialisation du canal realtime pour la conversation ${conversationId}...`);
     const channel = supabase
       .channel(`conversation:${conversationId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         async (payload) => {
           let newMsg = payload.new as Message;
+          console.log('[NovaChat:Realtime] INSERT reçu !', newMsg);
           if (newMsg.media_url && (newMsg.message_type === 'IMAGE' || newMsg.message_type === 'VIDEO')) {
             const signedUrl = await getValidMediaUrl('chats', newMsg.media_url);
             newMsg = { ...newMsg, media_url: signedUrl };
           }
           queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) => {
             if (!oldData) return [newMsg];
-            if (oldData.some((m) => m.id === newMsg.id)) return oldData;
+            if (oldData.some((m) => m.id === newMsg.id)) {
+              console.log('[NovaChat:Realtime] Message déjà présent dans le cache (doublon évité).');
+              return oldData;
+            }
             const withoutPendingEcho = oldData.filter((m) => {
               if (!m.pending) return true;
-              if (m.client_message_id && newMsg.client_message_id) return m.client_message_id !== newMsg.client_message_id;
-              return !(m.sender_id === newMsg.sender_id && m.content === newMsg.content);
+              if (m.client_message_id && newMsg.client_message_id) {
+                const match = m.client_message_id === newMsg.client_message_id;
+                if (match) console.log(`[NovaChat:Realtime] Correspondance trouvée sur client_message_id: ${m.client_message_id}. Remplacement du message temporaire.`);
+                return !match;
+              }
+              const contentMatch = m.sender_id === newMsg.sender_id && m.content === newMsg.content;
+              if (contentMatch) console.log('[NovaChat:Realtime] Correspondance trouvée sur le contenu. Remplacement du message temporaire.');
+              return !contentMatch;
             });
             return [...withoutPendingEcho, newMsg];
           });
@@ -95,6 +122,7 @@ export default function ConversationScreen({
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const updated = payload.new as Message;
+          console.log('[NovaChat:Realtime] UPDATE reçu !', updated);
           queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) =>
             oldData ? oldData.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)) : oldData
           );
@@ -103,11 +131,18 @@ export default function ConversationScreen({
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const deletedId = (payload.old as { id: string }).id;
+          console.log(`[NovaChat:Realtime] DELETE reçu pour le message ID: ${deletedId}`);
           queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) => oldData?.filter((m) => m.id !== deletedId) ?? []);
         }
       )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      .subscribe((status) => {
+        console.log(`[NovaChat:Realtime] Changement de statut du canal: ${status}`);
+      });
+      
+    return () => { 
+      console.log(`[NovaChat:Realtime] Fermeture du canal realtime pour ${conversationId}`);
+      supabase.removeChannel(channel); 
+    };
   }, [conversationId, queryClient]);
 
   useEffect(() => {
@@ -117,11 +152,19 @@ export default function ConversationScreen({
   const markAsOpened = useCallback(async (msg: Message) => {
     if (!user) return;
     if (msg.message_type !== 'TEXT' || !msg.is_ephemeral || msg.is_saved || msg.sender_id === user.id || msg.opened_by?.includes(user.id)) return;
+    
+    console.log(`[NovaChat:Lifecycle] Marquage du message ${msg.id} comme lu par l'utilisateur actuel.`);
     const newOpenedBy = [...(msg.opened_by ?? []), user.id];
     queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
       old?.map((m) => (m.id === msg.id ? { ...m, opened_by: newOpenedBy } : m)) ?? []
     );
-    await supabase.from('messages').update({ opened_by: newOpenedBy }).eq('id', msg.id);
+    try {
+      const { error } = await supabase.from('messages').update({ opened_by: newOpenedBy }).eq('id', msg.id);
+      if (error) console.error(`[NovaChat:Lifecycle] Erreur lors du marquage comme lu du message ${msg.id} :`, error);
+      else console.log(`[NovaChat:Lifecycle] Message ${msg.id} marqué comme lu mis à jour avec succès dans Supabase.`);
+    } catch (e) {
+      console.error(`[NovaChat:Lifecycle] Exception lors du marquage comme lu du message ${msg.id} :`, e);
+    }
   }, [user, conversationId, queryClient]);
 
   useEffect(() => {
@@ -131,21 +174,36 @@ export default function ConversationScreen({
       const recipientOpened = msg.sender_id === user.id
         ? msg.opened_by.some((uid) => uid !== user.id)
         : msg.opened_by.includes(user.id);
+        
       if (recipientOpened) {
+        console.log(`[NovaChat:Lifecycle] Le destinataire a ouvert le message éphémère ${msg.id}. Lancement de la suppression.`);
         queryClient.setQueryData<Message[]>(['messages', conversationId], (old) => old?.filter((m) => m.id !== msg.id) ?? []);
-        await supabase.from('messages').delete().eq('id', msg.id);
+        try {
+          const { error } = await supabase.from('messages').delete().eq('id', msg.id);
+          if (error) console.error(`[NovaChat:Lifecycle] Erreur lors de la suppression du message éphémère ${msg.id} :`, error);
+          else console.log(`[NovaChat:Lifecycle] Message éphémère ${msg.id} supprimé avec succès de Supabase.`);
+        } catch (e) {
+          console.error(`[NovaChat:Lifecycle] Exception lors de la suppression du message éphémère ${msg.id} :`, e);
+        }
       }
     });
   }, [messages, user, conversationId, queryClient]);
 
   const toggleSave = useCallback(async (msg: Message) => {
     if (!user || savingId) return;
+    console.log(`[NovaChat:Lifecycle] Toggling save pour le message ${msg.id}. État actuel: ${msg.is_saved}`);
     setSavingId(msg.id);
     const newSaved = !msg.is_saved;
     queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
       old?.map((m) => (m.id === msg.id ? { ...m, is_saved: newSaved } : m)) ?? []
     );
-    await supabase.from('messages').update({ is_saved: newSaved }).eq('id', msg.id);
+    try {
+      const { error } = await supabase.from('messages').update({ is_saved: newSaved }).eq('id', msg.id);
+      if (error) console.error(`[NovaChat:Lifecycle] Erreur de mise à jour de la sauvegarde pour le message ${msg.id} :`, error);
+      else console.log(`[NovaChat:Lifecycle] État de sauvegarde du message ${msg.id} enregistré avec succès.`);
+    } catch (e) {
+      console.error(`[NovaChat:Lifecycle] Exception lors de la sauvegarde du message ${msg.id} :`, e);
+    }
     setSavingId(null);
   }, [user, savingId, conversationId, queryClient]);
 
@@ -158,14 +216,21 @@ export default function ConversationScreen({
 
   const sendMessageMutation = useMutation({
     mutationFn: async ({ content, meta }: { content: string; meta: { clientMessageId: string } }) => {
-      if (!user) throw new Error('Not authenticated');
-      const { error } = await supabase.from('messages').insert({
+      console.log('[NovaChat:Mutation] Insertion du message dans Supabase...', { content, meta });
+      if (!user) throw new Error('Utilisateur non connecté');
+      const { data, error } = await supabase.from('messages').insert({
         conversation_id: conversationId, content, message_type: 'TEXT', sender_id: user.id,
         client_message_id: meta.clientMessageId, is_ephemeral: true, is_saved: false, opened_by: [],
-      });
-      if (error) throw error;
+      }).select();
+      
+      if (error) {
+        console.error('[NovaChat:Mutation] Erreur de Supabase lors de l\'insertion :', error);
+        throw error;
+      }
+      console.log('[NovaChat:Mutation] Insertion réussie ! Données insérées:', data);
     },
     onMutate: async ({ content, meta }) => {
+      console.log('[NovaChat:Mutation] Début onMutate pour envoi optimiste.', { content, meta });
       if (!user) return;
       const tempId = `temp-${Date.now()}`;
       await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
@@ -175,14 +240,20 @@ export default function ConversationScreen({
         message_type: 'TEXT', is_ephemeral: true, is_saved: false, opened_by: [],
         pending: true, client_message_id: meta.clientMessageId,
       };
+      
+      console.log('[NovaChat:Mutation] Ajout du message optimiste au cache :', optimisticMessage);
       queryClient.setQueryData<Message[]>(['messages', conversationId], [...previousMessages, optimisticMessage]);
       setNewMessage('');
       return { previousMessages };
     },
-    onError: (_err, _content, context) => {
-      if (context?.previousMessages) queryClient.setQueryData(['messages', conversationId], context.previousMessages);
+    onError: (err, content, context) => {
+      console.error('[NovaChat:Mutation] Erreur lors de l\'envoi du message ! Restauration de l\'état précédent.', err);
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['messages', conversationId], context.previousMessages);
+      }
     },
     onSettled: () => {
+      console.log('[NovaChat:Mutation] Mutation terminée (settled). Invalidation des requêtes.');
       queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
       queryClient.invalidateQueries({ queryKey: ['conversations', user?.id] });
     },

@@ -63,7 +63,7 @@ export default function ProfileScreen() {
       if (!user) return 0;
       const { count, error } = await supabase
         .from('stories')
-        .select('id', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: false })
         .eq('user_id', user.id)
         .gt('expires_at', new Date().toISOString());
       if (error) return 0;

@@ -167,9 +167,19 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
 
   const validateUploadBlob = (fileBlob: Blob) => {
     const isImage = capturedMedia?.type === 'image';
-    const allowedTypes = isImage ? ALLOWED_IMAGE_TYPES : ALLOWED_VIDEO_TYPES;
     const maxBytes = isImage ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
-    if (!allowedTypes.has(fileBlob.type)) throw new Error(`Format non supporté : ${fileBlob.type || 'inconnu'}`);
+    const mime = fileBlob.type.toLowerCase();
+    
+    if (isImage) {
+      if (!mime.startsWith('image/')) {
+        throw new Error(`Format d'image non supporté : ${fileBlob.type || 'inconnu'}`);
+      }
+    } else {
+      if (!mime.startsWith('video/')) {
+        throw new Error(`Format de vidéo non supporté : ${fileBlob.type || 'inconnu'}`);
+      }
+    }
+    
     if (fileBlob.size > maxBytes) throw new Error(`Fichier trop lourd. Max ${Math.floor(maxBytes / (1024 * 1024))}MB.`);
   };
 

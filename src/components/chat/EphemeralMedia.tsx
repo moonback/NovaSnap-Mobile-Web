@@ -40,8 +40,8 @@ export default function EphemeralMedia({
 
   const handleExpire = async () => {
     setViewState('EXPIRED');
-    // Ne pas supprimer si le message est sauvegardé manuellement
-    if (!isSaved) {
+    // Ne pas supprimer si le message est sauvegardé manuellement ou si c'est notre propre message (l'autre utilisateur doit pouvoir le voir)
+    if (!isSaved && !isMe) {
       try {
         await supabase.from('messages').delete().eq('id', messageId);
       } catch (err) {
@@ -50,16 +50,32 @@ export default function EphemeralMedia({
     }
   };
 
+  // Si c'est le média de l'utilisateur connecté, on l'affiche directement inline (plus convivial et évite l'expiration accidentelle)
+  if (isMe) {
+    return (
+      <div className="relative rounded-2xl overflow-hidden max-w-[200px] border border-white/10 shadow-md">
+        {mediaType === 'IMAGE' ? (
+          <img src={mediaUrl} className="w-full rounded-2xl" alt="Snap envoyé" />
+        ) : (
+          <video src={mediaUrl} controls playsInline className="w-full rounded-2xl animate-fade-in" />
+        )}
+        <span className="absolute bottom-2 right-2 text-[9px] text-white/70 bg-black/60 px-2 py-0.5 rounded-full font-semibold">
+          Envoyé
+        </span>
+      </div>
+    );
+  }
+
   // Message sauvegardé : afficher directement le média (pas de tap-to-view)
   if (isSaved) {
     return (
-      <div className="relative rounded-lg overflow-hidden max-w-[240px]">
+      <div className="relative rounded-2xl overflow-hidden max-w-[200px] border border-white/10 shadow-md">
         {mediaType === 'IMAGE' ? (
-          <img src={mediaUrl} className="w-full rounded-lg" alt="Snap enregistré" />
+          <img src={mediaUrl} className="w-full rounded-2xl" alt="Snap enregistré" />
         ) : (
-          <video src={mediaUrl} controls playsInline className="w-full rounded-lg" />
+          <video src={mediaUrl} controls playsInline className="w-full rounded-2xl animate-fade-in" />
         )}
-        <span className="absolute bottom-1 right-1 text-[9px] text-white/60 bg-black/40 px-1 rounded font-mono">
+        <span className="absolute bottom-2 right-2 text-[9px] text-white/70 bg-black/60 px-2 py-0.5 rounded-full font-semibold">
           Enregistré
         </span>
       </div>
