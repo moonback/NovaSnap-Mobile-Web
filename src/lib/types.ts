@@ -1,4 +1,4 @@
-export type AppView = 'chat' | 'camera' | 'stories';
+export type AppView = 'chat' | 'camera' | 'stories' | 'map';
 
 export type AppUserProfile = {
   id: string;
@@ -52,6 +52,20 @@ export type StoryRow = {
     username: string | null;
     avatar_url: string | null;
   } | null;
+};
+
+// ── Memories ────────────────────────────────────────────────
+
+export type MemorySource = 'camera' | 'story' | 'chat';
+
+export type MemoryRow = {
+  id: string;
+  user_id: string;
+  media_url: string;
+  media_type: 'IMAGE' | 'VIDEO';
+  caption: string | null;
+  source: MemorySource;
+  created_at: string;
 };
 
 // ── Friends System ──────────────────────────────────────────

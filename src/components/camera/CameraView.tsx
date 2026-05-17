@@ -2,6 +2,7 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, UserPlus, Ghost, Infinity as InfinityIcon } from 'lucide-react';
 import { useConversations } from '../../hooks/useConversations';
 import { useFriends } from '../../hooks/useFriends';
+import { useSaveMemory } from '../../hooks/useMemories';
 import { supabase, getValidMediaUrl } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../ui/ToastProvider';

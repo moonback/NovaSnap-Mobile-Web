@@ -1,10 +1,10 @@
 import React from 'react';
-import { MessageCircle, Camera, Play, Compass } from 'lucide-react';
+import { MessageCircle, Camera, Play, Compass, Images } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../../store/useAppStore';
 
 export default function TabBar() {
-  const { currentView, setCurrentView } = useAppStore();
+  const { currentView, setCurrentView, showMemories, setShowMemories } = useAppStore();
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
@@ -138,6 +138,35 @@ export default function TabBar() {
             Stories
           </span>
           {currentView === 'stories' && (
+            <motion.span
+              layoutId="tab-dot"
+              className="w-1 h-1 rounded-full bg-white"
+            />
+          )}
+        </button>
+
+        {/* ── Memories ── */}
+        <button
+          onClick={() => setShowMemories(true)}
+          aria-label="Memories"
+          className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
+        >
+          <Images
+            size={27}
+            strokeWidth={showMemories ? 2.5 : 1.8}
+            className={`transition-all duration-200 ${
+              showMemories ? 'text-white' : 'text-white/45'
+            }`}
+            fill={showMemories ? 'rgba(255,255,255,0.12)' : 'none'}
+          />
+          <span
+            className={`text-[10px] font-bold tracking-wide transition-all duration-200 ${
+              showMemories ? 'text-white' : 'text-white/35'
+            }`}
+          >
+            Memories
+          </span>
+          {showMemories && (
             <motion.span
               layoutId="tab-dot"
               className="w-1 h-1 rounded-full bg-white"

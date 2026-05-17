@@ -28,9 +28,10 @@ import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
 import { useFriends } from '../hooks/useFriends';
+import { useMemories } from '../hooks/useMemories';
 
 export default function ProfileScreen() {
-  const { user, setShowProfile, setShowFriends } = useAppStore();
+  const { user, setShowProfile, setShowFriends, setShowMemories } = useAppStore();
   const { toast } = useToast();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -132,6 +133,8 @@ export default function ProfileScreen() {
   };
 
   const { friendCount, pendingCount } = useFriends();
+  const { data: memories } = useMemories();
+  const memoriesCount = memories?.length ?? 0;
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user-profile', user?.id],
@@ -325,7 +328,7 @@ export default function ProfileScreen() {
         )}
 
         {/* Stats */}
-        <div className="w-full grid grid-cols-3 gap-3 mb-6">
+        <div className="w-full grid grid-cols-4 gap-2 mb-6">
           <div className="bg-white/5 rounded-2xl py-4 flex flex-col items-center gap-1 border border-white/8">
             <span className="text-xl font-black text-snap-yellow">
               {isLoading ? '—' : formatScore(profile?.snap_score ?? null)}
@@ -338,6 +341,15 @@ export default function ProfileScreen() {
             </span>
             <span className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Stories</span>
           </div>
+          <button
+            onClick={() => { setShowProfile(false); setShowMemories(true); }}
+            className="bg-white/5 rounded-2xl py-4 flex flex-col items-center gap-1 border border-white/8 hover:bg-white/8 transition-colors active:scale-95"
+          >
+            <span className="text-xl font-black text-white">
+              {isLoading ? '—' : memoriesCount}
+            </span>
+            <span className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Souvenirs</span>
+          </button>
           <button
             onClick={() => { setShowProfile(false); setShowFriends(true); }}
             className="relative bg-white/5 rounded-2xl py-4 flex flex-col items-center gap-1 border border-white/8 hover:bg-white/8 transition-colors active:scale-95"
@@ -434,6 +446,15 @@ export default function ProfileScreen() {
 
         {/* Actions */}
         <div className="w-full space-y-3 mt-auto">
+          {/* Memories button */}
+          <button
+            onClick={() => { setShowProfile(false); setShowMemories(true); }}
+            className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/12 transition-colors active:scale-98"
+          >
+            <BookOpen size={16} />
+            Mes Souvenirs
+          </button>
+
           {/* Friends button */}
           <button
             onClick={() => { setShowProfile(false); setShowFriends(true); }}

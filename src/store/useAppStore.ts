@@ -16,6 +16,8 @@ interface AppState {
   setShowFriends: (show: boolean) => void;
   viewingProfileUserId: string | null;
   setViewingProfileUserId: (id: string | null) => void;
+  showMemories: boolean;
+  setShowMemories: (show: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -33,4 +35,6 @@ export const useAppStore = create<AppState>((set) => ({
   setShowFriends: (show) => set({ showFriends: show }),
   viewingProfileUserId: null,
   setViewingProfileUserId: (id) => set({ viewingProfileUserId: id }),
+  showMemories: false,
+  setShowMemories: (show) => set({ showMemories: show }),
 }));

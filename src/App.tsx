@@ -14,6 +14,7 @@ import AuthScreen from './screens/AuthScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import FriendsScreen from './screens/FriendsScreen';
 import UserProfileScreen from './screens/UserProfileScreen';
+import MemoriesScreen from './screens/MemoriesScreen';
 
 
 type ViewKey = 'chat' | 'camera' | 'stories' | 'map';
@@ -114,6 +115,7 @@ export default function App() {
     showProfile,
     showFriends,
     viewingProfileUserId,
+    showMemories,
   } = useAppStore();
   const controls = useAnimation();
   const [isInitializing, setIsInitializing] = useState(true);
@@ -335,6 +337,7 @@ export default function App() {
         <motion.div
           className="flex h-full touch-pan-y"
           style={{ width: dimensions.width * VIEWS.length }}
+          initial={{ x: -currentIndex * dimensions.width }}
           animate={controls}
           drag="x"
           dragConstraints={{ left: -dimensions.width * (VIEWS.length - 1), right: 0 }}
@@ -384,6 +387,10 @@ export default function App() {
 
         <AnimatePresence>
           {viewingProfileUserId && <UserProfileScreen key="user-profile" />}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showMemories && <MemoriesScreen key="memories" />}
         </AnimatePresence>
       </div>
     </div>
