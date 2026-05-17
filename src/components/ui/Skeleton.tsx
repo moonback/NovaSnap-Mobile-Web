@@ -2,6 +2,7 @@ import React from 'react';
 
 interface SkeletonProps {
   className?: string;
+  key?: React.Key;
 }
 
 export default function Skeleton({ className = '' }: SkeletonProps) {

@@ -60,17 +60,12 @@ function SnapScoreBadge({ score }: { score?: number }) {
 }
 
 // ── Friend row with swipe/long-press actions ─────────────────
-function FriendRow({
-  friend,
-  onSnap,
-  onMessage,
-  onRemove,
-}: {
+const FriendRow: React.FC<{
   friend: FriendWithProfile;
   onSnap: () => void;
   onMessage: () => void;
   onRemove: () => void;
-}) {
+}> = ({ friend, onSnap, onMessage, onRemove }) => {
   const [showActions, setShowActions] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -141,24 +136,18 @@ function FriendRow({
       </AnimatePresence>
     </div>
   );
-}
+};
 
 // ── Search result row ─────────────────────────────────────────
 type SearchUser = AppUserProfile & { bio?: string | null; snap_score?: number };
 
-function SearchResultRow({
-  user,
-  friendshipStatus,
-  friendshipId,
-  onAdd,
-  onAccept,
-}: {
+const SearchResultRow: React.FC<{
   user: SearchUser;
   friendshipStatus: 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'blocked';
   friendshipId?: string;
   onAdd: () => void;
   onAccept: () => void;
-}) {
+}> = ({ user, friendshipStatus, onAdd, onAccept }) => {
   const renderAction = () => {
     switch (friendshipStatus) {
       case 'none':
@@ -216,7 +205,7 @@ function SearchResultRow({
       {renderAction()}
     </div>
   );
-}
+};
 
 // ── Skeleton loader ───────────────────────────────────────────
 function RowSkeleton() {

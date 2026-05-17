@@ -37,7 +37,7 @@ type StoryThumb = {
 };
 
 // ── Story thumbnail ───────────────────────────────────────────
-function StoryThumbnail({ story }: { story: StoryThumb }) {
+const StoryThumbnail: React.FC<{ story: StoryThumb }> = ({ story }) => {
   return (
     <div className="w-16 h-24 rounded-xl overflow-hidden shrink-0 border border-snap-yellow/30">
       {story.media_type === 'IMAGE' ? (
@@ -49,7 +49,7 @@ function StoryThumbnail({ story }: { story: StoryThumb }) {
       )}
     </div>
   );
-}
+};
 
 // ── Main component ────────────────────────────────────────────
 export default function UserProfileScreen() {

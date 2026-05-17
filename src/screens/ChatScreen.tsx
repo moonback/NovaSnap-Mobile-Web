@@ -379,17 +379,12 @@ export default function ChatScreen() {
 }
 
 // ── User row sub-component ────────────────────────────────────
-function UserRow({
-  user,
-  isFriend,
-  isCreating,
-  onSelect,
-}: {
+const UserRow: React.FC<{
   user: AppUserProfile;
   isFriend: boolean;
   isCreating: boolean;
   onSelect: () => void;
-}) {
+}> = ({ user, isFriend, isCreating, onSelect }) => {
   return (
     <button
       onClick={onSelect}
@@ -427,7 +422,7 @@ function UserRow({
       )}
     </button>
   );
-}
+};
 
 function MessageCircleIcon() {
   return (
