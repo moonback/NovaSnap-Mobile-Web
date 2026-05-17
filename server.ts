@@ -15,9 +15,24 @@ const ai = new GoogleGenAI({
 });
 
 // ── Supabase admin client for JWT verification ──
+// ⚠️  SECURITY: must use the service_role key (bypasses RLS) so the server
+// can call auth.getUser() without being affected by RLS policies that would
+// otherwise block the lookup. Never expose this key to the browser.
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseServiceRoleKey) {
+  console.error('❌ FATAL: SUPABASE_SERVICE_ROLE_KEY is not set. Server cannot authenticate WebSocket clients.');
+  process.exit(1);
+}
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
-  process.env.VITE_SUPABASE_ANON_KEY!, // anon key is enough to verify JWTs
+  supabaseServiceRoleKey,
+  {
+    auth: {
+      // Disable auto-refresh on the server-side admin client
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
 );
 
 // ── Per-IP rate limiter: max 3 concurrent live sessions per IP ──
@@ -104,7 +119,7 @@ async function startServer() {
         // ── Now open Gemini session for this authenticated user ────
         try {
           const session = await ai.live.connect({
-            model: "gemini-3.1-flash-live-preview",
+            model: "gemini-2.0-flash-live-001",
             callbacks: {
               onmessage: (message) => {
                 if (clientWs.readyState !== WebSocket.OPEN) return;
