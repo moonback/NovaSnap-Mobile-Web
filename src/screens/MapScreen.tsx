@@ -546,7 +546,7 @@ export default function MapScreen() {
               </div>
             )}
 
-            {!friendsLoading && friends.map((friend, idx) => (
+            {!friendsLoading && friends.map((friend) => (
               <button
                 key={friend.friendship_id}
                 onClick={() => handleCenterOnFriend(friend.user.id, friend.user.username || 'Ami')}
