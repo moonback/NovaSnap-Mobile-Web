@@ -22,7 +22,9 @@ export default function GeminiOrb() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Non authentifié — connecte-toi d\'abord.');
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${wsProtocol}//${window.location.host}/live`);
+      const defaultWsUrl = `${wsProtocol}//${window.location.host}/live`;
+      const wsUrl = import.meta.env.VITE_WS_URL || defaultWsUrl;
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       ws.onopen = async () => {
         ws.send(JSON.stringify({ auth: session.access_token }));
