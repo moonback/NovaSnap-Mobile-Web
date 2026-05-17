@@ -665,89 +665,66 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
             {/* Gradient overlays */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/50 pointer-events-none" />
 
-            {/* ── Topbar ── */}
-            <div className="absolute top-0 inset-x-0 z-10 px-4 pt-5 pb-3">
-              <div className="flex items-center justify-between">
-
-                {/* Gauche : avatar utilisateur */}
+            {/* ── Topbar (Left & Right) ── */}
+            <div className="absolute top-0 inset-x-0 z-20 px-5 pt-12 pb-3 pointer-events-none flex justify-between items-start">
+              
+              {/* Gauche : Avatar & Search */}
+              <div className="flex items-center gap-3 pointer-events-auto">
                 <button
                   onClick={() => setShowProfile(true)}
-                  className="relative w-11 h-11 rounded-full overflow-hidden ring-2 ring-white/20 active:scale-90 transition-transform shrink-0"
+                  className="relative w-11 h-11 rounded-full overflow-hidden ring-2 ring-white/10 active:scale-90 transition-transform bg-zinc-800 shrink-0"
                 >
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="Mon profil" className="w-full h-full object-cover" />
+                    <img src={avatarUrl} alt="Profil" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
+                    <div className="w-full h-full flex items-center justify-center">
                       <Ghost size={18} className="text-white/50" />
                     </div>
                   )}
                 </button>
+              </div>
 
-                {/* Centre : logo NovaSnap */}
-                <div className="flex flex-col items-center gap-0.5 select-none">
-                  <div className="w-8 h-8 rounded-[10px] bg-snap-yellow flex items-center justify-center shadow-snap">
-                    <svg viewBox="0 0 100 100" className="w-5 h-5" fill="none">
-                      <path
-                        d="M50 10C28 10 10 28 10 50c0 8 2.5 15.5 6.8 21.6L10 90l18.4-6.8C34.5 87.5 42 90 50 90c22 0 40-18 40-40S72 10 50 10z"
-                        fill="black"
-                      />
-                      <circle cx="35" cy="50" r="5" fill="white" />
-                      <circle cx="50" cy="50" r="5" fill="white" />
-                      <circle cx="65" cy="50" r="5" fill="white" />
-                    </svg>
-                  </div>
-                </div>
+              {/* Droite : Actions verticales */}
+              <div className="flex flex-col items-center gap-3 pointer-events-auto">
+                <NotificationBell />
+                
+                <button
+                  onClick={() => setShowFriends(true)}
+                  className="relative w-11 h-11 glass-dark rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <UserPlus size={20} className="text-white" />
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-snap-yellow text-black text-[9px] font-black flex items-center justify-center border border-black/50">
+                      {pendingCount > 9 ? '9+' : pendingCount}
+                    </span>
+                  )}
+                </button>
 
-                {/* Droite : actions groupées */}
-                <div className="flex items-center gap-2">
-                  {/* Notifications */}
-                  <NotificationBell />
+                <button
+                  onClick={() => setFacingMode((p) => p === 'user' ? 'environment' : 'user')}
+                  className="w-11 h-11 glass-dark rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <RefreshCw size={20} className="text-white" />
+                </button>
 
-                  {/* Recherche d'amis */}
-                  <button
-                    onClick={() => setShowFriends(true)}
-                    className="relative w-11 h-11 glass-dark rounded-full flex items-center justify-center active:scale-90 transition-transform"
-                  >
-                    <UserPlus size={18} className="text-white" />
-                    {pendingCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center border border-black">
-                        {pendingCount > 9 ? '9+' : pendingCount}
-                      </span>
-                    )}
-                  </button>
+                <button
+                  onClick={() => setFlashMode(!flashMode)}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-all ${
+                    flashMode ? 'bg-snap-yellow shadow-snap text-black' : 'glass-dark text-white'
+                  }`}
+                >
+                  {flashMode ? <Zap size={20} /> : <ZapOff size={20} className="text-white/70" />}
+                </button>
 
-                  {/* Retournement caméra */}
-                  <button
-                    onClick={() => setFacingMode((p) => p === 'user' ? 'environment' : 'user')}
-                    className="w-11 h-11 glass-dark rounded-full flex items-center justify-center active:scale-90 transition-transform"
-                  >
-                    <RefreshCw size={18} className="text-white" />
-                  </button>
-
-                  {/* Flash */}
-                  <button
-                    onClick={() => setFlashMode(!flashMode)}
-                    className={`w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-all ${
-                      flashMode ? 'bg-snap-yellow shadow-snap' : 'glass-dark'
-                    }`}
-                  >
-                    {flashMode
-                      ? <Zap size={18} className="text-black" />
-                      : <ZapOff size={18} className="text-white/70" />
-                    }
-                  </button>
-
-                  {/* Boomerang */}
-                  <button
-                    onClick={() => setIsBoomerang(!isBoomerang)}
-                    title="Mode Boomerang"
-                    className={`w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-all ${
-                      isBoomerang ? 'bg-snap-yellow shadow-snap text-black' : 'glass-dark text-white'
-                    }`}
-                  >
-                    <InfinityIcon size={20} className={isBoomerang ? 'text-black' : 'text-white'} />
-                  </button>
-                </div>
+                <button
+                  onClick={() => setIsBoomerang(!isBoomerang)}
+                  title="Mode Boomerang"
+                  className={`w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-all ${
+                    isBoomerang ? 'bg-snap-yellow shadow-snap text-black' : 'glass-dark text-white'
+                  }`}
+                >
+                  <InfinityIcon size={22} />
+                </button>
               </div>
             </div>
 
