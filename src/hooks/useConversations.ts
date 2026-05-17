@@ -2,37 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
-
-type ConversationMessage = {
-  id: string;
-  content: string | null;
-  message_type: string;
-  created_at: string;
-  sender_id: string;
-};
-
-type ConversationMember = {
-  user_id: string;
-  users: {
-    username: string | null;
-    avatar_url: string | null;
-  } | null;
-};
-
-type ConversationDetails = {
-  id: string;
-  is_group: boolean;
-  title: string | null;
-  updated_at: string;
-  messages: ConversationMessage[] | null;
-  conversation_members: ConversationMember[] | null;
-};
-
-export type ConversationRow = {
-  joined_at: string;
-  last_read_at: string | null;
-  conversations: ConversationDetails | null;
-};
+import type { ConversationDetails, ConversationMember, ConversationRow } from '../lib/types';
 
 type RawConversationMember = {
   user_id: string;

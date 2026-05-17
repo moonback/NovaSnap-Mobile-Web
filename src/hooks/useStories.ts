@@ -1,19 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
-
-type StoryRow = {
-  id: string;
-  media_url: string;
-  media_type: string;
-  created_at: string;
-  expires_at: string;
-  user_id: string;
-  users: {
-    username: string | null;
-    avatar_url: string | null;
-  } | null;
-};
+import type { StoryRow } from '../lib/types';
 
 type RawStoryRow = Omit<StoryRow, 'users'> & {
   users: { username: string | null; avatar_url: string | null }[] | null;

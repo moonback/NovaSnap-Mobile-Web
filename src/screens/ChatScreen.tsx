@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
-import { useConversations, type ConversationRow } from '../hooks/useConversations';
+import { useConversations } from '../hooks/useConversations';
 import { Loader2, User, X } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import ConversationScreen from './ConversationScreen';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
+import type { AppUserProfile, ConversationRow } from '../lib/types';
 
 export default function ChatScreen() {
   const { data: conversations, isLoading } = useConversations();
@@ -42,9 +43,7 @@ export default function ChatScreen() {
 
 
 
-  type AppUser = { id: string; username: string | null; display_name: string | null; avatar_url: string | null };
-
-  const handleStartChat = async (targetUser: AppUser) => {
+  const handleStartChat = async (targetUser: AppUserProfile) => {
     if (!user) return;
     setIsCreating(true);
     try {
