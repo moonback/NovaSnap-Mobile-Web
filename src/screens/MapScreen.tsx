@@ -70,7 +70,7 @@ export default function MapScreen() {
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isGhostMode, setIsGhostMode] = useState(() => {
-    return localStorage.getItem('snap_map_ghost_mode') === 'true';
+    return localStorage.getItem('novasnap_settings_ghost_mode') === 'true';
   });
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [activeStory, setActiveStory] = useState<Landmark | null>(null);
@@ -382,7 +382,7 @@ export default function MapScreen() {
   const toggleGhostMode = () => {
     const nextVal = !isGhostMode;
     setIsGhostMode(nextVal);
-    localStorage.setItem('snap_map_ghost_mode', String(nextVal));
+    localStorage.setItem('novasnap_settings_ghost_mode', String(nextVal));
     toast(
       nextVal 
         ? '👻 Mode Fantôme activé ! Ta position est masquée sur la carte.' 
@@ -391,15 +391,17 @@ export default function MapScreen() {
     );
   };
 
-  const handleCenterOnFriend = (friendName: string, idx: number) => {
+  const handleCenterOnFriend = (friendId: string, friendName: string) => {
     const map = mapInstanceRef.current;
     if (!map) return;
-    const latOffset = (Math.sin(idx * 2.3) * 0.015);
-    const lngOffset = (Math.cos(idx * 3.7) * 0.015);
-    const fLat = userCoords[0] + latOffset;
-    const fLng = userCoords[1] + lngOffset;
 
-    map.setView([fLat, fLng], 15, { animate: true, duration: 1.5 });
+    const location = friendLocations.find((f) => f.user_id === friendId);
+    if (!location) {
+      toast(`${friendName} n'a pas de position récente.`, 'info');
+      return;
+    }
+
+    map.setView([location.lat, location.lng], 15, { animate: true, duration: 1.5 });
     toast(`Zoom sur ${friendName} 📍`, 'success');
   };
 
@@ -547,7 +549,7 @@ export default function MapScreen() {
             {!friendsLoading && friends.map((friend, idx) => (
               <button
                 key={friend.friendship_id}
-                onClick={() => handleCenterOnFriend(friend.user.username || 'Ami', idx)}
+                onClick={() => handleCenterOnFriend(friend.user.id, friend.user.username || 'Ami')}
                 className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform"
               >
                 <div className="w-12 h-12 rounded-full p-[2px] ring-2 ring-yellow-400 bg-black relative">
