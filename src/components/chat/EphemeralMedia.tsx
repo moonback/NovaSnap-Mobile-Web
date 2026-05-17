@@ -123,27 +123,27 @@ export default function EphemeralMedia({
             onDragEnd={(_e, info) => {
               if (info.offset.y > 150) handleExpire();
             }}
-            className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center cursor-grab active:cursor-grabbing"
+            className="absolute inset-0 z-[100] bg-black flex flex-col items-center justify-center cursor-grab active:cursor-grabbing"
           >
             {/* Controls */}
-            <div className="absolute top-6 right-6 z-10 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full glass border border-white/20 flex items-center justify-center font-bold text-xl text-white">
+            <div className="absolute top-12 right-4 z-10 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full glass-dark border border-white/10 flex items-center justify-center font-black text-sm text-white">
                 {timeLeft}
               </div>
               <button
                 onClick={handleExpire}
-                className="w-12 h-12 rounded-full glass border border-white/20 flex items-center justify-center text-white cursor-pointer pointer-events-auto"
+                className="w-9 h-9 rounded-full glass-dark border border-white/10 flex items-center justify-center text-white cursor-pointer pointer-events-auto active:scale-90 transition-all"
               >
-                <X size={24} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Media */}
-            <div className="w-full h-full pointer-events-none">
+            <div className="w-full h-full pointer-events-none flex items-center justify-center bg-zinc-950/20">
               {mediaType === 'IMAGE' ? (
                 <img
                   src={mediaUrl}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                   alt="Snap"
                 />
               ) : (
@@ -151,7 +151,7 @@ export default function EphemeralMedia({
                   src={mediaUrl}
                   autoPlay
                   playsInline
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               )}
             </div>

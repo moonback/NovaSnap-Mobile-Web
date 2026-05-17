@@ -5,6 +5,14 @@ import { ChevronLeft, Send, Camera as CameraIcon, Loader2, BookmarkCheck, MoreVe
 import Skeleton from '../components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import EphemeralMedia from '../components/chat/EphemeralMedia';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const EMOJIS = [
+  '😀', '😂', '😍', '🥰', '😎', '😜', '🤔', '🙄', 
+  '👍', '👎', '❤️', '🔥', '🎉', '✨', '👏', '🙌',
+  '😮', '😢', '😡', '😱', '💩', '💯', '🚀', '👀',
+  '💬', '📸', '⚡', '🌟', '🧁', '🍕', '🍻', '🎈'
+];
 
 type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO';
 
@@ -45,6 +53,36 @@ export default function ConversationScreen({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
+
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
+  const isTypingRef = useRef(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const channelRef = useRef<any>(null);
+
+  const handleInputChange = (text: string) => {
+    setNewMessage(text);
+    if (!user || !channelRef.current) return;
+
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { userId: user.id, username: user.user_metadata?.username || user.email?.split('@')[0] || 'Ami', isTyping: true }
+      });
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { userId: user.id, isTyping: false }
+      });
+    }, 1500);
+  };
 
   const { data: messages, isLoading } = useQuery<Message[]>({
     queryKey: ['messages', conversationId],
@@ -135,15 +173,34 @@ export default function ConversationScreen({
           queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) => oldData?.filter((m) => m.id !== deletedId) ?? []);
         }
       )
-      .subscribe((status) => {
-        console.log(`[NovaChat:Realtime] Changement de statut du canal: ${status}`);
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        console.log('[NovaChat:Realtime] Broadcast typing reçu !', payload);
+        if (payload.userId !== user?.id) {
+          setTypingUsers((prev) => {
+            const next = { ...prev };
+            if (payload.isTyping) {
+              next[payload.userId] = payload.username;
+            } else {
+              delete next[payload.userId];
+            }
+            return next;
+          });
+        }
       });
+
+    channel.subscribe((status) => {
+      console.log(`[NovaChat:Realtime] Changement de statut du canal: ${status}`);
+    });
+
+    channelRef.current = channel;
       
     return () => { 
       console.log(`[NovaChat:Realtime] Fermeture du canal realtime pour ${conversationId}`);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      channelRef.current = null;
       supabase.removeChannel(channel); 
     };
-  }, [conversationId, queryClient]);
+  }, [conversationId, queryClient, user]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -263,6 +320,15 @@ export default function ConversationScreen({
     e.preventDefault();
     const trimmedMessage = newMessage.trim();
     if (!trimmedMessage) return;
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    isTypingRef.current = false;
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId: user?.id, isTyping: false }
+    });
+
     sendMessageMutation.mutate({ content: trimmedMessage, meta: { clientMessageId: crypto.randomUUID() } });
   };
 
@@ -324,7 +390,8 @@ export default function ConversationScreen({
               ref={(el) => { if (el && !isMe && msg.message_type === 'TEXT') markAsOpened(msg); }}
             >
               <div className={`
-                relative px-4 py-2.5 rounded-2xl select-none
+                px-4 py-2.5 rounded-2xl select-none
+                ${(msg.message_type === 'TEXT' || isMe || isSaved) ? 'relative' : ''}
                 ${msg.message_type === 'TEXT' ? (
                   isMe
                     ? isSaved ? 'bg-white/10 border border-white/15 text-white rounded-br-sm' : 'bg-snap-yellow text-black rounded-br-sm'
@@ -356,8 +423,56 @@ export default function ConversationScreen({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Typing Indicator */}
+      {Object.keys(typingUsers).length > 0 && (
+        <div className="px-5 py-2.5 flex items-center gap-2 bg-gradient-to-r from-zinc-950/60 to-transparent border-t border-white/5 shrink-0">
+          <div className="flex gap-1 items-center shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-snap-yellow animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-snap-yellow animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-snap-yellow animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+          <span className="text-white/45 text-[11px] font-bold italic tracking-wide">
+            {Object.values(typingUsers).join(', ')} {Object.keys(typingUsers).length > 1 ? 'sont' : 'est'} en train d'écrire...
+          </span>
+        </div>
+      )}
+
+      {/* Emoji Picker Drawer */}
+      <AnimatePresence>
+        {showEmojiPicker && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 180, opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-t border-white/5 bg-zinc-950/90 backdrop-blur-md overflow-hidden flex flex-col pointer-events-auto shrink-0 z-40"
+          >
+            <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
+              <span className="text-[10px] font-black text-white/30 uppercase tracking-wider">Emojis</span>
+              <button 
+                onClick={() => setShowEmojiPicker(false)}
+                className="text-[11px] font-bold text-snap-yellow hover:text-yellow-400 active:scale-95 transition-all"
+              >
+                Fermer
+              </button>
+            </div>
+            <div className="grid grid-cols-8 gap-3 p-4 overflow-y-auto max-h-[140px] scroll-hide">
+              {EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => setNewMessage((prev) => prev + emoji)}
+                  className="text-2xl flex items-center justify-center hover:bg-white/10 p-1.5 rounded-xl active:scale-75 transition-all"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Input */}
-      <div className="px-3 py-3 border-t border-white/8 pb-6">
+      <div className="px-3 py-3 border-t border-white/8 pb-6 shrink-0 bg-black z-30">
         <form onSubmit={handleSend} className="flex items-center gap-2">
           <button
             type="button"
@@ -370,7 +485,7 @@ export default function ConversationScreen({
           <input
             type="text"
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
             placeholder="Envoyer un message..."
             className="flex-1 bg-white/8 border border-white/10 rounded-full h-11 px-5 text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition-all text-[15px]"
           />
@@ -386,7 +501,10 @@ export default function ConversationScreen({
           ) : (
             <button
               type="button"
-              className="w-11 h-11 rounded-full bg-white/8 flex items-center justify-center text-white/40 shrink-0"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-all ${
+                showEmojiPicker ? 'bg-snap-yellow text-black' : 'bg-white/8 text-white/40 hover:text-white hover:bg-white/12'
+              }`}
             >
               <span className="text-lg">😊</span>
             </button>
