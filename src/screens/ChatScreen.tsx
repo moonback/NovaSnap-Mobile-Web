@@ -246,7 +246,8 @@ export default function ChatScreen() {
 
       {/* New Chat Modal */}
       {showNewChatModal && (
-        <div className={`absolute inset-0 z-50 flex flex-col backdrop-blur-md ${t.isLight ? 'bg-[#f0f2f8]/98' : 'bg-black/95'} ${t.text}`}>
+        <div className={`absolute inset-0 z-50 flex justify-center backdrop-blur-md ${t.isLight ? 'bg-[#f0f2f8]/75' : 'bg-black/70'} ${t.text}`}>
+          <div className={`w-full max-w-[430px] h-full flex flex-col ${t.isLight ? 'bg-[#f0f2f8]/98' : 'bg-black/95'} border-x ${t.borderMuted}`}>
           <div className={`flex items-center gap-3 px-4 pt-14 pb-4 border-b ${t.borderMuted}`}>
             <button onClick={() => { setShowNewChatModal(false); setSearchQuery(''); }} className={`w-9 h-9 rounded-full flex items-center justify-center ${t.iconBtn}`}>
               <X size={18} />
@@ -276,6 +277,7 @@ export default function ChatScreen() {
                 {filteredOtherUsers.map((u) => <UserRow key={u.id} user={u} isFriend={false} isCreating={isCreating} onSelect={() => handleStartChat(u)} />)}
               </>
             )}
+          </div>
           </div>
         </div>
       )}
