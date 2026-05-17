@@ -75,6 +75,7 @@ export default function ProfileScreen() {
           .eq('id', user.id);
         if (error) throw error;
       }
+      queryClient.invalidateQueries({ queryKey: ['friend-locations'] });
       toast(
         nextVal ? 'Mode Fantôme activé ! Ta position est masquée.' : 'Mode Fantôme désactivé.',
         'info'

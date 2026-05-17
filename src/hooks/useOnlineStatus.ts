@@ -24,7 +24,30 @@ export const useOnlineStatus = (userId?: string) => {
   // ── Heartbeat mutation (met à jour last_seen_at toutes les 30s) ──
   const heartbeatMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('update_user_heartbeat');
+      const ghostMode =
+        localStorage.getItem('novasnap_settings_ghost_mode') === 'true';
+
+      if (ghostMode) {
+        const { error } = await supabase.rpc('update_user_heartbeat',
+          { p_ghost: true });
+        if (error) throw error;
+        return;
+      }
+
+      const position = await new Promise<GeolocationPosition | null>(resolve => {
+        if (!navigator.geolocation) return resolve(null);
+        navigator.geolocation.getCurrentPosition(
+          pos => resolve(pos),
+          ()  => resolve(null),
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 },
+        );
+      });
+
+      const { error } = await supabase.rpc('update_user_heartbeat', {
+        p_lat:   position?.coords.latitude  ?? null,
+        p_lng:   position?.coords.longitude ?? null,
+        p_ghost: false,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
