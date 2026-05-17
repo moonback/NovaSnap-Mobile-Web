@@ -76,6 +76,7 @@ export default function MapScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [userCoords, setUserCoords] = useState<[number, number]>([48.8566, 2.3522]); // Default: Paris Center
   const [coordsLoading, setCoordsLoading] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -486,9 +487,26 @@ export default function MapScreen() {
           </div>
         )}
 
-        <div className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[32px] p-4 pointer-events-auto shadow-2xl flex flex-col gap-3.5">
-          {/* Friends title */}
-          <div className="flex items-center justify-between">
+        <motion.div layout className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[32px] p-4 pointer-events-auto shadow-2xl flex flex-col overflow-hidden">
+          {/* Handle / Toggle */}
+          <div 
+            className="w-full flex items-center justify-center pt-1 pb-3 cursor-pointer"
+            onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+          >
+            <div className="w-12 h-1.5 bg-white/30 rounded-full" />
+          </div>
+
+          <AnimatePresence initial={false}>
+            {isDrawerOpen && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                className="flex flex-col gap-3.5"
+              >
+                {/* Friends title */}
+                <div className="flex items-center justify-between">
             <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Autour de moi</p>
             <span className="text-[10px] text-snap-yellow font-black">
               {friends.length} ami{friends.length > 1 ? 's' : ''} actif{friends.length > 1 ? 's' : ''}
@@ -557,7 +575,10 @@ export default function MapScreen() {
               </button>
             ))}
           </div>
-        </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </div>
 
       {/* 5. Global Settings Modal */}
