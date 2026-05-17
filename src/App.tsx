@@ -93,20 +93,36 @@ export default function App() {
   });
 
   useEffect(() => {
-    const handleResize = () => {
-      const isDesktop = window.innerWidth >= 768;
-      const width = isDesktop ? Math.min(430, window.innerWidth) : window.innerWidth;
-      const height = isDesktop ? Math.min(932, window.innerHeight) : window.innerHeight;
+    let rafId = 0;
+
+    const updateDimensions = () => {
+      const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const isDesktop = viewportWidth >= 768;
+      const width = isDesktop ? Math.min(430, viewportWidth) : viewportWidth;
+      const height = isDesktop ? Math.min(932, viewportHeight) : viewportHeight;
       setDimensions({ width, height, isDesktop });
     };
 
+    const handleResize = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateDimensions);
+    };
+
     window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+    window.visualViewport?.addEventListener('resize', handleResize);
+    updateDimensions();
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', handleResize);
+      window.visualViewport?.removeEventListener('resize', handleResize);
+    };
   }, []);
 
-  const views = ['chat', 'camera', 'stories'];
-  const currentIndex = views.indexOf(currentView);
+  const views = ['chat', 'camera', 'stories'] as const;
+  const resolvedIndex = views.indexOf(currentView as (typeof views)[number]);
+  const currentIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
 
   useEffect(() => {
     const checkAndCreateProfile = async (
