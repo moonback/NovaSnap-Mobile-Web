@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, LogOut, Settings, Camera, Award, Ghost, Eye } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronDown, LogOut, Settings, Camera, Award, Ghost, Eye, Loader2 } from 'lucide-react';
+import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
+import { useToast } from '../components/ui/ToastProvider';
 
 export default function ProfileScreen() {
   const { user, setShowProfile } = useAppStore();
@@ -20,10 +21,61 @@ export default function ProfileScreen() {
         .single();
       
       if (error) throw error;
+
+      // Resolve signed URL if the avatar is in the private bucket
+      if (data.avatar_url) {
+        data.avatar_url = await getValidMediaUrl('avatars', data.avatar_url);
+      }
       return data;
     },
     enabled: !!user,
   });
+
+  const { toast } = useToast();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const queryClient = useQueryClient();
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    try {
+      setIsUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+
+      // 1. Upload to secure 'avatars' bucket
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Supabase public URL structure (even if bucket is private, we store this standard format 
+      // so our getValidMediaUrl function can parse it and sign it dynamically)
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+      // 2. Update user profile
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // 3. Invalidate cache to refetch and resign
+      await queryClient.invalidateQueries({ queryKey: ['user-profile', user.id] });
+      toast('Profile photo updated successfully!', 'success');
+      
+    } catch (err: any) {
+      console.error(err);
+      toast('Failed to upload photo: ' + err.message, 'error');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -54,10 +106,21 @@ export default function ProfileScreen() {
       <div className="flex-1 px-6 flex flex-col items-center max-w-md w-full mx-auto pb-10">
         
         {/* Avatar Section */}
-        <div className="relative group cursor-pointer mt-4">
+        <div className="relative group cursor-pointer mt-4" onClick={() => fileInputRef.current?.click()}>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept="image/*" 
+            onChange={handleAvatarUpload} 
+          />
           <div className="w-32 h-32 rounded-[40px] bg-gradient-to-tr from-cyan-400 via-purple-500 to-pink-500 p-[3px] shadow-[0_0_30px_rgba(34,211,238,0.4)] transition-all group-hover:scale-105">
             <div className="w-full h-full bg-black rounded-[38px] overflow-hidden relative">
-              {profile?.avatar_url ? (
+              {isUploading ? (
+                <div className="w-full h-full flex items-center justify-center bg-[#111]">
+                  <Loader2 size={32} className="animate-spin text-cyan-400" />
+                </div>
+              ) : profile?.avatar_url ? (
                 <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-[#111]">
@@ -66,7 +129,7 @@ export default function ProfileScreen() {
               )}
             </div>
           </div>
-          <div className="absolute -bottom-3 -right-3 w-10 h-10 bg-cyan-500 rounded-full flex items-center justify-center border-4 border-[#050505] shadow-lg">
+          <div className="absolute -bottom-3 -right-3 w-10 h-10 bg-cyan-500 rounded-full flex items-center justify-center border-4 border-[#050505] shadow-lg hover:scale-110 transition-transform">
             <Camera size={16} className="text-black" />
           </div>
         </div>
