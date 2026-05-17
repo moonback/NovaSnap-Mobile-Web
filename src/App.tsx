@@ -84,6 +84,26 @@ export default function App() {
   } = useAppStore();
   const controls = useAnimation();
   const [isInitializing, setIsInitializing] = useState(true);
+  
+  // NOUVEAU: Gestion des dimensions réactives pour le conteneur centré
+  const [dimensions, setDimensions] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 390,
+    height: typeof window !== 'undefined' ? window.innerHeight : 844,
+    isDesktop: false
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const isDesktop = window.innerWidth >= 768;
+      const width = isDesktop ? Math.min(430, window.innerWidth) : window.innerWidth;
+      const height = isDesktop ? Math.min(932, window.innerHeight) : window.innerHeight;
+      setDimensions({ width, height, isDesktop });
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const views = ['chat', 'camera', 'stories'];
   const currentIndex = views.indexOf(currentView);
@@ -140,14 +160,15 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [setSession, setUser]);
 
+  // NOUVEAU: Animation de transition basée sur la largeur calculée du conteneur
   useEffect(() => {
     if (session) {
       controls.start(
-        { x: `${-currentIndex * 100}vw` },
-        { type: 'spring', stiffness: 300, damping: 30 }
+        { x: -currentIndex * dimensions.width },
+        { type: 'spring', stiffness: 350, damping: 32 }
       );
     }
-  }, [currentIndex, controls, session]);
+  }, [currentIndex, controls, session, dimensions.width]);
 
   if (isInitializing) {
     return (
@@ -175,57 +196,100 @@ export default function App() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black overflow-hidden font-sans">
+    <div className="fixed inset-0 bg-[#07070a] flex items-center justify-center overflow-hidden font-sans">
+      {/* NOUVEAU : Arrière-plan premium pour grand écran (effet de lumière néon jaune) */}
+      {dimensions.isDesktop && (
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-snap-yellow/5 rounded-full blur-[160px]" />
+          <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[120px]" />
+          
+          {/* Logo en arrière-plan */}
+          <div className="absolute top-10 left-12 flex items-center gap-3 opacity-20 select-none">
+            <div className="w-10 h-10 rounded-[12px] bg-snap-yellow flex items-center justify-center shadow-snap">
+              <svg viewBox="0 0 100 100" className="w-6 h-6" fill="none">
+                <path d="M50 10C28 10 10 28 10 50c0 8 2.5 15.5 6.8 21.6L10 90l18.4-6.8C34.5 87.5 42 90 50 90c22 0 40-18 40-40S72 10 50 10z" fill="black" />
+              </svg>
+            </div>
+            <span className="text-white font-black tracking-wider text-xl">NovaSnap</span>
+          </div>
+        </div>
+      )}
+
       {/* Heartbeat actif dès que l'utilisateur est connecté */}
       {session && <HeartbeatProvider />}
       {session && <NotificationProvider />}
 
-      <motion.div
-        className="flex w-[300vw] h-full touch-pan-y"
-        animate={controls}
-        drag="x"
-        dragConstraints={{ left: -window.innerWidth * 2, right: 0 }}
-        dragElastic={0.15}
-        onDragEnd={(_e, { offset, velocity }) => {
-          const swipe = swipePower(offset.x, velocity.x);
-          if (swipe < -swipeConfidenceThreshold && currentIndex < 2) {
-            setCurrentView(views[currentIndex + 1] as 'chat' | 'camera' | 'stories');
-          } else if (swipe > swipeConfidenceThreshold && currentIndex > 0) {
-            setCurrentView(views[currentIndex - 1] as 'chat' | 'camera' | 'stories');
-          } else {
-            controls.start({ x: `${-currentIndex * 100}vw` });
-          }
+      {/* NOUVEAU: Conteneur de style mockup iPhone sur Desktop */}
+      <div
+        className="relative overflow-hidden transition-all duration-300 z-10"
+        style={{
+          width: dimensions.width,
+          height: dimensions.isDesktop ? 'min(900px, 95vh)' : '100%',
+          maxHeight: dimensions.isDesktop ? '900px' : 'none',
+          borderRadius: dimensions.isDesktop ? '40px' : '0px',
+          border: dimensions.isDesktop ? '8px solid #1c1c24' : 'none',
+          boxShadow: dimensions.isDesktop 
+            ? '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 252, 0, 0.05)' 
+            : 'none',
+          background: '#000',
         }}
       >
-        {/* Chat */}
-        <div className="w-[100vw] h-full flex-shrink-0 bg-black">
-          <ChatScreen />
-        </div>
-        {/* Camera */}
-        <div className="w-[100vw] h-full flex-shrink-0 bg-black">
-          {Math.abs(currentIndex - 1) <= 1 && (
-            <CameraView isActive={currentView === 'camera'} />
-          )}
-        </div>
-        {/* Stories */}
-        <div className="w-[100vw] h-full flex-shrink-0 bg-black">
-          {Math.abs(currentIndex - 2) <= 1 && <StoriesScreen />}
-        </div>
-      </motion.div>
+        {/* NOUVEAU: Dynamic Island factice sur Desktop pour accentuer le look premium */}
+        {dimensions.isDesktop && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-full z-50 flex items-center justify-center border border-white/5 shadow-inner">
+            <div className="w-2 h-2 rounded-full bg-zinc-900 ml-auto mr-4" />
+          </div>
+        )}
 
-      <TabBar />
+        <motion.div
+          className="flex h-full touch-pan-y"
+          style={{ width: dimensions.width * 3 }}
+          animate={controls}
+          drag="x"
+          dragConstraints={{ left: -dimensions.width * 2, right: 0 }}
+          dragElastic={0.15}
+          onDragEnd={(_e, { offset, velocity }) => {
+            const swipe = swipePower(offset.x, velocity.x);
+            if (swipe < -swipeConfidenceThreshold && currentIndex < 2) {
+              setCurrentView(views[currentIndex + 1] as 'chat' | 'camera' | 'stories');
+            } else if (swipe > swipeConfidenceThreshold && currentIndex > 0) {
+              setCurrentView(views[currentIndex - 1] as 'chat' | 'camera' | 'stories');
+            } else {
+              controls.start({ x: -currentIndex * dimensions.width });
+            }
+          }}
+        >
+          {/* Chat */}
+          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+            <ChatScreen />
+          </div>
+          {/* Camera */}
+          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+            {Math.abs(currentIndex - 1) <= 1 && (
+              <CameraView isActive={currentView === 'camera'} />
+            )}
+          </div>
+          {/* Stories */}
+          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+            {Math.abs(currentIndex - 2) <= 1 && <StoriesScreen />}
+          </div>
+        </motion.div>
 
-      <AnimatePresence>
-        {showProfile && <ProfileScreen key="profile" />}
-      </AnimatePresence>
+        <TabBar />
 
-      <AnimatePresence>
-        {showFriends && <FriendsScreen key="friends" />}
-      </AnimatePresence>
+        <AnimatePresence>
+          {showProfile && <ProfileScreen key="profile" />}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {viewingProfileUserId && <UserProfileScreen key="user-profile" />}
-      </AnimatePresence>
+        <AnimatePresence>
+          {showFriends && <FriendsScreen key="friends" />}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {viewingProfileUserId && <UserProfileScreen key="user-profile" />}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

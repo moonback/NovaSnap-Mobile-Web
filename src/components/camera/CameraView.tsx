@@ -477,10 +477,12 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
             )}
 
             {/* ── Zone shutter (au-dessus du TabBar) ── */}
-            <div className="absolute bottom-[120px] inset-x-0 flex flex-col items-center gap-4 z-10">
+            <div className="absolute bottom-[140px] inset-x-0 flex flex-col items-center gap-4 z-10">
               {/* Hint text */}
               {!isRecording && (
-                <p className="text-white/40 text-xs font-medium">Appuie pour photo · Maintiens pour vidéo</p>
+                <p className="text-white/40 text-xs font-semibold tracking-wider drop-shadow-md">
+                  Appuie pour photo · Maintiens pour vidéo
+                </p>
               )}
 
               <div className="flex items-center justify-center gap-8">
@@ -494,16 +496,28 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
                   onMouseLeave={handlePressEnd}
                   onTouchStart={handlePressStart}
                   onTouchEnd={handlePressEnd}
-                  className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer ${
-                    isRecording
-                      ? 'bg-red-500 scale-110'
-                      : 'bg-white active:scale-90'
+                  className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer relative ${
+                    isRecording ? 'scale-110' : 'hover:scale-105 active:scale-95'
                   }`}
-                  style={isRecording ? {} : { boxShadow: '0 0 0 4px rgba(255,255,255,0.3), 0 0 0 8px rgba(255,255,255,0.1)' }}
                 >
-                  {isRecording && (
-                    <div className="w-8 h-8 rounded-lg bg-white" />
-                  )}
+                  {/* Outer glowing rings */}
+                  <div className={`absolute inset-[-6px] rounded-full border-2 transition-all duration-300 ${
+                    isRecording ? 'border-red-500 animate-pulse' : 'border-white/30'
+                  }`} />
+                  <div className={`absolute inset-[-12px] rounded-full border transition-all duration-300 ${
+                    isRecording ? 'border-red-500/20' : 'border-white/10'
+                  }`} />
+                  
+                  {/* Inner button */}
+                  <div className={`w-full h-full rounded-full transition-all duration-300 flex items-center justify-center ${
+                    isRecording ? 'bg-red-600 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-white shadow-[0_4px_20px_rgba(0,0,0,0.3)]'
+                  }`}>
+                    {isRecording ? (
+                      <div className="w-6 h-6 rounded-md bg-white animate-pulse" />
+                    ) : (
+                      <div className="w-[72px] h-[72px] rounded-full border-2 border-black/5 bg-white" />
+                    )}
+                  </div>
                 </button>
 
                 {/* Spacer */}
