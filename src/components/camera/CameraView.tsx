@@ -193,18 +193,47 @@ export default function CameraView() {
     }
   };
 
+  const uploadMedia = async (bucketName: string): Promise<string> => {
+    if (!user || !capturedMedia) throw new Error("No captured media");
+    
+    // Convert URL (blob or dataurl) to raw Blob
+    const response = await fetch(capturedMedia.url);
+    const fileBlob = await response.blob();
+    
+    // Generate a unique file name
+    const fileExt = capturedMedia.type === 'image' ? 'jpg' : 'mp4';
+    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .upload(fileName, fileBlob, {
+        contentType: fileBlob.type,
+        cacheControl: '3600',
+        upsert: true
+      });
+      
+    if (error) throw error;
+    
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(fileName);
+      
+    return publicUrlData.publicUrl;
+  };
+
   const handleSendToChat = async (conversationId: string) => {
     if (!user || !capturedMedia) return;
     setIsSending(true);
     try {
-      // Very naive implementation: save mediaUrl directly if it's dataurl
-      // Note: In real setup we must upload blob to Supabase Storage first.
-      const mediaUrl = capturedMedia.url;
+      // Upload media to Supabase Storage chats bucket
+      const publicUrl = await uploadMedia('chats');
+
       const { error } = await supabase.from('messages').insert({
         conversation_id: conversationId,
         sender_id: user.id,
         message_type: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
-        media_url: mediaUrl,
+        media_url: publicUrl,
         content: ''
       });
 
@@ -231,11 +260,13 @@ export default function CameraView() {
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24);
 
-      const mediaUrl = capturedMedia.url;
+      // Upload media to Supabase Storage stories bucket
+      const publicUrl = await uploadMedia('stories');
+
       const { error } = await supabase.from('stories').insert({
         user_id: user.id,
         media_type: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
-        media_url: mediaUrl,
+        media_url: publicUrl,
         expires_at: expiresAt.toISOString(),
       });
 
