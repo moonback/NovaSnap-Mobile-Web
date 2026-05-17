@@ -24,6 +24,7 @@ function timeAgo(dateStr: string): string {
 export default function ChatScreen() {
   const { data: conversations, isLoading, realtimeStatus } = useConversations();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeConversationPreview, setActiveConversationPreview] = useState<{ title: string; avatarUrl?: string } | null>(null);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -71,6 +72,10 @@ export default function ChatScreen() {
           .eq('user_id', targetUser.id);
         if (sharedError) throw sharedError;
         if (sharedMembers && sharedMembers.length > 0) {
+          setActiveConversationPreview({
+            title: targetUser.display_name || targetUser.username || 'Chat',
+            avatarUrl: targetUser.avatar_url ?? undefined,
+          });
           setActiveConversationId(sharedMembers[0].conversation_id);
           setShowNewChatModal(false);
           return;
@@ -88,6 +93,10 @@ export default function ChatScreen() {
       ]);
       if (memberError) throw memberError;
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      setActiveConversationPreview({
+        title: targetUser.display_name || targetUser.username || 'Chat',
+        avatarUrl: targetUser.avatar_url ?? undefined,
+      });
       setActiveConversationId(newConv.id);
       setShowNewChatModal(false);
     } catch (e) {
@@ -124,9 +133,12 @@ export default function ChatScreen() {
     return (
       <ConversationScreen
         conversationId={activeConversationId}
-        onBack={() => setActiveConversationId(null)}
-        title={activeConversation?.title || 'Chat'}
-        avatarUrl={otherMember?.users?.avatar_url ?? undefined}
+        onBack={() => {
+          setActiveConversationId(null);
+          setActiveConversationPreview(null);
+        }}
+        title={activeConversation?.title || activeConversationPreview?.title || 'Chat'}
+        avatarUrl={otherMember?.users?.avatar_url ?? activeConversationPreview?.avatarUrl}
       />
     );
   }
@@ -234,14 +246,14 @@ export default function ChatScreen() {
 
       {/* New Chat Modal */}
       {showNewChatModal && (
-        <div className={`absolute inset-0 z-50 flex flex-col ${t.bg} ${t.text}`}>
-          <div className="flex items-center gap-3 px-4 pt-14 pb-4">
+        <div className={`absolute inset-0 z-50 flex flex-col backdrop-blur-md ${t.isLight ? 'bg-[#f0f2f8]/98' : 'bg-black/95'} ${t.text}`}>
+          <div className={`flex items-center gap-3 px-4 pt-14 pb-4 border-b ${t.borderMuted}`}>
             <button onClick={() => { setShowNewChatModal(false); setSearchQuery(''); }} className={`w-9 h-9 rounded-full flex items-center justify-center ${t.iconBtn}`}>
               <X size={18} />
             </button>
             <h2 className="text-lg font-black flex-1">Nouveau chat</h2>
           </div>
-          <div className="px-4 pb-4">
+          <div className="px-4 py-4">
             <div className="relative">
               <Search size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
               <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Rechercher un utilisateur..." autoFocus
