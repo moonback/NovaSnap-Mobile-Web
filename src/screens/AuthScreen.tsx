@@ -5,7 +5,7 @@ import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react
 import { useToast } from '../components/ui/ToastProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'forgot';
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
@@ -30,9 +30,12 @@ export default function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
   const { toast } = useToast();
 
   const isLogin = mode === 'login';
+  const isForgot = mode === 'forgot';
   const normalizedUsername = useMemo(() => normalizeUsername(username), [username]);
   
   const usernameError = useMemo(() => {
@@ -68,6 +71,25 @@ export default function AuthScreen() {
     } catch (err) {
       const parsedError = err instanceof Error ? err : new Error('Erreur d\'authentification.');
       setError(getAuthErrorMessage(parsedError));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+        redirectTo: `${window.location.origin}?reset=true`,
+      });
+      if (error) throw error;
+      setForgotSent(true);
+    } catch (err) {
+      const parsedError = err instanceof Error ? err : new Error('Erreur lors de l\'envoi.');
+      setError(parsedError.message);
     } finally {
       setLoading(false);
     }
@@ -132,7 +154,8 @@ export default function AuthScreen() {
           </p>
         </div>
 
-        {/* Segmented Toggle */}
+        {/* Segmented Toggle — hidden in forgot mode */}
+        {!isForgot && (
         <div className="flex p-1 bg-white/5 border border-white/10 rounded-full mb-8 relative backdrop-blur-md">
           <motion.div
             className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white/10 rounded-full shadow-lg border border-white/5"
@@ -154,6 +177,7 @@ export default function AuthScreen() {
             Inscription
           </button>
         </div>
+        )}
 
         {/* Error Message */}
         <AnimatePresence mode="wait">
@@ -175,8 +199,89 @@ export default function AuthScreen() {
         {/* Animated Form */}
         <div className="relative">
           <AnimatePresence mode="wait">
-            <motion.form 
-              key={mode}
+            {isForgot ? (
+              /* ── Forgot Password View ── */
+              <motion.div
+                key="forgot"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="space-y-4"
+              >
+                {forgotSent ? (
+                  /* Success state */
+                  <div className="flex flex-col items-center gap-4 py-4">
+                    <div className="w-16 h-16 rounded-full bg-snap-yellow/15 border border-snap-yellow/30 flex items-center justify-center">
+                      <Mail size={28} className="text-snap-yellow" />
+                    </div>
+                    <div className="text-center space-y-1.5">
+                      <p className="text-white font-black text-lg">Email envoyé !</p>
+                      <p className="text-white/50 text-sm leading-relaxed">
+                        Vérifie ta boîte mail à <span className="text-snap-yellow font-bold">{forgotEmail}</span> et clique sur le lien pour réinitialiser ton mot de passe.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { setMode('login'); setForgotSent(false); setError(null); }}
+                      className="w-full bg-white/8 border border-white/10 text-white font-bold py-3.5 rounded-2xl text-sm hover:bg-white/12 transition-colors active:scale-95"
+                    >
+                      Retour à la connexion
+                    </button>
+                  </div>
+                ) : (
+                  /* Form state */
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div className="text-center space-y-1.5 mb-2">
+                      <p className="text-white font-black text-lg">Mot de passe oublié ?</p>
+                      <p className="text-white/40 text-sm leading-relaxed">
+                        Saisis ton adresse email et on t'envoie un lien de réinitialisation.
+                      </p>
+                    </div>
+
+                    <div className="relative group">
+                      <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-snap-yellow transition-colors pointer-events-none" />
+                      <input
+                        type="email"
+                        placeholder="Adresse email"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
+                        required
+                        autoComplete="email"
+                        inputMode="email"
+                      />
+                    </div>
+
+                    <motion.button
+                      type="submit"
+                      disabled={!forgotEmail.trim() || loading}
+                      whileTap={!loading ? { scale: 0.98 } : {}}
+                      className="w-full bg-gradient-to-r from-[#FFFC00] to-[#eab308] text-black font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(255,252,0,0.25)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[15px] tracking-wide relative overflow-hidden group"
+                    >
+                      <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                      {loading ? (
+                        <Loader2 size={20} className="animate-spin" />
+                      ) : (
+                        <>
+                          <span className="relative z-10">Envoyer le lien</span>
+                          <ArrowRight size={18} className="relative z-10" />
+                        </>
+                      )}
+                    </motion.button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setMode('login'); setError(null); }}
+                      className="w-full text-white/40 hover:text-white/70 transition-colors text-sm font-medium py-2"
+                    >
+                      ← Retour à la connexion
+                    </button>
+                  </form>
+                )}
+              </motion.div>
+            ) : (
+              <motion.form
+                key={mode}
               variants={formVariants}
               initial="hidden"
               animate="visible"
@@ -250,7 +355,11 @@ export default function AuthScreen() {
 
               {isLogin && (
                 <div className="flex justify-end pt-1">
-                  <button type="button" className="text-xs text-white/40 hover:text-white transition-colors font-medium">
+                  <button
+                    type="button"
+                    onClick={() => { setMode('forgot'); setError(null); setForgotSent(false); setForgotEmail(email); }}
+                    className="text-xs text-white/40 hover:text-snap-yellow transition-colors font-medium"
+                  >
                     Mot de passe oublié ?
                   </button>
                 </div>
@@ -273,6 +382,7 @@ export default function AuthScreen() {
                 )}
               </motion.button>
             </motion.form>
+            )}
           </AnimatePresence>
         </div>
       </motion.div>

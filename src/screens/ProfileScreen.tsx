@@ -164,6 +164,52 @@ export default function ProfileScreen() {
     }, 1000);
   };
 
+  // ── Change password state ─────────────────────────────────
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmPassword) return;
+    if (newPassword.length < 8) {
+      toast('Le nouveau mot de passe doit contenir au moins 8 caractères.', 'error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast('Les mots de passe ne correspondent pas.', 'error');
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      // Re-authenticate with current password first
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email ?? '',
+        password: currentPassword,
+      });
+      if (signInError) {
+        toast('Mot de passe actuel incorrect.', 'error');
+        return;
+      }
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast('Mot de passe mis à jour avec succès !', 'success');
+      setShowChangePassword(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur inconnue';
+      toast('Erreur : ' + message, 'error');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const handleDeleteAccount = async () => {
     toast('Demande de suppression du compte envoyée...', 'info');
@@ -570,7 +616,151 @@ export default function ProfileScreen() {
                 </div>
               </div>
 
-              {/* Group 2: Privacy */}
+              {/* Group 2: Security — Password Change */}
+              <div>
+                <p className={`text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2 ${t.textMuted}`}>Sécurité</p>
+                <div className={`border rounded-2xl overflow-hidden ${t.surface} ${t.border}`}>
+                  <button
+                    onClick={() => setShowChangePassword(!showChangePassword)}
+                    className={`w-full flex items-center justify-between p-4 transition-colors text-left ${t.surfaceHover}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Lock size={18} className="text-snap-yellow" />
+                      <div>
+                        <p className="text-sm font-bold">Changer le mot de passe</p>
+                        <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>Modifier ton mot de passe actuel</p>
+                      </div>
+                    </div>
+                    <motion.div
+                      animate={{ rotate: showChangePassword ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronLeft size={16} className={`${t.textFaint} rotate-[-90deg]`} />
+                    </motion.div>
+                  </button>
+
+                  <AnimatePresence>
+                    {showChangePassword && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.22 }}
+                        className="overflow-hidden"
+                      >
+                        <div className={`px-4 pb-4 pt-1 space-y-3 border-t ${t.borderMuted}`}>
+                          {/* Current password */}
+                          <div className="relative">
+                            <label className={`text-[10px] font-black uppercase tracking-wider block mb-1.5 ${t.textMuted}`}>
+                              Mot de passe actuel
+                            </label>
+                            <div className="relative">
+                              <Lock size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${t.textFaint} pointer-events-none`} />
+                              <input
+                                type={showCurrentPwd ? 'text' : 'password'}
+                                value={currentPassword}
+                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                placeholder="••••••••"
+                                autoComplete="current-password"
+                                className={`w-full border rounded-xl h-11 pl-10 pr-10 text-sm focus:outline-none focus:border-snap-yellow/50 transition-all ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/25' : 'placeholder-white/25'}`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowCurrentPwd(!showCurrentPwd)}
+                                className={`absolute right-3 top-1/2 -translate-y-1/2 ${t.textFaint} hover:${t.textMuted} transition-colors`}
+                              >
+                                {showCurrentPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* New password */}
+                          <div>
+                            <label className={`text-[10px] font-black uppercase tracking-wider block mb-1.5 ${t.textMuted}`}>
+                              Nouveau mot de passe
+                            </label>
+                            <div className="relative">
+                              <Lock size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${t.textFaint} pointer-events-none`} />
+                              <input
+                                type={showNewPwd ? 'text' : 'password'}
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                placeholder="Min. 8 caractères"
+                                autoComplete="new-password"
+                                className={`w-full border rounded-xl h-11 pl-10 pr-10 text-sm focus:outline-none focus:border-snap-yellow/50 transition-all ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/25' : 'placeholder-white/25'}`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowNewPwd(!showNewPwd)}
+                                className={`absolute right-3 top-1/2 -translate-y-1/2 ${t.textFaint} hover:${t.textMuted} transition-colors`}
+                              >
+                                {showNewPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Confirm password */}
+                          <div>
+                            <label className={`text-[10px] font-black uppercase tracking-wider block mb-1.5 ${t.textMuted}`}>
+                              Confirmer le nouveau mot de passe
+                            </label>
+                            <div className="relative">
+                              <Lock size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${t.textFaint} pointer-events-none`} />
+                              <input
+                                type={showConfirmPwd ? 'text' : 'password'}
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                placeholder="Répète le nouveau mot de passe"
+                                autoComplete="new-password"
+                                className={`w-full border rounded-xl h-11 pl-10 pr-10 text-sm focus:outline-none focus:border-snap-yellow/50 transition-all ${
+                                  confirmPassword && newPassword !== confirmPassword
+                                    ? 'border-red-500/50 focus:border-red-500/70'
+                                    : confirmPassword && newPassword === confirmPassword
+                                    ? 'border-green-500/50 focus:border-green-500/70'
+                                    : ''
+                                } ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/25' : 'placeholder-white/25'}`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+                                className={`absolute right-3 top-1/2 -translate-y-1/2 ${t.textFaint} hover:${t.textMuted} transition-colors`}
+                              >
+                                {showConfirmPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                              </button>
+                            </div>
+                            {confirmPassword && newPassword !== confirmPassword && (
+                              <p className="text-red-400 text-[10px] mt-1 font-bold">Les mots de passe ne correspondent pas</p>
+                            )}
+                            {confirmPassword && newPassword === confirmPassword && newPassword.length >= 8 && (
+                              <p className="text-green-400 text-[10px] mt-1 font-bold flex items-center gap-1">
+                                <Check size={10} /> Mots de passe identiques
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Submit */}
+                          <button
+                            onClick={handleChangePassword}
+                            disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword}
+                            className="w-full py-3 bg-snap-yellow text-black font-black text-sm rounded-xl active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1"
+                          >
+                            {isChangingPassword ? (
+                              <Loader2 size={15} className="animate-spin" />
+                            ) : (
+                              <>
+                                <Lock size={14} />
+                                Mettre à jour le mot de passe
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* Group 3: Privacy */}
               <div>
                 <p className={`text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2 ${t.textMuted}`}>Confidentialité</p>
                 <div className={`border rounded-2xl overflow-hidden ${t.surface} ${t.border} divide-y ${t.divider}`}>
@@ -615,7 +805,7 @@ export default function ProfileScreen() {
                 </div>
               </div>
 
-              {/* Group 3: Preferences */}
+              {/* Group 4: Preferences */}
               <div>
                 <p className={`text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2 ${t.textMuted}`}>Préférences</p>
                 <div className={`border rounded-2xl overflow-hidden ${t.surface} ${t.border} divide-y ${t.divider}`}>
@@ -669,7 +859,7 @@ export default function ProfileScreen() {
                 </div>
               </div>
 
-              {/* Group 4: System Actions */}
+              {/* Group 5: System Actions */}
               <div>
                 <p className={`text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2 ${t.textMuted}`}>Actions Système</p>
                 <div className={`border rounded-2xl overflow-hidden ${t.surface} ${t.border} divide-y ${t.divider}`}>
