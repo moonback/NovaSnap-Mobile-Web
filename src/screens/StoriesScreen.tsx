@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useStories } from '../hooks/useStories';
-import { X, Plus, Zap } from 'lucide-react';
+import { X, Plus, Zap, Trash2, Loader2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+import { useToast } from '../components/ui/ToastProvider';
 import Skeleton from '../components/ui/Skeleton';
 import GeminiOrb from '../components/GeminiOrb';
 import { useAppStore } from '../store/useAppStore';
@@ -11,6 +14,33 @@ export default function StoriesScreen() {
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
   const [showAI, setShowAI] = useState(false);
+
+  const queryClient = useQueryClient();
+  const { user } = useAppStore();
+  const { toast } = useToast();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteStory = async (storyId: string) => {
+    if (!confirm("Es-tu sûr de vouloir supprimer cette story ?")) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('stories')
+        .delete()
+        .eq('id', storyId);
+
+      if (error) throw error;
+
+      toast('Story supprimée avec succès !', 'success');
+      setActiveStoryIndex(null);
+      queryClient.invalidateQueries({ queryKey: ['stories', user?.id] });
+    } catch (err) {
+      console.error(err);
+      toast('Impossible de supprimer la story.', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (activeStoryIndex !== null && stories && stories.length > 0) {
@@ -26,8 +56,7 @@ export default function StoriesScreen() {
   }, [activeStoryIndex, stories]);
 
   return (
-    <>
-      <div className="w-full h-full bg-black text-white flex flex-col overflow-hidden">
+    <div className="relative w-full h-full bg-black text-white flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-14 pb-4">
           <h1 className="text-xl font-black tracking-tight">Stories</h1>
@@ -168,7 +197,6 @@ export default function StoriesScreen() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* Fullscreen Story Viewer */}
       {activeStoryIndex !== null && stories?.[activeStoryIndex] && (
@@ -203,9 +231,25 @@ export default function StoriesScreen() {
                 <p className="text-white/50 text-xs">{new Date(stories[activeStoryIndex].created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
               </div>
             </div>
-            <button onClick={() => setActiveStoryIndex(null)} className="w-9 h-9 rounded-full glass-dark flex items-center justify-center text-white">
-              <X size={20} />
-            </button>
+            <div className="flex items-center gap-2">
+              {stories[activeStoryIndex].user_id === user?.id && (
+                <button
+                  onClick={() => handleDeleteStory(stories[activeStoryIndex].id)}
+                  disabled={isDeleting}
+                  className="w-9 h-9 rounded-full bg-red-500/20 hover:bg-red-500/35 border border-red-500/30 flex items-center justify-center text-red-400 active:scale-90 transition-all pointer-events-auto"
+                  title="Supprimer ma story"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="animate-spin" size={15} />
+                  ) : (
+                    <Trash2 size={15} />
+                  )}
+                </button>
+              )}
+              <button onClick={() => setActiveStoryIndex(null)} className="w-9 h-9 rounded-full glass-dark flex items-center justify-center text-white pointer-events-auto">
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Media */}
@@ -218,7 +262,7 @@ export default function StoriesScreen() {
           ) : stories[activeStoryIndex].media_type === 'IMAGE' ? (
             <img
               src={stories[activeStoryIndex].media_url}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-zinc-950/20"
               alt="Story"
               onError={() => setFailedUrls((prev) => ({ ...prev, [stories[activeStoryIndex].media_url]: true }))}
             />
@@ -227,7 +271,7 @@ export default function StoriesScreen() {
               src={stories[activeStoryIndex].media_url}
               autoPlay
               playsInline
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-zinc-950/20"
               onError={() => setFailedUrls((prev) => ({ ...prev, [stories[activeStoryIndex].media_url]: true }))}
             />
           )}
@@ -237,6 +281,6 @@ export default function StoriesScreen() {
           <div className="absolute inset-y-0 right-0 w-1/3 z-20" onClick={() => setActiveStoryIndex(activeStoryIndex < stories.length - 1 ? activeStoryIndex + 1 : activeStoryIndex)} />
         </div>
       )}
-    </>
+    </div>
   );
 }
