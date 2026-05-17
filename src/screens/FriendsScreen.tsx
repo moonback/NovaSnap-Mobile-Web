@@ -17,6 +17,7 @@ import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { useFriends } from '../hooks/useFriends';
 import { useToast } from '../components/ui/ToastProvider';
+import { AvatarOnlineBadge } from '../components/ui/OnlineIndicator';
 import type { AppUserProfile, FriendWithProfile } from '../lib/types';
 
 // ── Avatar component ─────────────────────────────────────────

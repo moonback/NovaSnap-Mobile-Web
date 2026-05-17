@@ -18,6 +18,7 @@ import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { useFriends } from '../hooks/useFriends';
 import { useToast } from '../components/ui/ToastProvider';
+import { OnlineIndicator, AvatarOnlineBadge } from '../components/ui/OnlineIndicator';
 
 // ── Types ─────────────────────────────────────────────────────
 type PublicProfile = {
@@ -317,11 +318,11 @@ export default function UserProfileScreen() {
 
       <div className="flex-1 px-5 flex flex-col items-center pb-10">
         {/* Avatar */}
-        <div className="mt-4 mb-5">
+        <div className="mt-4 mb-5 relative">
           {profileLoading ? (
             <div className="w-28 h-28 rounded-full bg-white/10 animate-pulse ring-4 ring-snap-yellow ring-offset-4 ring-offset-black" />
           ) : (
-            <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-snap-yellow ring-offset-4 ring-offset-black">
+            <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-snap-yellow ring-offset-4 ring-offset-black relative">
               {profile?.avatar_url ? (
                 <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
               ) : (
@@ -329,6 +330,8 @@ export default function UserProfileScreen() {
                   <Ghost size={40} className="text-white/20" />
                 </div>
               )}
+              {/* Badge de statut en ligne sur l'avatar */}
+              {targetId && <AvatarOnlineBadge userId={targetId} size="lg" position="bottom-right" />}
             </div>
           )}
         </div>
@@ -346,6 +349,12 @@ export default function UserProfileScreen() {
                 {profile?.display_name || 'Nova User'}
               </h2>
               <p className="text-white/40 text-sm mt-1">@{profile?.username || 'user'}</p>
+              {/* Statut en ligne avec texte */}
+              {targetId && (
+                <div className="mt-2 flex justify-center">
+                  <OnlineIndicator userId={targetId} showText size="sm" />
+                </div>
+              )}
             </>
           )}
         </div>
