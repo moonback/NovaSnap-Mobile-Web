@@ -1,160 +1,153 @@
-# NovaSnap ✨
+# NovaSnap Mobile Web
 
-Une application sociale mobile-first de nouvelle génération centrée sur la caméra instantanée, les messages éphémères, les stories et une intelligence artificielle vocale en temps réel.
+NovaSnap is a mobile-first social PWA inspired by camera-first messaging apps: users can chat, share ephemeral media, publish stories, manage friends, and explore a live map with privacy-aware location sharing.  
+The project combines a React 19 frontend, Supabase backend services, and a Node/Express realtime bridge for Gemini Live voice interactions.
 
-## 🚀 Présentation
+## Tech Stack
 
-NovaSnap redéfinit l'interaction sociale avec une interface "Camera-First" immersive. Naviguez de manière fluide entre la carte, vos conversations, votre caméra et vos stories via une navigation par swipe (type TikTok/Snapchat), enrichie par un design "Glassmorphism" et des fonctionnalités WebSocket/WebRTC premium. 
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, TypeScript, Vite 6 |
+| UI/Animation | Tailwind CSS v4, Framer Motion, Lucide Icons |
+| State | Zustand |
+| Data Fetching | TanStack Query |
+| Backend Platform | Supabase (PostgreSQL, Auth, Storage, Realtime, RPC) |
+| Realtime Voice AI | WebSocket (`ws`) + Google Gemini Live API |
+| Server Runtime | Node.js + Express + tsx/esbuild |
 
-## 🛠️ Stack Technique
+## MVP Features
 
-### Frontend
-- **Framework :** React 19 + Vite
-- **Langage :** TypeScript
-- **Styling :** Tailwind CSS v4 + UI Immersive (Glassmorphism)
-- **Animations :** Framer Motion (Navigation par swipe ultra fluide)
-- **State Management :** Zustand
-- **Icônes :** Lucide React
+- Authentication (signup/login) with Supabase Auth.
+- Camera-first navigation (`Map → Chat → Camera → Stories`) with swipe transitions.
+- Realtime chat and conversation management.
+- Stories with expiration logic and view tracking.
+- Friends system (requests/accepted relationships).
+- Snap Map with:
+  - user geolocation heartbeat,
+  - nearby friends via PostGIS RPC,
+  - ghost mode privacy.
+- Profile/settings with privacy toggles and manual location refresh.
+- Push notification plumbing (web + Supabase edge function).
+- Live AI voice websocket channel (`/live`) authenticated by Supabase JWT.
 
-### Backend & Infrastructure
-- **BaaS :** Supabase (PostgreSQL, Realtime, Storage, Auth)
-- **WebRTC :** LiveKit (Appels audio/vidéo et rooms)
-- **Intelligence Artificielle :** Google Gemini Live API (Assistant vocal temps réel)
+## Prerequisites
 
-## ✨ Fonctionnalités Principales (MVP)
+- Node.js **18+** (recommended: latest LTS)
+- npm **9+**
+- Supabase project (URL + anon key + service role key)
+- (Optional for local DB workflows) Supabase CLI
+- Google Gemini API key (for `/live` voice assistant)
 
-- 🌍 **Snap Map (Carte mondiale) :** Carte Leaflet intégrée avec géolocalisation en temps réel, amis à proximité, heatmap d'activité et Mode Fantôme.
-- 📸 **Camera-First UI & Éditeur Premium :** Caméra avec contrôles instantanés, outil de recadrage libre, effet Boomerang et filtres.
-- 💨 **Navigation Swipeable :** Transition physique fluide entre Carte ← Chat ← Caméra → Stories.
-- 💬 **Chat Realtime & Éphémère :** Messagerie temps réel avec messages éphémères (auto-suppression après lecture) et sauvegarde manuelle.
-- 💾 **Memories (Souvenirs) :** Sauvegardez vos snaps édités en toute sécurité dans votre galerie privée intégrée à la TabBar.
-- 📖 **Stories Groupées 24h :** Flux de stories continu classé par créateur et ordonné chronologiquement avec lecteur segmenté interactif.
-- 🤖 **IA Vocale Intégrée :** Assistant "Voice Orb" boosté par Gemini pour l'analyse visuelle et vocale.
+## Installation & Configuration
 
-## 📋 Prérequis
+1. **Clone repository**
+   ```bash
+   git clone <your-repo-url>
+   cd NovaSnap-Mobile-Web
+   ```
 
-- **Node.js** (v18 ou supérieur)
-- **npm**, **yarn** ou **pnpm**
-- Un projet [Supabase](https://supabase.com/) (Database, Auth, Storage)
-- Un projet [LiveKit](https://livekit.io/)
-- Une clé API [Google Gemini](https://aistudio.google.com/)
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-## ⚙️ Installation et Configuration
+3. **Create local env file**
+   ```bash
+   cp .env.example .env
+   ```
 
-**1. Cloner le projet**
-```bash
-git clone https://github.com/votre-username/novasnap.git
-cd novasnap
-```
+4. **Configure environment variables** (see section below).
 
-**2. Installer les dépendances**
-```bash
-npm install
-```
+5. **Prepare database schema**
+   - Apply the baseline SQL (`supabase_schema.sql`) in your Supabase SQL editor.
+   - Apply additional migration files (including `supabase/migrations/20240601_gps_location.sql`).
 
-**3. Configurer les variables d'environnement**
-Copiez le fichier d'exemple et remplissez vos identifiants :
-```bash
-cp .env.example .env
-```
-Assurez-vous de renseigner les clés pour Supabase, LiveKit et Gemini (voir section *Variables d'environnement* ci-dessous).
+6. **Create Supabase Storage buckets** (if not already created by SQL):
+   - `avatars`
+   - `chats`
+   - `stories`
+   - `temporary_snaps`
 
-**4. Initialiser la base de données**
-Exécutez le script SQL fourni dans `supabase_schema.sql` directement dans l'éditeur SQL de votre projet Supabase pour créer la structure (Tables, RLS, Realtime).
+## Running the Project
 
-## 🚀 Lancement du Projet
-
-**Environnement de développement :**
+### Development
 ```bash
 npm run dev
 ```
-Le projet sera accessible sur `http://localhost:3000`.
+- Starts the Node server with Vite middleware (`tsx server.ts`)
+- Default URL: `http://localhost:3000`
 
-**Build pour la production :**
+### Production build
 ```bash
 npm run build
-npm run preview
+npm run start
+```
+- `build`: Vite client build + bundles `server.ts` to `dist/server.cjs`
+- `start`: runs bundled server
+
+### Type checking
+```bash
+npm run lint
+# (mapped to tsc --noEmit)
 ```
 
-## 📁 Structure du Projet
+## Project Structure
 
 ```text
-novasnap/
-├── public/                 # Assets statiques
+.
+├── public/                        # Static assets + service worker
 ├── src/
-│   ├── components/         # Composants réutilisables
-│   │   ├── camera/         # Interface caméra spécifique
-│   │   └── navigation/     # Barre de navigation globale
-│   ├── lib/                # Utilitaires et configurations services (Supabase, Utils)
-│   ├── screens/            # Vues principales (Map, Chat, Camera, Stories, Profil)
-│   ├── store/              # Stores Zustand (useAppStore.ts)
-│   ├── App.tsx             # Composant racine (Router Framer Motion)
-│   ├── index.css           # Tailwind + Variables CSS Immersives
-│   ├── main.tsx            # Point d'entrée React
-│   └── vite-env.d.ts       # Types Vite
-├── .env.example            # Template des variables d'environnement
-├── supabase_schema.sql     # Définition de l'architecture base de données
-├── package.json            # Dépendances et scripts
-└── vite.config.ts          # Configuration Vite
+│   ├── components/                # Reusable UI, camera, chat/navigation widgets
+│   ├── hooks/                     # React Query + app hooks (friends, stories, online, location)
+│   ├── lib/                       # Supabase client, shared types, utilities
+│   ├── screens/                   # Top-level app screens (Auth, Map, Chat, Stories, Profile...)
+│   ├── store/                     # Zustand global app store
+│   ├── App.tsx                    # App shell, view orchestration, overlays/modals
+│   └── main.tsx                   # React entrypoint
+├── supabase/
+│   ├── config.toml
+│   ├── functions/                 # Edge function(s) (e.g., push notifications)
+│   └── migrations/                # SQL migrations (GPS/location migration included)
+├── supabase_schema.sql            # Baseline DB schema and policies
+├── server.ts                      # Express + WS + Gemini Live bridge
+├── package.json
+└── tsconfig.json
 ```
 
-## 🔐 Variables d'Environnement
+## Environment Variables
 
-Le fichier `.env` doit contenir :
+Use `.env` (server + Vite client vars):
 
-```env
-# API de traitement IA (Server/Client selon config)
-GEMINI_API_KEY="votre_cle_gemini"
+| Variable | Required | Scope | Description |
+|---|---:|---|---|
+| `VITE_SUPABASE_URL` | ✅ | Client+Server | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | ✅ | Client | Public anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server only | Required by websocket auth verification |
+| `GEMINI_API_KEY` | ✅ (for AI) | Server only | Google Gemini API key |
+| `APP_URL` | Recommended | Server/links | Canonical app URL |
+| `VITE_LIVEKIT_URL` | Optional | Client | LiveKit URL (if voice/video features enabled) |
+| `VITE_LIVEKIT_API_KEY` | Optional | Client | LiveKit API key |
+| `LIVEKIT_API_SECRET` | Optional | Server | LiveKit secret |
 
-# Callbacks OAuth / Base URL
-APP_URL="http://localhost:3000"
+## Contributing Best Practices
 
-# BaaS - Base de données & Authentification
-VITE_SUPABASE_URL="https://xxx.supabase.co"
-VITE_SUPABASE_ANON_KEY="votre_anon_key"
+- Prefer small, focused PRs (one feature/fix per PR).
+- Keep strict TypeScript typing; avoid `any`.
+- Never commit secrets or service-role keys.
+- Update docs when changing schema, RPC contracts, or flows.
+- Validate with `npm run lint` before opening PR.
+- Follow existing app patterns (Zustand store + React Query hooks + screen-level orchestration).
 
-# WebRTC & Rooms vidéo
-VITE_LIVEKIT_URL="wss://xxx.livekit.cloud"
-VITE_LIVEKIT_API_KEY="votre_livekit_key"
-LIVEKIT_API_SECRET="votre_livekit_secret"
-```
+See also: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 
+## Documentation Index
 
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [API_DOCS.md](./API_DOCS.md)
+- [DB_SCHEMA.md](./DB_SCHEMA.md)
+- [ROADMAP.md](./ROADMAP.md)
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-## 🔒 Migrations Sécurité Recommandées (Supabase)
+## License
 
-En complément du schéma initial, appliquez aussi les migrations versionnées suivantes dans l’éditeur SQL Supabase, dans l’ordre :
-
-1. `supabase_migration_v5.sql` à `v8.sql` — Durcissement Storage, idempotence DB, purge TTL.
-2. `supabase_migration_v9.sql` à `v12.sql` — Système d'amis, RLS sur les amitiés, et optimisation des triggers.
-3. `supabase_migration_v13.sql` — Extension des profils et gestion avancée de la présence.
-
-### Planification purge TTL (optionnelle)
-Si `pg_cron` est activé sur votre projet Supabase, planifiez `public.purge_expired_temporary_snaps()` toutes les 5 minutes (snippet inclus dans `supabase_migration_v8.sql`).
-
-
-
-## 📈 Statut Actuel du Projet (Mai 2026)
-
-- ✅ **Snap Map :** Carte mondiale avec Leaflet, GPS en temps réel, Heatmap, Mode Ghost et stories géolocalisées.
-- ✅ **Éditeur Média Complet :** Recadrage précis, dessin, texte, stickers, rotation, contrôle de vitesse, et mode Boomerang.
-- ✅ **Stories Groupées :** Triées par créateur et chronologiquement, avec un player story de qualité premium (segments, auto-play).
-- ✅ **Messagerie Éphémère :** Suppression automatique à la lecture, avec option de sauvegarde manuelle ("Keep in Chat").
-- ✅ **Memories Intégrées :** Espace personnel persistant (bouton "Enregistrer") avec fusion de calques sur l'image (flattening) via un canvas HTML5, directement accessible dans la barre de navigation.
-- ✅ **Base Technique Solide :** Auth, profils, système d'amis, WebRTC, WebSocket protégés, requêtes optimisées.
-
-### Prochaines priorités
-1. Finaliser la phase 3 "IA Native" (Analyse de snap, traduction automatique, génération d'images).
-2. Dual Camera (Capture simultanée avant/arrière).
-3. Monétisation et options avancées (Musique sur snaps, GIPHY).
-
-## 🤝 Bonnes Pratiques pour Contribuer
-
-1. **Architecture Feat-First :** Si une fonctionnalité devient complexe, isolez-la dans un dossier spécifique (`features/Chat`, `features/Camera`).
-2. **Typage Strict :** Utilisez toujours TypeScript. Évitez les `any`.
-3. **Sécurité :** Ne commitez jamais de clés API. Vérifiez les règles RLS (Row Level Security) avant chaque modification du schéma de DB.
-4. **Pull Requests :** Faites des PR atomiques (une PR = une feature ou un fix).
-
-## 📄 Licence
-
-Ce projet est sous licence **MIT**. Vous êtes libre de l'utiliser, le modifier et le distribuer. Voir le fichier `LICENSE` pour plus de détails.
+MIT License.
