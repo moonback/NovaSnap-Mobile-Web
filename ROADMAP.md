@@ -74,9 +74,9 @@
 - [x] Dessin à main levée (brush, couleurs, épaisseur) *(Canvas HTML5, annulation du dernier trait)*
 - [x] Rotation *(±90° via boutons CCW/CW)*
 - [x] Vitesse vidéo (slow-mo x0.5, fast x2) *(sélecteur ×0.5 / ×1 / ×2 sur vidéos)*
-- [ ] Recadrage précis (crop libre)
+- [x] Recadrage précis (crop libre) *(4 curseurs Gauche/Droite/Haut/Bas, masque assombri et grille mobile)*
 - [ ] Musique sur les snaps vidéo (bibliothèque libre de droits)
-- [ ] Boomerang (boucle aller-retour)
+- [x] Boomerang (boucle aller-retour) *(Auto-stop à 2s et boucle fluide avant-arrière en requestAnimationFrame)*
 - [ ] Intégration GIPHY API pour stickers animés
 
 ### 2.3 Snap Map (Carte mondiale)

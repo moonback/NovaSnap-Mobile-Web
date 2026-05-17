@@ -1,12 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Type, Pencil, Smile, RotateCcw, RotateCw,
+  Type, Pencil, Smile, RotateCcw, RotateCw, Crop,
   X, Check, Minus, Plus, Trash2, Palette,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────
-type Tool = 'none' | 'text' | 'draw' | 'stickers';
+type Tool = 'none' | 'text' | 'draw' | 'stickers' | 'crop';
 
 interface TextLayer {
   id: string;
@@ -35,6 +35,7 @@ export interface EditorState {
   stickerLayers: StickerLayer[];
   rotation: number;       // degrees: 0, 90, 180, 270
   videoSpeed: number;     // 0.5, 1, 2
+  crop?: { x: number; y: number; width: number; height: number }; // percents, default 0, 0, 100, 100
 }
 
 interface SnapEditorProps {
@@ -89,11 +90,12 @@ export default function SnapEditor({ mediaType, onStateChange }: SnapEditorProps
   // Transform
   const [rotation, setRotation] = useState(0);
   const [videoSpeed, setVideoSpeed] = useState(1);
+  const [crop, setCrop] = useState({ x: 0, y: 0, width: 100, height: 100 });
 
   // Emit changes to parent
   useEffect(() => {
-    onStateChange({ textLayers, strokes, stickerLayers, rotation, videoSpeed });
-  }, [textLayers, strokes, stickerLayers, rotation, videoSpeed]);
+    onStateChange({ textLayers, strokes, stickerLayers, rotation, videoSpeed, crop });
+  }, [textLayers, strokes, stickerLayers, rotation, videoSpeed, crop]);
 
   // ── Drawing canvas ───────────────────────────────────────────────────
   const redrawCanvas = () => {
@@ -352,10 +354,11 @@ export default function SnapEditor({ mediaType, onStateChange }: SnapEditorProps
       </AnimatePresence>
 
       {/* ── Tool bar (right side) ─────────────────────────────────────── */}
-      <div className="absolute top-16 right-3 flex flex-col gap-3 pointer-events-auto">
+      <div className="absolute top-16 right-3 flex flex-col gap-3 pointer-events-auto z-40">
         {toolBtn('text', <Type size={18} />, 'Texte')}
         {toolBtn('draw', <Pencil size={18} />, 'Dessin')}
         {toolBtn('stickers', <Smile size={18} />, 'Stickers')}
+        {toolBtn('crop', <Crop size={18} />, 'Recadrer')}
 
         {/* Rotate */}
         <div className="flex flex-col items-center gap-1">
@@ -374,7 +377,7 @@ export default function SnapEditor({ mediaType, onStateChange }: SnapEditorProps
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-[200px] inset-x-4 pointer-events-auto"
+            className="absolute bottom-[200px] inset-x-4 pointer-events-auto z-40"
           >
             <div className="bg-black/70 backdrop-blur-lg rounded-2xl p-4 flex flex-col gap-3 border border-white/10">
               {/* Colors */}
@@ -394,12 +397,108 @@ export default function SnapEditor({ mediaType, onStateChange }: SnapEditorProps
                 <input
                   type="range" min={2} max={30} value={drawWidth}
                   onChange={(e) => setDrawWidth(Number(e.target.value))}
-                  className="flex-1 accent-snap-yellow"
+                  className="flex-1 accent-snap-yellow animate-none"
                 />
                 <span className="text-white/60 text-xs w-6">{drawWidth}</span>
                 <button onClick={undoLastStroke} className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center ml-1">
                   <Trash2 size={13} />
                 </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Crop sub-toolbar ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {activeTool === 'crop' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="absolute bottom-[200px] inset-x-4 pointer-events-auto z-40"
+          >
+            <div className="bg-black/85 backdrop-blur-lg rounded-2xl p-4 flex flex-col gap-3.5 border border-white/10 shadow-xl">
+              <div className="flex justify-between items-center">
+                <span className="text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                  <Crop size={14} className="text-snap-yellow animate-pulse" /> Recadrage précis
+                </span>
+                <button
+                  onClick={() => setCrop({ x: 0, y: 0, width: 100, height: 100 })}
+                  className="text-[10px] font-black text-snap-yellow hover:underline uppercase tracking-wider"
+                >
+                  Réinitialiser
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                {/* Crop Left */}
+                <div className="flex items-center gap-3">
+                  <span className="text-white/50 text-[10px] font-bold w-12 uppercase tracking-wide">Gauche</span>
+                  <input
+                    type="range" min={0} max={40} value={crop.x}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setCrop((prev) => {
+                        const newWidth = Math.max(20, 100 - val - (100 - prev.x - prev.width));
+                        return { ...prev, x: val, width: newWidth };
+                      });
+                    }}
+                    className="flex-1 accent-snap-yellow h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <span className="text-white/60 text-xs font-mono w-6 text-right">{crop.x}%</span>
+                </div>
+
+                {/* Crop Right */}
+                <div className="flex items-center gap-3">
+                  <span className="text-white/50 text-[10px] font-bold w-12 uppercase tracking-wide">Droite</span>
+                  <input
+                    type="range" min={0} max={40} value={100 - crop.x - crop.width}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setCrop((prev) => {
+                        const newWidth = Math.max(20, 100 - prev.x - val);
+                        return { ...prev, width: newWidth };
+                      });
+                    }}
+                    className="flex-1 accent-snap-yellow h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <span className="text-white/60 text-xs font-mono w-6 text-right">{100 - crop.x - crop.width}%</span>
+                </div>
+
+                {/* Crop Top */}
+                <div className="flex items-center gap-3">
+                  <span className="text-white/50 text-[10px] font-bold w-12 uppercase tracking-wide">Haut</span>
+                  <input
+                    type="range" min={0} max={40} value={crop.y}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setCrop((prev) => {
+                        const newHeight = Math.max(20, 100 - val - (100 - prev.y - prev.height));
+                        return { ...prev, y: val, height: newHeight };
+                      });
+                    }}
+                    className="flex-1 accent-snap-yellow h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <span className="text-white/60 text-xs font-mono w-6 text-right">{crop.y}%</span>
+                </div>
+
+                {/* Crop Bottom */}
+                <div className="flex items-center gap-3">
+                  <span className="text-white/50 text-[10px] font-bold w-12 uppercase tracking-wide">Bas</span>
+                  <input
+                    type="range" min={0} max={40} value={100 - crop.y - crop.height}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setCrop((prev) => {
+                        const newHeight = Math.max(20, 100 - prev.y - val);
+                        return { ...prev, height: newHeight };
+                      });
+                    }}
+                    className="flex-1 accent-snap-yellow h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <span className="text-white/60 text-xs font-mono w-6 text-right">{100 - crop.y - crop.height}%</span>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -413,7 +512,7 @@ export default function SnapEditor({ mediaType, onStateChange }: SnapEditorProps
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 30 }}
-            className="absolute bottom-[200px] inset-x-4 pointer-events-auto"
+            className="absolute bottom-[200px] inset-x-4 pointer-events-auto z-40"
           >
             <div className="bg-black/70 backdrop-blur-lg rounded-2xl p-4 border border-white/10">
               <p className="text-white/50 text-[10px] font-bold uppercase tracking-wider mb-3">Choisir un sticker</p>
@@ -435,7 +534,7 @@ export default function SnapEditor({ mediaType, onStateChange }: SnapEditorProps
 
       {/* ── Video speed bar (only for videos) ────────────────────────── */}
       {mediaType === 'video' && (
-        <div className="absolute top-16 left-3 pointer-events-auto flex flex-col items-center gap-1">
+        <div className="absolute top-16 left-3 pointer-events-auto flex flex-col items-center gap-1 z-40">
           <div className="flex flex-col gap-1 bg-black/50 rounded-2xl p-1.5 border border-white/10">
             {SPEEDS.map((s) => (
               <button
@@ -461,13 +560,46 @@ export default function SnapEditor({ mediaType, onStateChange }: SnapEditorProps
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             onClick={openNewText}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto bg-black/60 border-2 border-dashed border-white/40 rounded-2xl px-8 py-4 flex flex-col items-center gap-2"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto bg-black/60 border-2 border-dashed border-white/40 rounded-2xl px-8 py-4 flex flex-col items-center gap-2 z-40"
           >
             <Type size={24} className="text-white" />
             <span className="text-white/80 text-sm font-bold">Appuie pour ajouter du texte</span>
           </motion.button>
         )}
       </AnimatePresence>
+
+      {/* ── Crop overlay masks and borders (only shown when crop tool is active) ── */}
+      {activeTool === 'crop' && (
+        <div className="absolute inset-0 pointer-events-none z-30">
+          {/* Top mask */}
+          <div className="absolute top-0 inset-x-0 bg-black/60 border-b border-white/5" style={{ height: `${crop.y}%` }} />
+          {/* Bottom mask */}
+          <div className="absolute bottom-0 inset-x-0 bg-black/60 border-t border-white/5" style={{ height: `${100 - crop.y - crop.height}%` }} />
+          {/* Left mask */}
+          <div className="absolute left-0 bg-black/60 border-r border-white/5" style={{ top: `${crop.y}%`, bottom: `${100 - crop.y - crop.height}%`, width: `${crop.x}%` }} />
+          {/* Right mask */}
+          <div className="absolute right-0 bg-black/60 border-l border-white/5" style={{ top: `${crop.y}%`, bottom: `${100 - crop.y - crop.height}%`, width: `${100 - crop.x - crop.width}%` }} />
+          
+          {/* Target bounding box with glowing dotted lines and crop corners */}
+          <div
+            className="absolute border-2 border-dashed border-snap-yellow transition-all duration-100 flex items-center justify-center"
+            style={{
+              left: `${crop.x}%`,
+              top: `${crop.y}%`,
+              width: `${crop.width}%`,
+              height: `${crop.height}%`,
+            }}
+          >
+            <span className="text-[10px] font-black text-snap-yellow bg-black/70 px-2.5 py-1 rounded-full uppercase tracking-wider shadow-md">Zone de rognage</span>
+            
+            {/* Corner handles */}
+            <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-4 border-l-4 border-snap-yellow" />
+            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-4 border-r-4 border-snap-yellow" />
+            <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-4 border-l-4 border-snap-yellow" />
+            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-4 border-r-4 border-snap-yellow" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

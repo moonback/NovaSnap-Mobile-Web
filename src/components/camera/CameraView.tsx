@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, UserPlus, Ghost } from 'lucide-react';
+import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, UserPlus, Ghost, Infinity as InfinityIcon } from 'lucide-react';
 import { useConversations } from '../../hooks/useConversations';
 import { useFriends } from '../../hooks/useFriends';
 import { supabase, getValidMediaUrl } from '../../lib/supabase';
@@ -26,7 +26,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [capturedMedia, setCapturedMedia] = useState<{ type: 'image' | 'video'; url: string } | null>(null);
+  const [capturedMedia, setCapturedMedia] = useState<{ type: 'image' | 'video'; url: string; isBoomerang?: boolean } | null>(null);
   const [showSendTo, setShowSendTo] = useState(false);
   const { data: conversations, isLoading: convLoading } = useConversations();
   const [isSending, setIsSending] = useState(false);
@@ -34,6 +34,10 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const [editorState, setEditorState] = useState<EditorState>({
     textLayers: [], strokes: [], stickerLayers: [], rotation: 0, videoSpeed: 1,
   });
+
+  const [isBoomerang, setIsBoomerang] = useState(false);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const playbackDirectionRef = useRef<'forward' | 'backward'>('forward');
 
   // Fetch avatar de l'utilisateur connecté
   useEffect(() => {
@@ -137,7 +141,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     mediaRecorder.ondataavailable = (e) => { if (e.data?.size > 0) chunks.push(e.data); };
     mediaRecorder.onstop = () => {
       const blob = new Blob(chunks, { type: chunks[0]?.type || 'video/webm' });
-      setCapturedMedia({ type: 'video', url: URL.createObjectURL(blob) });
+      setCapturedMedia({ type: 'video', url: URL.createObjectURL(blob), isBoomerang });
       setIsRecording(false);
       setRecordingDuration(0);
       stopStream();
@@ -151,11 +155,62 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     let interval: ReturnType<typeof setInterval> | undefined;
     if (isRecording) {
       interval = setInterval(() => {
-        setRecordingDuration((prev) => { if (prev >= 60) { stopRecording(); return 60; } return prev + 1; });
+        setRecordingDuration((prev) => {
+          const maxSec = isBoomerang ? 2 : 60;
+          if (prev >= maxSec) {
+            stopRecording();
+            return maxSec;
+          }
+          return prev + 1;
+        });
       }, 1000);
     } else { setRecordingDuration(0); }
     return () => clearInterval(interval);
-  }, [isRecording]);
+  }, [isRecording, isBoomerang]);
+
+  // Boomerang effect (boucle aller-retour)
+  useEffect(() => {
+    const video = previewVideoRef.current;
+    if (!video || !capturedMedia || capturedMedia.type !== 'video' || !capturedMedia.isBoomerang) return;
+
+    let animationFrameId: number;
+    let lastTime = performance.now();
+    playbackDirectionRef.current = 'forward';
+
+    const tick = (now: number) => {
+      if (!previewVideoRef.current) return;
+      const vid = previewVideoRef.current;
+      const elapsed = (now - lastTime) / 1000;
+      lastTime = now;
+
+      const speed = editorState.videoSpeed;
+
+      if (playbackDirectionRef.current === 'forward') {
+        if (vid.paused) {
+          vid.play().catch(() => {});
+        }
+        if (vid.currentTime >= vid.duration - 0.08) {
+          playbackDirectionRef.current = 'backward';
+          vid.pause();
+        }
+      } else {
+        let nextTime = vid.currentTime - elapsed * speed;
+        if (nextTime <= 0.05) {
+          nextTime = 0;
+          playbackDirectionRef.current = 'forward';
+          vid.play().catch(() => {});
+        }
+        vid.currentTime = nextTime;
+      }
+
+      animationFrameId = requestAnimationFrame(tick);
+    };
+
+    animationFrameId = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [capturedMedia, editorState.videoSpeed]);
 
   const discardMedia = () => {
     const urlToRevoke = capturedMedia?.url;
@@ -205,10 +260,17 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
         const width = img.naturalWidth || 640;
         const height = img.naturalHeight || 480;
 
+        // Récupérer les coordonnées de recadrage précises
+        const crop = editorState.crop || { x: 0, y: 0, width: 100, height: 100 };
+        const sx = (crop.x / 100) * width;
+        const sy = (crop.y / 100) * height;
+        const sWidth = (crop.width / 100) * width;
+        const sHeight = (crop.height / 100) * height;
+
         // Déterminer si l'image est pivotée de 90 ou 270 degrés
         const isRotated90or270 = editorState.rotation === 90 || editorState.rotation === 270;
-        canvas.width = isRotated90or270 ? height : width;
-        canvas.height = isRotated90or270 ? width : height;
+        canvas.width = isRotated90or270 ? sHeight : sWidth;
+        canvas.height = isRotated90or270 ? sWidth : sHeight;
 
         // Centrer et appliquer la rotation
         ctx.translate(canvas.width / 2, canvas.height / 2);
@@ -218,15 +280,16 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
         if (facingMode === 'user') {
           ctx.scale(-1, 1);
         }
-        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+        // Dessiner uniquement la portion rognée (recadrage précis)
+        ctx.drawImage(img, sx, sy, sWidth, sHeight, -sWidth / 2, -sHeight / 2, sWidth, sHeight);
 
         // Revenir en échelle normale pour dessiner les calques d'édition au bon endroit
         if (facingMode === 'user') {
           ctx.scale(-1, 1);
         }
 
-        // Repositionner le point d'origine en haut à gauche de l'image
-        ctx.translate(-width / 2, -height / 2);
+        // Repositionner le point d'origine au coin haut-gauche de l'image d'origine pour que tous les calques s'alignent parfaitement
+        ctx.translate(-sWidth / 2 - sx, -sHeight / 2 - sy);
 
         // Les dessins de SnapEditor sont dessinés sur une grille virtuelle de 720x1280
         const scaleX = width / 720;
@@ -421,20 +484,31 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
         ) : capturedMedia ? (
           /* ── Preview + Editor ── */
           <div className="absolute inset-0">
-            {/* Media preview with rotation */}
+            {/* Media preview with rotation and crop clipPath */}
             <div
-              className="w-full h-full"
-              style={{ transform: `rotate(${editorState.rotation}deg)`, transition: 'transform 0.3s ease', transformOrigin: 'center center' }}
+              className="w-full h-full overflow-hidden transition-all duration-300"
+              style={{
+                transform: `rotate(${editorState.rotation}deg)`,
+                transition: 'transform 0.3s ease, clip-path 0.2s ease',
+                transformOrigin: 'center center',
+                clipPath: editorState.crop ? `inset(${editorState.crop.y}% ${100 - editorState.crop.x - editorState.crop.width}% ${100 - editorState.crop.y - editorState.crop.height}% ${editorState.crop.x}%)` : 'none'
+              }}
             >
               {capturedMedia.type === 'image' ? (
                 <img src={capturedMedia.url} alt="Captured" className="w-full h-full object-cover" />
               ) : (
                 <video
-                  ref={(el) => { if (el) el.playbackRate = editorState.videoSpeed; }}
+                  ref={(el) => {
+                    if (el) {
+                      el.playbackRate = editorState.videoSpeed;
+                      previewVideoRef.current = el;
+                    }
+                  }}
                   src={capturedMedia.url}
                   autoPlay
-                  loop
+                  loop={!capturedMedia.isBoomerang}
                   playsInline
+                  muted
                   className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
                 />
               )}
@@ -615,6 +689,17 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
                       ? <Zap size={18} className="text-black" />
                       : <ZapOff size={18} className="text-white/70" />
                     }
+                  </button>
+
+                  {/* Boomerang */}
+                  <button
+                    onClick={() => setIsBoomerang(!isBoomerang)}
+                    title="Mode Boomerang"
+                    className={`w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-all ${
+                      isBoomerang ? 'bg-snap-yellow shadow-snap text-black' : 'glass-dark text-white'
+                    }`}
+                  >
+                    <InfinityIcon size={20} className={isBoomerang ? 'text-black' : 'text-white'} />
                   </button>
                 </div>
               </div>
