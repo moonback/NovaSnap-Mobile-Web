@@ -43,35 +43,31 @@ export const usePushNotifications = () => {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // ── Sauvegarder la subscription en base ──────────────────
-  const saveSubscriptionMutation = useMutation({
-    mutationFn: async (subscription: PushSubscription) => {
-      if (!user) throw new Error('Non connecté');
-      const sub = subscription.toJSON();
-      const { error } = await supabase.from('push_subscriptions').upsert(
-        {
-          user_id: user.id,
-          endpoint: sub.endpoint!,
-          p256dh: (sub.keys as Record<string, string>)?.p256dh ?? '',
-          auth: (sub.keys as Record<string, string>)?.auth ?? '',
-          user_agent: navigator.userAgent.substring(0, 200),
-        },
-        { onConflict: 'user_id,endpoint' }
-      );
-      if (error) throw error;
-    },
-  });
+  const saveSubscription = async (subscription: PushSubscription) => {
+    if (!user) throw new Error('Non connecté');
+    const sub = subscription.toJSON();
+    const { error } = await supabase.from('push_subscriptions').upsert(
+      {
+        user_id: user.id,
+        endpoint: sub.endpoint!,
+        p256dh: (sub.keys as Record<string, string>)?.p256dh ?? '',
+        auth: (sub.keys as Record<string, string>)?.auth ?? '',
+        user_agent: navigator.userAgent.substring(0, 200),
+      },
+      { onConflict: 'user_id,endpoint' }
+    );
+    if (error) throw error;
+  };
 
   // ── Supprimer la subscription (désabonnement) ─────────────
-  const removeSubscriptionMutation = useMutation({
-    mutationFn: async (endpoint: string) => {
-      if (!user) return;
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('endpoint', endpoint);
-    },
-  });
+  const removeSubscription = async (endpoint: string) => {
+    if (!user) return;
+    await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('endpoint', endpoint);
+  };
 
   // ── Demander la permission et s'abonner ───────────────────
   const subscribe = useCallback(async (): Promise<boolean> => {
@@ -87,7 +83,7 @@ export const usePushNotifications = () => {
 
       // Réutiliser la subscription existante si elle est valide
       if (existing) {
-        await saveSubscriptionMutation.mutateAsync(existing);
+        await saveSubscription(existing);
         return true;
       }
 
@@ -97,13 +93,13 @@ export const usePushNotifications = () => {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as any,
       });
 
-      await saveSubscriptionMutation.mutateAsync(subscription);
+      await saveSubscription(subscription);
       return true;
     } catch (err) {
       console.error('[Push] Erreur lors de l\'abonnement:', err);
       return false;
     }
-  }, [user, saveSubscriptionMutation]);
+  }, [user]);
 
   // ── Se désabonner ─────────────────────────────────────────
   const unsubscribe = useCallback(async (): Promise<void> => {
@@ -112,13 +108,13 @@ export const usePushNotifications = () => {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
-        await removeSubscriptionMutation.mutateAsync(subscription.endpoint);
+        await removeSubscription(subscription.endpoint);
         await subscription.unsubscribe();
       }
     } catch (err) {
       console.error('[Push] Erreur lors du désabonnement:', err);
     }
-  }, [removeSubscriptionMutation]);
+  }, [user]);
 
   // ── Auto-subscribe au chargement si permission déjà accordée ─
   useEffect(() => {
