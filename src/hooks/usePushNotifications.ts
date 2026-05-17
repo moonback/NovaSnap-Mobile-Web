@@ -94,7 +94,7 @@ export const usePushNotifications = () => {
       // Créer une nouvelle subscription
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as any,
       });
 
       await saveSubscriptionMutation.mutateAsync(subscription);
@@ -126,6 +126,11 @@ export const usePushNotifications = () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
     const autoSubscribe = async () => {
+      const settingsEnabled = localStorage.getItem('novasnap_settings_notifications') !== 'false';
+      if (!settingsEnabled) {
+        await unsubscribe();
+        return;
+      }
       const permission = Notification.permission;
       if (permission === 'granted') {
         await subscribe();
@@ -133,7 +138,7 @@ export const usePushNotifications = () => {
     };
 
     autoSubscribe();
-  }, [user?.id]);
+  }, [user?.id, subscribe, unsubscribe]);
 
   // ── Écouter les notifications en temps réel (in-app) ─────
   useEffect(() => {
@@ -153,6 +158,8 @@ export const usePushNotifications = () => {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
+          const settingsEnabled = localStorage.getItem('novasnap_settings_notifications') !== 'false';
+          if (!settingsEnabled) return;
           queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
           queryClient.invalidateQueries({ queryKey: ['unread-count', user.id] });
         }

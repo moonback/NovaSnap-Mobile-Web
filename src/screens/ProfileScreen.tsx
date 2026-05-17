@@ -58,14 +58,26 @@ export default function ProfileScreen() {
     return localStorage.getItem('novasnap_settings_media_quality') || 'standard';
   });
 
-  const toggleGhostMode = () => {
+  const toggleGhostMode = async () => {
     const nextVal = !ghostMode;
     setGhostMode(nextVal);
     localStorage.setItem('novasnap_settings_ghost_mode', String(nextVal));
-    toast(
-      nextVal ? 'Mode Fantôme activé ! Ta position est masquée.' : 'Mode Fantôme désactivé.',
-      'info'
-    );
+    try {
+      if (user) {
+        const { error } = await supabase
+          .from('users')
+          .update({ online_status_visibility: nextVal ? 'NOBODY' : 'FRIENDS' })
+          .eq('id', user.id);
+        if (error) throw error;
+      }
+      toast(
+        nextVal ? 'Mode Fantôme activé ! Ta position est masquée.' : 'Mode Fantôme désactivé.',
+        'info'
+      );
+    } catch (err) {
+      console.error('[GhostMode] Erreur lors de la synchronisation:', err);
+      toast('Erreur lors de la mise à jour des paramètres en ligne', 'error');
+    }
   };
 
   const updateStoryPrivacy = (val: string) => {
