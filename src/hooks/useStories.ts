@@ -23,7 +23,7 @@ export const useStories = () => {
           created_at,
           expires_at,
           user_id,
-          users (
+          users!stories_user_id_fkey (
             username,
             avatar_url
           )
@@ -32,7 +32,7 @@ export const useStories = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("Error fetching stories:", error);
+        console.error("Error fetching stories:", JSON.stringify(error, null, 2));
         return [];
       }
 

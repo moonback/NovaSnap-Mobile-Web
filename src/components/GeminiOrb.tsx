@@ -4,6 +4,7 @@ import { pcmToBase64, playAudioChunk, resetAudioSync } from '../utils/audio';
 export default function GeminiOrb() {
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [transcription, setTranscription] = useState<string>('');
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -25,9 +26,41 @@ export default function GeminiOrb() {
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
         audioCtxRef.current = audioCtx;
 
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: true, 
+          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } 
+        });
         streamRef.current = stream;
         
+        // Video capture setup
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack) {
+          const imageCapture = new (window as any).ImageCapture(videoTrack);
+          
+          const sendVideoFrame = async () => {
+             if (ws.readyState === WebSocket.OPEN) {
+               try {
+                 const bitmap = await imageCapture.grabFrame();
+                 
+                 // Draw to offscreen canvas to get JPEG
+                 const canvas = document.createElement('canvas');
+                 canvas.width = bitmap.width;
+                 canvas.height = bitmap.height;
+                 const ctx = canvas.getContext('2d');
+                 ctx?.drawImage(bitmap, 0, 0);
+                 
+                 const base64Jpeg = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+                 ws.send(JSON.stringify({ video: base64Jpeg }));
+               } catch (e) {
+                 // Ignore frame grab errors (can happen when stopping)
+               }
+               // Send frame every ~1 second
+               setTimeout(sendVideoFrame, 1000);
+             }
+          };
+          sendVideoFrame();
+        }
+
         const source = audioCtx.createMediaStreamSource(stream);
         // Using ScriptProcessorNode for simplicity despite it being deprecated
         const processor = audioCtx.createScriptProcessor(4096, 1, 1);
@@ -49,8 +82,12 @@ export default function GeminiOrb() {
         if (msg.audio && audioCtxRef.current) {
           playAudioChunk(audioCtxRef.current, msg.audio);
         }
+        if (msg.text) {
+          setTranscription(prev => prev + msg.text);
+        }
         if (msg.interrupted) {
           resetAudioSync();
+          setTranscription('');
         }
       };
 
@@ -122,11 +159,15 @@ export default function GeminiOrb() {
            )}
          </div>
       </div>
-      <div className="text-center space-y-2 h-16">
+      <div className="text-center space-y-2 h-24 max-w-xs overflow-hidden flex flex-col justify-center">
         {isActive ? (
           <>
-            <p className="text-lg font-medium leading-tight text-cyan-400">Listening...</p>
-            <p className="text-[10px] font-mono text-cyan-400/50 uppercase tracking-widest animate-pulse">Real-time Audio Streaming</p>
+            <p className="text-lg font-medium leading-tight text-cyan-400">
+               {transcription ? transcription : "Listening..."}
+            </p>
+            {!transcription && (
+               <p className="text-[10px] font-mono text-cyan-400/50 uppercase tracking-widest animate-pulse">Real-time Audio Streaming</p>
+            )}
           </>
         ) : (
           <>

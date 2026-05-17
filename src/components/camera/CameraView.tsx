@@ -200,7 +200,11 @@ export default function CameraView() {
       discardMedia();
     } catch (err: any) {
       console.error(err);
-      alert('Failed to send: ' + err.message);
+      if (err.message?.includes('row-level security')) {
+        alert('Action failed: Supabase RLS permissions missing for "messages" table. Please add an INSERT policy.');
+      } else {
+        alert('Failed to send: ' + err.message);
+      }
     } finally {
       setIsSending(false);
     }
@@ -227,7 +231,11 @@ export default function CameraView() {
       discardMedia();
     } catch (err: any) {
       console.error(err);
-      alert('Failed to post story: ' + err.message);
+      if (err.message?.includes('row-level security')) {
+        alert('Action failed: Supabase RLS permissions missing for "stories" table. Please configure an INSERT policy with "user_id" check in your database setting.');
+      } else {
+        alert('Failed to post story: ' + err.message);
+      }
     } finally {
       setIsSending(false);
     }

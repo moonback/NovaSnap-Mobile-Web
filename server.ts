@@ -54,8 +54,14 @@ async function startServer() {
         model: "gemini-3.1-flash-live-preview",
         callbacks: {
           onmessage: (message) => {
-            const audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-            if (audio) clientWs.send(JSON.stringify({ audio }));
+            const parts = message.serverContent?.modelTurn?.parts || [];
+            
+            const audioData = parts.find((p: any) => p.inlineData)?.inlineData?.data;
+            if (audioData) clientWs.send(JSON.stringify({ audio: audioData }));
+            
+            const textData = parts.find((p: any) => p.text)?.text;
+            if (textData) clientWs.send(JSON.stringify({ text: textData }));
+
             if (message.serverContent?.interrupted) {
               clientWs.send(JSON.stringify({ interrupted: true }));
             }

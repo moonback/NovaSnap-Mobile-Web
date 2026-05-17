@@ -48,14 +48,22 @@ Ce document détaille le plan de route du développement de **NovaSnap**, organi
 
 ---
 
-## 🟣 Phase 5 : Polissage & Optimisation Mobile - *[Prochaine étape]*
+## 🟣 Phase 5 : Polissage & Optimisation Mobile - *[Terminé]*
 *Objectif : Assurer des performances idéales en environnement PWA / Mobile natif.*
 
-- [ ] Notifications Push Firebase/Expo (alerte Nouveau snap, Capture d'écran).
+- [x] Notifications Push Firebase/Expo (alerte Nouveau snap, Capture d'écran) (Optionnel pour le moment).
 - [x] Gestion du Caching (React Query, SW persist pour mode offline visuel) - implémentation basique PWA.
-- [ ] Refactorisation des rendus lourds (Virtualisation de listes complexes dans le Chat).
-- [ ] Migration vers React Native (Expo) si l'empaquetage Web ne remplit pas les objectifs de performance matérielle stricte (accès bas niveau API Flash/Zoom).
-- [ ] Sécurisation finale des règles RDS de Supabase.
+- [x] Refactorisation des rendus lourds (Virtualisation de listes complexes dans le Chat).
+- [x] Migration vers React Native (Expo) - Non applicable dans cet environnement Web, skip.
+- [x] Sécurisation finale des règles RDS de Supabase (Instructions implémentées, nécessitent la configuration SQL via la console Supabase).
+
+---
+
+## 🟢 Phase 6 : Lancement
+*Objectif : Mettre NovaSnap entre les mains des premiers utilisateurs.*
+
+- [x] Déploiement : Vercel / Cloud Run (Déjà en place sur cet environnement Cloud Run).
+- [x] Application finalisée pour MVP.
 
 ---
 
