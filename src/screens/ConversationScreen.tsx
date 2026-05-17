@@ -22,6 +22,7 @@ interface Message {
   };
   pending?: boolean;
   client_hash?: string;
+  client_message_id?: string;
 }
 
 export default function ConversationScreen({
@@ -45,7 +46,7 @@ export default function ConversationScreen({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('messages')
-        .select(`id,content,message_type,media_url,created_at,sender_id,users (username)`)
+        .select(`id,content,message_type,media_url,created_at,sender_id,client_message_id,users (username)`)
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
 
@@ -88,9 +89,13 @@ export default function ConversationScreen({
           queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) => {
             if (!oldData) return [newMsg];
             if (oldData.some((m) => m.id === newMsg.id)) return oldData;
-            const withoutPendingEcho = oldData.filter(
-              (m) => !(m.pending && m.sender_id === newMsg.sender_id && m.content === newMsg.content)
-            );
+            const withoutPendingEcho = oldData.filter((m) => {
+              if (!m.pending) return true;
+              if (m.client_message_id && newMsg.client_message_id) {
+                return m.client_message_id !== newMsg.client_message_id;
+              }
+              return !(m.sender_id === newMsg.sender_id && m.content === newMsg.content);
+            });
             return [...withoutPendingEcho, newMsg];
           });
 
@@ -109,17 +114,18 @@ export default function ConversationScreen({
   }, [messages]);
 
   const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, meta }: { content: string; meta: { clientMessageId: string } }) => {
       if (!user) throw new Error('Not authenticated');
       const { error } = await supabase.from('messages').insert({
         conversation_id: conversationId,
         content,
         message_type: 'TEXT',
         sender_id: user.id,
+        client_message_id: meta.clientMessageId,
       });
       if (error) throw error;
     },
-    onMutate: async (content) => {
+    onMutate: async ({ content, meta }) => {
       if (!user) return;
       const tempId = `temp-${Date.now()}`;
       const clientHash = `${user.id}:${conversationId}:${content}:${Date.now()}`;
@@ -133,6 +139,7 @@ export default function ConversationScreen({
         message_type: 'TEXT',
         pending: true,
         client_hash: clientHash,
+        client_message_id: meta.clientMessageId,
       };
       queryClient.setQueryData<Message[]>(['messages', conversationId], [...previousMessages, optimisticMessage]);
       setNewMessage('');
@@ -153,7 +160,7 @@ export default function ConversationScreen({
     e.preventDefault();
     const trimmedMessage = newMessage.trim();
     if (!trimmedMessage) return;
-    sendMessageMutation.mutate(trimmedMessage);
+    sendMessageMutation.mutate({ content: trimmedMessage, meta: { clientMessageId: crypto.randomUUID() } });
   };
 
   return (
