@@ -109,14 +109,16 @@ export default function App() {
       rafId = requestAnimationFrame(updateDimensions);
     };
 
+    const visualViewport = window.visualViewport;
+
     window.addEventListener('resize', handleResize);
-    window.visualViewport?.addEventListener('resize', handleResize);
+    visualViewport?.addEventListener('resize', handleResize);
     updateDimensions();
 
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('resize', handleResize);
-      window.visualViewport?.removeEventListener('resize', handleResize);
+      visualViewport?.removeEventListener('resize', handleResize);
     };
   }, []);
 
@@ -241,8 +243,7 @@ export default function App() {
         className="relative overflow-hidden transition-all duration-300 z-10"
         style={{
           width: dimensions.width,
-          height: dimensions.isDesktop ? 'min(900px, 95vh)' : '100%',
-          maxHeight: dimensions.isDesktop ? '900px' : 'none',
+          height: dimensions.height,
           borderRadius: dimensions.isDesktop ? '40px' : '0px',
           border: dimensions.isDesktop ? '8px solid #1c1c24' : 'none',
           boxShadow: dimensions.isDesktop 
