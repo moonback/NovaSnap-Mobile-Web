@@ -19,7 +19,7 @@ export default function App() {
   const currentIndex = views.indexOf(currentView);
 
   useEffect(() => {
-    const checkAndCreateProfile = async (u: any) => {
+    const checkAndCreateProfile = async (u: { id: string; user_metadata?: Record<string, unknown> } | null) => {
       if (!u) return;
       try {
         const { data: profile } = await supabase
@@ -29,14 +29,18 @@ export default function App() {
           .maybeSingle();
 
         if (!profile) {
-          const username = u.user_metadata?.username || `user_${u.id.substring(0, 8)}`;
-          const display_name = u.user_metadata?.display_name || username;
-          
+          const metadata = u.user_metadata ?? {};
+          const username = typeof metadata.username === 'string' ? metadata.username : `user_${u.id.substring(0, 8)}`;
+          const display_name = typeof metadata.display_name === 'string' ? metadata.display_name : username;
+          const avatar_url = typeof metadata.avatar_url === 'string'
+            ? metadata.avatar_url
+            : `https://api.dicebear.com/7.x/adventurer/svg?seed=${username}`;
+
           await supabase.from('users').insert({
             id: u.id,
-            username: username,
-            display_name: display_name,
-            avatar_url: u.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${username}`
+            username,
+            display_name,
+            avatar_url,
           });
         }
       } catch (err) {
@@ -99,9 +103,9 @@ export default function App() {
         onDragEnd={(e, { offset, velocity }) => {
           const swipe = swipePower(offset.x, velocity.x);
           if (swipe < -swipeConfidenceThreshold && currentIndex < 2) {
-            setCurrentView(views[currentIndex + 1] as any);
+            setCurrentView(views[currentIndex + 1] as "chat" | "camera" | "stories");
           } else if (swipe > swipeConfidenceThreshold && currentIndex > 0) {
-            setCurrentView(views[currentIndex - 1] as any);
+            setCurrentView(views[currentIndex - 1] as "chat" | "camera" | "stories");
           } else {
             controls.start({ x: `${-currentIndex * 100}vw` });
           }
