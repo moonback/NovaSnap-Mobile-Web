@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
+import { Loader2 } from 'lucide-react';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './lib/supabase';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
@@ -116,7 +117,7 @@ export default function App() {
   } = useAppStore();
   const controls = useAnimation();
   const [isInitializing, setIsInitializing] = useState(true);
-  
+
   // NOUVEAU: Gestion des dimensions réactives pour le conteneur centré
   const [dimensions, setDimensions] = useState<Dimensions>(getInitialDimensions);
 
@@ -206,7 +207,7 @@ export default function App() {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) checkAndCreateProfile(session.user);
-      setIsInitializing(false);
+      setTimeout(() => setIsInitializing(false), 2000);
     });
 
     const {
@@ -232,10 +233,22 @@ export default function App() {
 
   if (isInitializing) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 rounded-[22px] bg-snap-yellow flex items-center justify-center shadow-snap animate-pulse">
-            <svg viewBox="0 0 100 100" className="w-10 h-10" fill="none">
+      <div className="fixed inset-0 bg-[#0a0a0f] flex items-center justify-center overflow-hidden font-sans z-[9999]">
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+          className="absolute -top-32 -left-32 w-[120vw] h-[120vw] max-w-[600px] max-h-[600px] rounded-full opacity-20 blur-[80px] pointer-events-none"
+          style={{ background: 'radial-gradient(circle, #FFFC00 0%, transparent 70%)' }}
+        />
+
+        <div className="flex flex-col items-center z-10">
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+            className="w-24 h-24 rounded-[32px] bg-gradient-to-br from-[#FFFC00] to-[#eab308] flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(255,252,0,0.4)]"
+          >
+            <svg viewBox="0 0 100 100" className="w-14 h-14" fill="none">
               <path
                 d="M50 10C28 10 10 28 10 50c0 8 2.5 15.5 6.8 21.6L10 90l18.4-6.8C34.5 87.5 42 90 50 90c22 0 40-18 40-40S72 10 50 10z"
                 fill="black"
@@ -244,8 +257,26 @@ export default function App() {
               <circle cx="50" cy="50" r="5" fill="white" />
               <circle cx="65" cy="50" r="5" fill="white" />
             </svg>
-          </div>
-          <p className="text-white/30 text-sm font-medium">NovaSnap</p>
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+            className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70"
+          >
+            NovaSnap
+          </motion.h1>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+            className="absolute bottom-16 flex flex-col items-center gap-3"
+          >
+            <Loader2 className="animate-spin text-snap-yellow" size={24} />
+            <p className="text-white/40 text-[10px] font-bold tracking-widest uppercase">Lancement</p>
+          </motion.div>
         </div>
       </div>
     );
@@ -263,7 +294,7 @@ export default function App() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-snap-yellow/5 rounded-full blur-[160px]" />
           <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[120px]" />
           <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[120px]" />
-          
+
           {/* Logo en arrière-plan */}
           <div className="absolute top-10 left-12 flex items-center gap-3 opacity-20 select-none">
             <div className="w-10 h-10 rounded-[12px] bg-snap-yellow flex items-center justify-center shadow-snap">
@@ -288,8 +319,8 @@ export default function App() {
           height: dimensions.height,
           borderRadius: dimensions.isDesktop ? '40px' : '0px',
           border: dimensions.isDesktop ? '8px solid #1c1c24' : 'none',
-          boxShadow: dimensions.isDesktop 
-            ? '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 252, 0, 0.05)' 
+          boxShadow: dimensions.isDesktop
+            ? '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 252, 0, 0.05)'
             : 'none',
           background: '#000',
         }}
