@@ -85,18 +85,18 @@ export default function AuthScreen() {
   };
 
   return (
-    <div className="w-full h-full bg-[#0a0a0f] text-white flex flex-col items-center justify-center relative overflow-hidden font-sans">
+    <div className="w-full h-full bg-[#0a0a0f] text-white flex flex-col items-center justify-center relative overflow-y-auto overflow-x-hidden font-sans py-8">
       {/* Animated Background Blobs */}
       <motion.div 
         animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
         transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20 blur-[80px] pointer-events-none"
+        className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20 blur-[80px] pointer-events-none fixed"
         style={{ background: 'radial-gradient(circle, #FFFC00 0%, transparent 70%)' }} 
       />
       <motion.div 
         animate={{ scale: [1, 1.3, 1], rotate: [0, -90, 0] }}
         transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-        className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full opacity-[0.15] blur-[80px] pointer-events-none"
+        className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full opacity-[0.15] blur-[80px] pointer-events-none fixed"
         style={{ background: 'radial-gradient(circle, #a855f7 0%, transparent 70%)' }} 
       />
 
@@ -104,10 +104,10 @@ export default function AuthScreen() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="w-full max-w-sm px-6 relative z-10 flex flex-col"
+        className="w-full max-w-sm px-6 relative z-10 flex flex-col my-auto"
       >
         {/* Logo Header */}
-        <div className="flex flex-col items-center mb-8">
+        <div className="flex flex-col items-center mb-6">
           <motion.div 
             whileHover={{ scale: 1.05, rotate: 5 }}
             whileTap={{ scale: 0.95 }}
