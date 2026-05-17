@@ -69,13 +69,15 @@
 - [ ] Galerie de lenses communautaires (les utilisateurs créent et partagent leurs lenses)
 
 ### 2.2 Outils d'édition post-capture
-- [ ] Texte avec polices multiples et couleurs
-- [ ] Stickers animés (bibliothèque intégrée + GIPHY API)
-- [ ] Dessin à main levée (brush, couleurs, épaisseur)
-- [ ] Recadrage et rotation
+- [x] Texte avec polices multiples et couleurs *(SnapEditor — 4 polices, 8 couleurs, taille ajustable)*
+- [x] Stickers animés (bibliothèque intégrée) *(30 emojis intégrés, placement aléatoire, suppression)*
+- [x] Dessin à main levée (brush, couleurs, épaisseur) *(Canvas HTML5, annulation du dernier trait)*
+- [x] Rotation *(±90° via boutons CCW/CW)*
+- [x] Vitesse vidéo (slow-mo x0.5, fast x2) *(sélecteur ×0.5 / ×1 / ×2 sur vidéos)*
+- [ ] Recadrage précis (crop libre)
 - [ ] Musique sur les snaps vidéo (bibliothèque libre de droits)
-- [ ] Vitesse vidéo (slow-mo x0.5, fast x2)
 - [ ] Boomerang (boucle aller-retour)
+- [ ] Intégration GIPHY API pour stickers animés
 
 ### 2.3 Snap Map (Carte mondiale)
 - [ ] Carte interactive (Leaflet.js ou Mapbox GL)

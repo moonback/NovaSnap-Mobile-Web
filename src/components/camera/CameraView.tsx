@@ -1,11 +1,12 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, Timer, Smile, UserPlus, Ghost } from 'lucide-react';
+import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, UserPlus, Ghost } from 'lucide-react';
 import { useConversations } from '../../hooks/useConversations';
 import { useFriends } from '../../hooks/useFriends';
 import { supabase, getValidMediaUrl } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../ui/ToastProvider';
 import NotificationBell from '../ui/NotificationBell';
+import SnapEditor, { type EditorState } from './SnapEditor';
 
 export default function CameraView({ isActive = true }: { isActive?: boolean }) {
   const { user, directChatId, setDirectChatId, setShowProfile, setShowFriends } = useAppStore();
@@ -30,6 +31,9 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const { data: conversations, isLoading: convLoading } = useConversations();
   const [isSending, setIsSending] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [editorState, setEditorState] = useState<EditorState>({
+    textLayers: [], strokes: [], stickerLayers: [], rotation: 0, videoSpeed: 1,
+  });
 
   // Fetch avatar de l'utilisateur connecté
   useEffect(() => {
@@ -263,32 +267,38 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
             </button>
           </div>
         ) : capturedMedia ? (
-          /* ── Preview ── */
+          /* ── Preview + Editor ── */
           <div className="absolute inset-0">
-            {capturedMedia.type === 'image' ? (
-              <img src={capturedMedia.url} alt="Captured" className="w-full h-full object-cover" />
-            ) : (
-              <video src={capturedMedia.url} autoPlay loop playsInline className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} />
-            )}
+            {/* Media preview with rotation */}
+            <div
+              className="w-full h-full"
+              style={{ transform: `rotate(${editorState.rotation}deg)`, transition: 'transform 0.3s ease', transformOrigin: 'center center' }}
+            >
+              {capturedMedia.type === 'image' ? (
+                <img src={capturedMedia.url} alt="Captured" className="w-full h-full object-cover" />
+              ) : (
+                <video
+                  ref={(el) => { if (el) el.playbackRate = editorState.videoSpeed; }}
+                  src={capturedMedia.url}
+                  autoPlay
+                  loop
+                  playsInline
+                  className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                />
+              )}
+            </div>
+
+            {/* Snap Editor overlay */}
+            <SnapEditor mediaType={capturedMedia.type} onStateChange={setEditorState} />
 
             {/* Top bar */}
-            <div className="absolute top-0 inset-x-0 p-5 flex justify-between items-start bg-gradient-to-b from-black/60 to-transparent">
-              <button onClick={discardMedia} className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white">
+            <div className="absolute top-0 inset-x-0 p-5 flex justify-between items-start bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+              <button onClick={discardMedia} className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white pointer-events-auto">
                 <X size={22} />
               </button>
-              {/* Right tools */}
-              <div className="flex flex-col gap-3">
-                <button className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white font-black text-lg">T</button>
-                <button className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white">
-                  <Smile size={20} />
-                </button>
-                <button className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white">
-                  <Timer size={20} />
-                </button>
-                <a href={capturedMedia.url} download={capturedMedia.type === 'image' ? 'novasnap.jpg' : 'novasnap.webm'} className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white">
-                  <Download size={18} />
-                </a>
-              </div>
+              <a href={capturedMedia.url} download={capturedMedia.type === 'image' ? 'novasnap.jpg' : 'novasnap.webm'} className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white pointer-events-auto">
+                <Download size={18} />
+              </a>
             </div>
 
             {/* Send To panel */}
