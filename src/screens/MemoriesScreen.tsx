@@ -29,7 +29,7 @@ import type { MemoryRow, MemorySource } from '../lib/types';
 
 const SOURCE_LABELS: Record<MemorySource, { label: string; icon: React.ReactNode; color: string }> = {
   camera: { label: 'Caméra', icon: <Camera size={11} />, color: 'text-snap-yellow' },
-  story: { label: 'Story', icon: <Play size={11} />, color: 'text-orange-400' },
+  story: { label: 'Story', icon: <Play size={11} />, color: 'text-purple-400' },
   chat: { label: 'Chat', icon: <MessageCircle size={11} />, color: 'text-cyan-400' },
 };
 
@@ -271,7 +271,7 @@ function Lightbox({
 
       {/* Media */}
       <motion.div 
-        className="flex-1 flex items-center justify-center bg-zinc-950/30 overflow-hidden"
+        className="flex-1 flex items-center justify-center bg-black/95 overflow-hidden"
         drag="y"
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={0.9}
@@ -292,7 +292,7 @@ function Lightbox({
             loop
             playsInline
             controls
-            className="max-w-full max-h-full object-contain pointer-events-none"
+            className="max-w-full max-h-full object-contain"
             onError={() => setFailed(true)}
           />
         ) : (
@@ -300,7 +300,8 @@ function Lightbox({
             key={memory.id}
             src={memory.media_url}
             alt={memory.caption ?? ''}
-            className="max-w-full max-h-full object-contain pointer-events-none"
+            className="max-w-full max-h-full object-contain"
+            draggable={false}
             onError={() => setFailed(true)}
           />
         )}
@@ -325,54 +326,63 @@ function Lightbox({
       )}
 
       {/* Bottom info + caption */}
-      <div className="absolute bottom-0 inset-x-0 px-4 pb-10 pt-6 bg-gradient-to-t from-black/90 to-transparent">
-        {/* Source badge */}
-        <div className={`flex items-center gap-1.5 mb-2 ${sourceInfo.color}`}>
-          {sourceInfo.icon}
-          <span className="text-[11px] font-bold uppercase tracking-wider">{sourceInfo.label}</span>
-        </div>
-
-        {/* Caption */}
-        {editingCaption ? (
-          <div className="flex items-center gap-2">
-            <input
-              autoFocus
-              value={captionDraft}
-              onChange={(e) => setCaptionDraft(e.target.value)}
-              maxLength={120}
-              placeholder="Ajouter une légende..."
-              className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white text-sm placeholder-white/30 focus:outline-none focus:border-snap-yellow/50"
-            />
-            <button
-              onClick={handleSaveCaption}
-              disabled={updateCaption.isPending}
-              className="w-9 h-9 rounded-xl bg-snap-yellow flex items-center justify-center text-black"
-            >
-              {updateCaption.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            </button>
-            <button
-              onClick={() => setEditingCaption(false)}
-              className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white"
-            >
-              <X size={14} />
-            </button>
+      <div className="absolute bottom-6 inset-x-4">
+        <div className="glass-dark border border-white/10 rounded-3xl p-4 shadow-2xl backdrop-blur-xl">
+          {/* Source badge */}
+          <div className={`flex items-center gap-1.5 mb-3 ${sourceInfo.color}`}>
+            {sourceInfo.icon}
+            <span className="text-[10px] font-black uppercase tracking-wider">{sourceInfo.label}</span>
           </div>
-        ) : (
-          <button
-            onClick={openEdit}
-            className="flex items-center gap-2 text-left group"
-          >
-            <p className="text-white/70 text-sm flex-1">
-              {memory.caption || <span className="text-white/30 italic">Ajouter une légende...</span>}
-            </p>
-            <Edit3 size={13} className="text-white/30 group-hover:text-white/60 transition-colors flex-shrink-0" />
-          </button>
-        )}
 
-        {/* Counter */}
-        <p className="text-white/25 text-[10px] mt-2 text-right">
-          {index + 1} / {memories.length}
-        </p>
+          {/* Caption */}
+          {editingCaption ? (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={captionDraft}
+                onChange={(e) => setCaptionDraft(e.target.value)}
+                maxLength={120}
+                placeholder="Ajouter une légende..."
+                className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 transition-colors"
+              />
+              <button
+                onClick={handleSaveCaption}
+                disabled={updateCaption.isPending}
+                className="w-10 h-10 rounded-xl bg-snap-yellow flex items-center justify-center text-black active:scale-95 transition-all"
+              >
+                {updateCaption.isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+              </button>
+              <button
+                onClick={() => setEditingCaption(false)}
+                className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/15 active:scale-95 transition-all"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={openEdit}
+              className="flex items-center gap-3 text-left group w-full bg-white/5 hover:bg-white/10 p-3 rounded-2xl transition-colors"
+            >
+              <p className="text-white/80 text-sm font-medium flex-1">
+                {memory.caption || <span className="text-white/30 italic">Ajouter une légende...</span>}
+              </p>
+              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors flex-shrink-0">
+                <Edit3 size={14} className="text-white" />
+              </div>
+            </button>
+          )}
+
+          {/* Counter */}
+          <div className="flex justify-between items-center mt-3 px-1">
+            <p className="text-white/25 text-[10px] font-bold">
+              {formatDate(memory.created_at)} à {formatTime(memory.created_at)}
+            </p>
+            <p className="text-white/40 text-[10px] font-black bg-white/10 px-2 py-0.5 rounded-full">
+              {index + 1} / {memories.length}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Delete confirmation */}
@@ -570,42 +580,42 @@ export default function MemoriesScreen() {
       </div>
 
       {/* ── Stats strip ── */}
-      <div className="flex-shrink-0 px-5 mb-3">
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-white/5 border border-white/8 rounded-2xl py-3 flex flex-col items-center gap-0.5">
-            <span className="text-lg font-black text-snap-yellow">{isLoading ? '—' : totalCount}</span>
-            <span className="text-[9px] text-white/40 uppercase tracking-wider font-bold">Total</span>
+      <div className="flex-shrink-0 px-5 mb-5">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-gradient-to-br from-snap-yellow/20 to-snap-yellow/5 border border-snap-yellow/30 rounded-3xl py-4 flex flex-col items-center gap-1 shadow-[0_4px_20px_rgba(255,252,0,0.05)]">
+            <span className="text-2xl font-black text-snap-yellow drop-shadow-md">{isLoading ? '—' : totalCount}</span>
+            <span className="text-[10px] text-snap-yellow/70 uppercase tracking-widest font-black">Total</span>
           </div>
-          <div className="bg-white/5 border border-white/8 rounded-2xl py-3 flex flex-col items-center gap-0.5">
-            <span className="text-lg font-black text-white">{isLoading ? '—' : imageCount}</span>
-            <span className="text-[9px] text-white/40 uppercase tracking-wider font-bold">Photos</span>
+          <div className="bg-white/5 border border-white/10 rounded-3xl py-4 flex flex-col items-center gap-1 shadow-lg">
+            <span className="text-2xl font-black text-white">{isLoading ? '—' : imageCount}</span>
+            <span className="text-[10px] text-white/40 uppercase tracking-widest font-black">Photos</span>
           </div>
-          <div className="bg-white/5 border border-white/8 rounded-2xl py-3 flex flex-col items-center gap-0.5">
-            <span className="text-lg font-black text-white">{isLoading ? '—' : videoCount}</span>
-            <span className="text-[9px] text-white/40 uppercase tracking-wider font-bold">Vidéos</span>
+          <div className="bg-white/5 border border-white/10 rounded-3xl py-4 flex flex-col items-center gap-1 shadow-lg">
+            <span className="text-2xl font-black text-white">{isLoading ? '—' : videoCount}</span>
+            <span className="text-[10px] text-white/40 uppercase tracking-widest font-black">Vidéos</span>
           </div>
         </div>
       </div>
 
       {/* ── Filter tabs ── */}
-      <div className="flex-shrink-0 px-5 mb-4">
-        <div className="flex gap-2">
+      <div className="flex-shrink-0 px-5 mb-6">
+        <div className="flex gap-2.5 overflow-x-auto scroll-hide pb-2">
           {(['all', 'IMAGE', 'VIDEO'] as FilterType[]).map((f) => {
-            const labels: Record<FilterType, string> = { all: 'Tout', IMAGE: 'Photos', VIDEO: 'Vidéos' };
+            const labels: Record<FilterType, string> = { all: 'Tous les souvenirs', IMAGE: 'Photos', VIDEO: 'Vidéos' };
             const icons: Record<FilterType, React.ReactNode> = {
-              all: <BookOpen size={12} />,
-              IMAGE: <Image size={12} />,
-              VIDEO: <Video size={12} />,
+              all: <BookOpen size={14} />,
+              IMAGE: <Image size={14} />,
+              VIDEO: <Video size={14} />,
             };
             const active = filter === f;
             return (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-black transition-all whitespace-nowrap ${
                   active
-                    ? 'bg-snap-yellow text-black shadow-snap-sm'
-                    : 'bg-white/8 text-white/60 border border-white/10'
+                    ? 'bg-snap-yellow text-black shadow-snap-sm scale-105'
+                    : 'bg-white/8 text-white/60 border border-white/10 hover:bg-white/15'
                 }`}
               >
                 {icons[f]}
@@ -648,8 +658,10 @@ export default function MemoriesScreen() {
           <div className="space-y-6">
             {/* Flashback Banner */}
             {!search && filter === 'all' && flashbackMemory && (
-              <div 
-                className={`relative h-48 rounded-2xl overflow-hidden cursor-pointer group mb-2 active:scale-[0.98] transition-all border ${selectionMode && selectedIds.has(flashbackMemory.id) ? 'border-snap-yellow ring-2 ring-snap-yellow ring-offset-2 ring-offset-black scale-95' : 'border-white/10'}`}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`relative h-56 rounded-[32px] overflow-hidden cursor-pointer group mb-6 active:scale-[0.98] transition-all border shadow-2xl ${selectionMode && selectedIds.has(flashbackMemory.id) ? 'border-snap-yellow ring-4 ring-snap-yellow/50 ring-offset-4 ring-offset-black scale-95' : 'border-white/10'}`}
                 onClick={() => {
                    if (selectionMode) toggleSelection(flashbackMemory.id);
                    else setLightboxIndex(filtered.indexOf(flashbackMemory));
@@ -660,27 +672,27 @@ export default function MemoriesScreen() {
                 ) : (
                   <video src={flashbackMemory.media_url} className="w-full h-full object-cover" muted playsInline />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90 pointer-events-none" />
                 
-                <div className="absolute top-3 left-3 px-3 py-1.5 bg-white/20 backdrop-blur-md rounded-full border border-white/20 shadow-lg">
-                  <span className="text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                    <BookOpen size={12} className="text-snap-yellow" /> Souvenir
+                <div className="absolute top-4 left-4 px-4 py-2 bg-black/40 backdrop-blur-xl rounded-full border border-white/20 shadow-lg">
+                  <span className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                    <BookOpen size={14} className="text-snap-yellow" /> À la une
                   </span>
                 </div>
                 
-                <div className="absolute bottom-3 left-3 right-3">
-                  <p className="text-white text-base font-black truncate">{flashbackMemory.caption || 'Ce jour-là...'}</p>
-                  <p className="text-white/60 text-[11px] mt-0.5 uppercase tracking-wider font-bold">{formatDate(flashbackMemory.created_at)}</p>
+                <div className="absolute bottom-5 left-5 right-5">
+                  <p className="text-white text-xl font-black drop-shadow-md truncate">{flashbackMemory.caption || 'Un souvenir inoubliable'}</p>
+                  <p className="text-snap-yellow text-xs mt-1.5 uppercase tracking-widest font-black drop-shadow-md">{formatDate(flashbackMemory.created_at)}</p>
                 </div>
 
                 {selectionMode && (
-                  <div className="absolute top-3 right-3 z-10">
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors shadow-lg ${selectedIds.has(flashbackMemory.id) ? 'bg-snap-yellow border-snap-yellow text-black' : 'border-white/50 bg-black/40'}`}>
-                        {selectedIds.has(flashbackMemory.id) && <Check size={14} />}
+                  <div className="absolute top-4 right-4 z-10">
+                    <div className={`w-7 h-7 rounded-full border-[3px] flex items-center justify-center transition-colors shadow-2xl ${selectedIds.has(flashbackMemory.id) ? 'bg-snap-yellow border-snap-yellow text-black scale-110' : 'border-white/50 bg-black/40'}`}>
+                        {selectedIds.has(flashbackMemory.id) && <Check size={16} strokeWidth={3} />}
                     </div>
                   </div>
                 )}
-              </div>
+              </motion.div>
             )}
 
             {groups.map((group) => (
