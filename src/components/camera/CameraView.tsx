@@ -12,7 +12,7 @@ export default function CameraView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   
-  const pressTimerRef = useRef<any>(null);
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHoldingRef = useRef<boolean>(false);
   const touchStartRef = useRef<number>(0);
 
@@ -59,12 +59,12 @@ export default function CameraView() {
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Camera error:", err);
-      // Fallback for previews usually denied easily
-      setError(err.name === 'NotAllowedError' ? 'Camera/Microphone permission denied.' : err.message || "Failed to access camera");
+      const parsedError = err instanceof Error ? err : new Error("Failed to access camera");
+      setError(parsedError.name === 'NotAllowedError' ? 'Camera/Microphone permission denied.' : parsedError.message);
     }
-  }, [facingMode]);
+  }, [facingMode, stream]);
 
   useEffect(() => {
     startCamera();
@@ -73,7 +73,7 @@ export default function CameraView() {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [facingMode]);
+  }, [startCamera, stream]);
 
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
@@ -188,8 +188,8 @@ export default function CameraView() {
     try {
         mediaRecorder.start();
         setIsRecording(true);
-    } catch(err){
-        console.error("Recording start failed", err);
+    } catch (err) {
+      console.error("Recording start failed", err);
     }
   };
 
@@ -200,7 +200,7 @@ export default function CameraView() {
   };
 
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isRecording) {
       interval = setInterval(() => {
         setRecordingDuration(prev => {
@@ -294,12 +294,13 @@ export default function CameraView() {
       if (error) throw error;
       
       discardMedia();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.message?.includes('row-level security')) {
+      const parsedError = err instanceof Error ? err : new Error('Failed to send message');
+      if (parsedError.message.includes('row-level security')) {
         toast('Action failed: Supabase RLS permissions missing for "messages" table. Please add an INSERT policy.', 'error');
       } else {
-        toast('Failed to send: ' + err.message, 'error');
+        toast('Failed to send: ' + parsedError.message, 'error');
       }
     } finally {
       setIsSending(false);
@@ -327,12 +328,13 @@ export default function CameraView() {
       if (error) throw error;
       
       discardMedia();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.message?.includes('row-level security')) {
+      const parsedError = err instanceof Error ? err : new Error('Failed to send message');
+      if (parsedError.message.includes('row-level security')) {
         toast('Action failed: Supabase RLS permissions missing for "stories" table. Please configure an INSERT policy with "user_id" check in your database setting.', 'error');
       } else {
-        toast('Failed to post story: ' + err.message, 'error');
+        toast('Failed to post story: ' + parsedError.message, 'error');
       }
     } finally {
       setIsSending(false);
