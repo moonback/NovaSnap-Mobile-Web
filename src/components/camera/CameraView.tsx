@@ -32,6 +32,12 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const { data: conversations, isLoading: convLoading } = useConversations();
   const [isSending, setIsSending] = useState(false);
 
+  
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 35 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const ALLOWED_VIDEO_TYPES = new Set(['video/webm', 'video/mp4']);
+
   const stopStream = useCallback(() => {
     if (!streamRef.current) return;
     streamRef.current.getTracks().forEach((track) => track.stop());
@@ -260,13 +266,28 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     }
   };
 
+
+  const validateUploadBlob = (fileBlob: Blob) => {
+    const isImage = capturedMedia?.type === 'image';
+    const allowedTypes = isImage ? ALLOWED_IMAGE_TYPES : ALLOWED_VIDEO_TYPES;
+    const maxBytes = isImage ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
+
+    if (!allowedTypes.has(fileBlob.type)) {
+      throw new Error(`Unsupported ${isImage ? 'image' : 'video'} format: ${fileBlob.type || 'unknown'}`);
+    }
+    if (fileBlob.size > maxBytes) {
+      throw new Error(`${isImage ? 'Image' : 'Video'} file too large. Max ${Math.floor(maxBytes / (1024 * 1024))}MB.`);
+    }
+  };
+
   const uploadMedia = async (bucketName: string): Promise<string> => {
     if (!user || !capturedMedia) throw new Error("No captured media");
     
     // Convert URL (blob or dataurl) to raw Blob
     const response = await fetch(capturedMedia.url);
     const fileBlob = await response.blob();
-    
+    validateUploadBlob(fileBlob);
+
     // Generate a unique file name
     const fileExt = capturedMedia.type === 'image' ? 'jpg' : 'mp4';
     const fileName = `${user.id}/${Date.now()}.${fileExt}`;
@@ -285,7 +306,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     // This perfectly matches the ephemeral lifetime of stories/snaps and prevents public leaks.
     const { data: signedData, error: signedError } = await supabase.storage
       .from(bucketName)
-      .createSignedUrl(fileName, 86400);
+      .createSignedUrl(fileName, 3600);
       
     if (signedError) throw signedError;
     return signedData.signedUrl;
