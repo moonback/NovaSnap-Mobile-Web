@@ -187,9 +187,161 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     if (fileBlob.size > maxBytes) throw new Error(`Fichier trop lourd. Max ${Math.floor(maxBytes / (1024 * 1024))}MB.`);
   };
 
+  // NOUVEAU : Aplatir l'image originale avec les dessins, textes, stickers et rotation du SnapEditor
+  const flattenImage = async (): Promise<string> => {
+    if (!capturedMedia || capturedMedia.type !== 'image') return capturedMedia?.url || '';
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(capturedMedia.url);
+          return;
+        }
+
+        // Récupérer la taille réelle de l'image capturée
+        const width = img.naturalWidth || 640;
+        const height = img.naturalHeight || 480;
+
+        // Déterminer si l'image est pivotée de 90 ou 270 degrés
+        const isRotated90or270 = editorState.rotation === 90 || editorState.rotation === 270;
+        canvas.width = isRotated90or270 ? height : width;
+        canvas.height = isRotated90or270 ? width : height;
+
+        // Centrer et appliquer la rotation
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((editorState.rotation * Math.PI) / 180);
+
+        // Dessiner l'image d'origine. Si front-facing, on la dessine à l'envers (effet miroir)
+        if (facingMode === 'user') {
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+
+        // Revenir en échelle normale pour dessiner les calques d'édition au bon endroit
+        if (facingMode === 'user') {
+          ctx.scale(-1, 1);
+        }
+
+        // Repositionner le point d'origine en haut à gauche de l'image
+        ctx.translate(-width / 2, -height / 2);
+
+        // Les dessins de SnapEditor sont dessinés sur une grille virtuelle de 720x1280
+        const scaleX = width / 720;
+        const scaleY = height / 1280;
+
+        // Dessiner les traits de crayon
+        for (const stroke of editorState.strokes) {
+          if (stroke.points.length < 2) continue;
+          ctx.beginPath();
+          ctx.strokeStyle = stroke.color;
+          ctx.lineWidth = stroke.width * scaleX;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.moveTo(stroke.points[0].x * scaleX, stroke.points[0].y * scaleY);
+          for (let i = 1; i < stroke.points.length; i++) {
+            ctx.lineTo(stroke.points[i].x * scaleX, stroke.points[i].y * scaleY);
+          }
+          ctx.stroke();
+        }
+
+        // Dessiner les stickers (Emojis)
+        for (const sticker of editorState.stickerLayers) {
+          const x = (sticker.x / 100) * width;
+          const y = (sticker.y / 100) * height;
+          const fontSize = sticker.size * scaleX * 1.3;
+          ctx.font = `${fontSize}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(sticker.emoji, x, y);
+        }
+
+        // Dessiner les textes
+        for (const text of editorState.textLayers) {
+          const x = (text.x / 100) * width;
+          const y = (text.y / 100) * height;
+          const fontSize = text.size * scaleX * 1.1;
+
+          let fontWeight = 'normal';
+          let fontFamily = 'sans-serif';
+
+          if (text.font.includes('font-black')) {
+            fontWeight = '900';
+            fontFamily = 'Impact, "Arial Black", sans-serif';
+          } else if (text.font.includes('font-serif')) {
+            fontFamily = 'Georgia, serif';
+          } else if (text.font.includes('font-mono')) {
+            fontFamily = 'monospace';
+          } else if (text.font.includes('font-light')) {
+            fontWeight = '300';
+          }
+
+          ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          // Ajouter une belle ombre portée noire pour la lisibilité
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 8 * scaleX;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 3 * scaleY;
+
+          ctx.fillStyle = text.color;
+          ctx.fillText(text.text, x, y);
+
+          // Réinitialiser les ombres
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+        }
+
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+
+      img.onerror = () => {
+        resolve(capturedMedia.url);
+      };
+
+      img.src = capturedMedia.url;
+    });
+  };
+
+  // NOUVEAU : Téléchargement du média édité
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!capturedMedia) return;
+
+    try {
+      let url = capturedMedia.url;
+      if (capturedMedia.type === 'image') {
+        url = await flattenImage();
+      }
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = capturedMedia.type === 'image' ? 'novasnap.jpg' : 'novasnap.webm';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast('Média enregistré avec succès !', 'success');
+    } catch (err) {
+      toast('Impossible de télécharger le fichier.', 'error');
+    }
+  };
+
   const uploadMedia = async (bucketName: string): Promise<{ path: string; signedUrl: string }> => {
     if (!user || !capturedMedia) throw new Error('Aucun média capturé');
-    const response = await fetch(capturedMedia.url);
+    
+    // NOUVEAU : Obtenir la version aplatie de l'image (avec textes, dessins, stickers)
+    let finalMediaUrl = capturedMedia.url;
+    if (capturedMedia.type === 'image') {
+      finalMediaUrl = await flattenImage();
+    }
+
+    const response = await fetch(finalMediaUrl);
     const fileBlob = await response.blob();
     validateUploadBlob(fileBlob);
     const fileExt = capturedMedia.type === 'image' ? 'jpg' : 'webm';
@@ -296,9 +448,9 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
               <button onClick={discardMedia} className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white pointer-events-auto">
                 <X size={22} />
               </button>
-              <a href={capturedMedia.url} download={capturedMedia.type === 'image' ? 'novasnap.jpg' : 'novasnap.webm'} className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white pointer-events-auto">
+              <button onClick={handleDownload} className="w-11 h-11 glass-dark rounded-full flex items-center justify-center text-white pointer-events-auto">
                 <Download size={18} />
-              </a>
+              </button>
             </div>
 
             {/* Send To panel */}
