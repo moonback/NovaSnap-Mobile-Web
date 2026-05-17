@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './lib/supabase';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
 import CameraView from './components/camera/CameraView';
 import ChatScreen from './screens/ChatScreen';
 import StoriesScreen from './screens/StoriesScreen';
@@ -10,6 +11,13 @@ import AuthScreen from './screens/AuthScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import FriendsScreen from './screens/FriendsScreen';
 import UserProfileScreen from './screens/UserProfileScreen';
+
+// ── Composant interne qui active le heartbeat une fois connecté ──
+function HeartbeatProvider() {
+  // useOnlineStatus sans userId = mode heartbeat uniquement (effet dans le hook)
+  useOnlineStatus();
+  return null;
+}
 
 export default function App() {
   const {
@@ -116,6 +124,9 @@ export default function App() {
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden font-sans">
+      {/* Heartbeat actif dès que l'utilisateur est connecté */}
+      {session && <HeartbeatProvider />}
+
       <motion.div
         className="flex w-[300vw] h-full touch-pan-y"
         animate={controls}

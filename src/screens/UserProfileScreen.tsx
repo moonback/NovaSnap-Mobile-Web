@@ -242,7 +242,7 @@ export default function UserProfileScreen() {
       return (
         <div className="relative">
           <button
-            onClick={() => setShowRemoveConfirm((v) => !v)}
+            onClick={() => setShowRemoveConfirm((v: boolean) => !v)}
             className="flex items-center gap-2 px-5 py-2.5 bg-green-500/15 text-green-400 font-bold text-sm rounded-full active:scale-95 transition-all"
           >
             <Check size={15} />

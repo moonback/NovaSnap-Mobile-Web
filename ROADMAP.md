@@ -39,12 +39,12 @@
 - [ ] Badge de compteur sur l'icône de l'app (PWA)
 
 ### 1.3 Profils publics enrichis
-- [ ] Page profil visiteur (voir les stories publiques d'un ami)
+- [x] Page profil visiteur (voir les stories publiques d'un ami)
 - [ ] Bio / statut personnalisé (140 caractères)
 - [ ] Lien Bitmoji / avatar animé (SVG animé généré par IA)
 - [ ] Snap Score visible et animé (gamification)
-- [ ] Bouton "Snap" direct depuis le profil d'un ami
-- [ ] Statut en ligne / dernière connexion (optionnel, privacy-first)
+- [x] Bouton "Snap" direct depuis le profil d'un ami
+- [x] Statut en ligne / dernière connexion (optionnel, privacy-first)
 
 ### 1.4 Groupes de chat
 - [ ] Création de groupe (nom + membres)

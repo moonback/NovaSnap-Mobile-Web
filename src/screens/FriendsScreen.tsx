@@ -90,8 +90,7 @@ const FriendRow: React.FC<{
       >
         <div className="relative">
           <Avatar url={friend.user.avatar_url} name={friend.user.display_name ?? friend.user.username} size="md" />
-          {/* Online indicator placeholder */}
-          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-black" />
+          <AvatarOnlineBadge userId={friend.user.id} size="md" position="bottom-right" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-[15px] text-white truncate">
