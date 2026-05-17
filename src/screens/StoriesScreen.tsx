@@ -22,6 +22,11 @@ export default function StoriesScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [storyToDeleteId, setStoryToDeleteId] = useState<string | null>(null);
 
+
+  const totalStories = stories?.length ?? 0;
+  const uniqueCreators = stories ? new Set(stories.map((story) => story.user_id)).size : 0;
+  const hasStories = totalStories > 0;
+
   const handleDeleteStory = async (storyId: string, e?: React.MouseEvent) => {
     e?.stopPropagation(); // Évite que le clic ne passe à la story suivante
     setIsDeleting(true);
@@ -62,7 +67,10 @@ export default function StoriesScreen() {
     <div className="relative w-full h-full bg-black text-white flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-14 pb-4">
-          <h1 className="text-xl font-black tracking-tight">Stories</h1>
+          <div>
+            <h1 className="text-xl font-black tracking-tight">Stories</h1>
+            <p className="text-[11px] text-white/45 mt-0.5">{totalStories} story{totalStories > 1 ? 'ies' : ''} · {uniqueCreators} créateur{uniqueCreators > 1 ? 's' : ''}</p>
+          </div>
           <button
             onClick={() => setShowAI(!showAI)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
@@ -90,6 +98,23 @@ export default function StoriesScreen() {
               </div>
             </div>
           )}
+
+          <div className="px-4 mb-5">
+            <div className="glass-card rounded-3xl p-4 border border-white/10">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-extrabold">Ton fil Stories</p>
+                  <p className="text-[11px] text-white/50 mt-1">Publie régulièrement pour augmenter ta visibilité.</p>
+                </div>
+                <button
+                  onClick={() => setCurrentView('camera')}
+                  className="px-4 py-2 rounded-full bg-snap-yellow text-black text-xs font-black shadow-snap-sm active:scale-95 transition-all"
+                >
+                  Créer
+                </button>
+              </div>
+            </div>
+          </div>
 
           {/* Stories row */}
           <div className="px-4 mb-6">
@@ -150,7 +175,7 @@ export default function StoriesScreen() {
                 );
               })}
 
-              {!isLoading && stories?.length === 0 && (
+              {!isLoading && !hasStories && (
                 <div className="flex items-center justify-center min-w-[200px] py-4">
                   <p className="text-sm text-white/30">Aucune story active</p>
                 </div>
@@ -160,7 +185,10 @@ export default function StoriesScreen() {
 
           {/* Discover section */}
           <div className="px-4">
-            <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider mb-3">Découvrir</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider">Découvrir</h2>
+              <span className="text-[10px] text-white/35 uppercase tracking-wider">Tendance</span>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {isLoading && [...Array(4)].map((_, i) => (
                 <Skeleton key={`dsk-${i}`} className="aspect-[9/16] rounded-2xl" />
@@ -171,7 +199,7 @@ export default function StoriesScreen() {
                   <button
                     key={`grid-${story.id}`}
                     onClick={() => setActiveStoryIndex(index)}
-                    className="aspect-[9/16] rounded-2xl overflow-hidden relative bg-zinc-900"
+                    className="aspect-[9/16] rounded-2xl overflow-hidden relative bg-zinc-900 border border-white/10 hover:border-white/20 transition-colors"
                   >
                     {!isFailed && story.media_type === 'IMAGE' && (
                       <img src={story.media_url} className="w-full h-full object-cover" alt="" onError={() => setFailedUrls((prev) => ({ ...prev, [story.media_url]: true }))} />
@@ -182,11 +210,12 @@ export default function StoriesScreen() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                     <div className="absolute bottom-2 left-2 right-2">
                       <p className="text-white text-xs font-bold truncate">{story.users?.username || 'User'}</p>
+                      <p className="text-[10px] text-white/60">{story.media_type === 'VIDEO' ? 'Vidéo' : 'Photo'}</p>
                     </div>
                   </button>
                 );
               })}
-              {!isLoading && stories?.length === 0 && (
+              {!isLoading && !hasStories && (
                 <div className="col-span-2 py-8 text-center">
                   <p className="text-white/30 text-sm">Poste ta première story depuis la caméra</p>
                   <button

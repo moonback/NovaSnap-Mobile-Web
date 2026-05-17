@@ -1,24 +1,33 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: dark;
+  --snap-bg: #07080f;
+  --snap-surface: rgba(255, 255, 255, 0.06);
+  --snap-border: rgba(255, 255, 255, 0.14);
+}
+
 @layer utilities {
   /* ── Glassmorphism ── */
   .glass {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--snap-surface);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    border: 1px solid var(--snap-border);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
   }
   .glass-dark {
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(0, 0, 0, 0.58);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
   .glass-card {
-    background: rgba(255, 255, 255, 0.04);
+    background: linear-gradient(170deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
   }
 
   /* ── Snap Yellow ── */
@@ -81,4 +90,12 @@
 
 /* Global resets */
 * { -webkit-tap-highlight-color: transparent; }
-body { overscroll-behavior: none; }
+html, body, #root {
+  min-height: 100%;
+  background: radial-gradient(circle at top, #15182c 0%, var(--snap-bg) 58%, #05060b 100%);
+}
+body {
+  overscroll-behavior: none;
+  color: #f7f8ff;
+  text-rendering: optimizeLegibility;
+}
