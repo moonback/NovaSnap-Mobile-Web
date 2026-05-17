@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { useAppStore } from './store/useAppStore';
 import { supabase } from './lib/supabase';
@@ -12,6 +12,15 @@ import AuthScreen from './screens/AuthScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import FriendsScreen from './screens/FriendsScreen';
 import UserProfileScreen from './screens/UserProfileScreen';
+
+
+type ViewKey = 'chat' | 'camera' | 'stories';
+
+type Dimensions = {
+  width: number;
+  height: number;
+  isDesktop: boolean;
+};
 
 // ── Heartbeat de présence ─────────────────────────────────────
 function HeartbeatProvider() {
@@ -86,7 +95,7 @@ export default function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   
   // NOUVEAU: Gestion des dimensions réactives pour le conteneur centré
-  const [dimensions, setDimensions] = useState({
+  const [dimensions, setDimensions] = useState<Dimensions>({
     width: typeof window !== 'undefined' ? window.innerWidth : 390,
     height: typeof window !== 'undefined' ? window.innerHeight : 844,
     isDesktop: false
@@ -99,9 +108,16 @@ export default function App() {
       const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
       const isDesktop = viewportWidth >= 768;
-      const width = isDesktop ? Math.min(430, viewportWidth) : viewportWidth;
-      const height = isDesktop ? Math.min(932, viewportHeight) : viewportHeight;
-      setDimensions({ width, height, isDesktop });
+      const width = Math.round(isDesktop ? Math.min(430, viewportWidth) : viewportWidth);
+      const height = Math.round(isDesktop ? Math.min(932, viewportHeight) : viewportHeight);
+
+      setDimensions((prev) => {
+        if (prev.width === width && prev.height === height && prev.isDesktop === isDesktop) {
+          return prev;
+        }
+
+        return { width, height, isDesktop };
+      });
     };
 
     const handleResize = () => {
@@ -112,18 +128,20 @@ export default function App() {
     const visualViewport = window.visualViewport;
 
     window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
     visualViewport?.addEventListener('resize', handleResize);
     updateDimensions();
 
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
       visualViewport?.removeEventListener('resize', handleResize);
     };
   }, []);
 
-  const views = ['chat', 'camera', 'stories'] as const;
-  const resolvedIndex = views.indexOf(currentView as (typeof views)[number]);
+  const views = useMemo(() => ['chat', 'camera', 'stories'] as const, []);
+  const resolvedIndex = views.indexOf(currentView as ViewKey);
   const currentIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
 
   useEffect(() => {
@@ -269,9 +287,9 @@ export default function App() {
           onDragEnd={(_e, { offset, velocity }) => {
             const swipe = swipePower(offset.x, velocity.x);
             if (swipe < -swipeConfidenceThreshold && currentIndex < 2) {
-              setCurrentView(views[currentIndex + 1] as 'chat' | 'camera' | 'stories');
+              setCurrentView(views[currentIndex + 1]);
             } else if (swipe > swipeConfidenceThreshold && currentIndex > 0) {
-              setCurrentView(views[currentIndex - 1] as 'chat' | 'camera' | 'stories');
+              setCurrentView(views[currentIndex - 1]);
             } else {
               controls.start({ x: -currentIndex * dimensions.width });
             }
