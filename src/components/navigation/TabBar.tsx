@@ -1,68 +1,116 @@
 import React from 'react';
-import { MessageCircle, Camera, PlaySquare } from 'lucide-react';
+import { MessageCircle, Camera, Play } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useAppStore } from '../../store/useAppStore';
 
 export default function TabBar() {
   const { currentView, setCurrentView } = useAppStore();
 
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-end justify-around safe-bottom"
-      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 70%, transparent 100%)' }}
-    >
-      <div className="flex items-center justify-around w-full pb-3 pt-2 px-4">
-        {/* Chat */}
+    <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
+      {/* Gradient de fond */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 55%, transparent 100%)',
+        }}
+      />
+
+      {/* Barre de navigation */}
+      <div className="relative pointer-events-auto flex items-end justify-between px-8 pb-8 pt-6">
+
+        {/* ── Chat ── */}
         <button
           onClick={() => setCurrentView('chat')}
           aria-label="Chat"
-          className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-200 ${
-            currentView === 'chat' ? 'opacity-100' : 'opacity-50 hover:opacity-75'
-          }`}
+          className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
         >
-          <MessageCircle
-            size={26}
-            strokeWidth={currentView === 'chat' ? 2.5 : 2}
-            className={currentView === 'chat' ? 'text-white' : 'text-white'}
-            fill={currentView === 'chat' ? 'rgba(255,255,255,0.15)' : 'none'}
-          />
+          <div className="relative">
+            <MessageCircle
+              size={27}
+              strokeWidth={currentView === 'chat' ? 2.5 : 1.8}
+              className={`transition-all duration-200 ${
+                currentView === 'chat' ? 'text-white' : 'text-white/45'
+              }`}
+              fill={currentView === 'chat' ? 'rgba(255,255,255,0.12)' : 'none'}
+            />
+          </div>
+          <span
+            className={`text-[10px] font-bold tracking-wide transition-all duration-200 ${
+              currentView === 'chat' ? 'text-white' : 'text-white/35'
+            }`}
+          >
+            Chat
+          </span>
           {currentView === 'chat' && (
-            <span className="w-1 h-1 rounded-full bg-white" />
+            <motion.span
+              layoutId="tab-dot"
+              className="w-1 h-1 rounded-full bg-white"
+            />
           )}
         </button>
 
-        {/* Camera — centre, elevated */}
-        <button
-          onClick={() => setCurrentView('camera')}
-          aria-label="Camera"
-          className={`relative -top-2 flex items-center justify-center w-16 h-16 rounded-full transition-all duration-200 ${
-            currentView === 'camera'
-              ? 'bg-snap-yellow shadow-snap scale-105'
-              : 'bg-white/90 hover:bg-white'
-          }`}
-        >
-          <Camera
-            size={28}
-            strokeWidth={2}
-            className={currentView === 'camera' ? 'text-black' : 'text-black'}
-          />
-        </button>
+        {/* ── Caméra (centre, surélevé) ── */}
+        <div className="flex flex-col items-center -mt-6">
+          <motion.button
+            onClick={() => setCurrentView('camera')}
+            aria-label="Caméra"
+            whileTap={{ scale: 0.88 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+            className={`relative w-[68px] h-[68px] rounded-full flex items-center justify-center transition-colors duration-200 ${
+              currentView === 'camera'
+                ? 'bg-snap-yellow'
+                : 'bg-white'
+            }`}
+            style={{
+              boxShadow:
+                currentView === 'camera'
+                  ? '0 0 0 4px rgba(255,252,0,0.25), 0 8px 24px rgba(255,252,0,0.35)'
+                  : '0 0 0 4px rgba(255,255,255,0.15), 0 8px 20px rgba(0,0,0,0.5)',
+            }}
+          >
+            <Camera
+              size={30}
+              strokeWidth={2}
+              className="text-black"
+            />
+          </motion.button>
+          <span
+            className={`mt-2 text-[10px] font-bold tracking-wide transition-all duration-200 ${
+              currentView === 'camera' ? 'text-snap-yellow' : 'text-white/35'
+            }`}
+          >
+            Caméra
+          </span>
+        </div>
 
-        {/* Stories */}
+        {/* ── Stories ── */}
         <button
           onClick={() => setCurrentView('stories')}
           aria-label="Stories"
-          className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-200 ${
-            currentView === 'stories' ? 'opacity-100' : 'opacity-50 hover:opacity-75'
-          }`}
+          className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
         >
-          <PlaySquare
-            size={26}
-            strokeWidth={currentView === 'stories' ? 2.5 : 2}
-            className="text-white"
-            fill={currentView === 'stories' ? 'rgba(255,255,255,0.15)' : 'none'}
+          <Play
+            size={27}
+            strokeWidth={currentView === 'stories' ? 2.5 : 1.8}
+            className={`transition-all duration-200 ${
+              currentView === 'stories' ? 'text-white' : 'text-white/45'
+            }`}
+            fill={currentView === 'stories' ? 'rgba(255,255,255,0.12)' : 'none'}
           />
+          <span
+            className={`text-[10px] font-bold tracking-wide transition-all duration-200 ${
+              currentView === 'stories' ? 'text-white' : 'text-white/35'
+            }`}
+          >
+            Stories
+          </span>
           {currentView === 'stories' && (
-            <span className="w-1 h-1 rounded-full bg-white" />
+            <motion.span
+              layoutId="tab-dot"
+              className="w-1 h-1 rounded-full bg-white"
+            />
           )}
         </button>
       </div>

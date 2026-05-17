@@ -315,7 +315,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
               </div>
             ) : (
               /* Bottom send button */
-              <div className="absolute bottom-6 inset-x-5 flex items-center gap-3">
+              <div className="absolute bottom-[120px] inset-x-5 flex items-center gap-3">
                 {directChatId && conversations?.find((c) => c.conversations?.id === directChatId)?.conversations ? (
                   <>
                     <button
@@ -441,8 +441,8 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
               </div>
             )}
 
-            {/* Bottom shutter */}
-            <div className="absolute bottom-8 inset-x-0 flex flex-col items-center gap-4 z-10">
+            {/* ── Zone shutter (au-dessus du TabBar) ── */}
+            <div className="absolute bottom-[120px] inset-x-0 flex flex-col items-center gap-4 z-10">
               {/* Hint text */}
               {!isRecording && (
                 <p className="text-white/40 text-xs font-medium">Appuie pour photo · Maintiens pour vidéo</p>
