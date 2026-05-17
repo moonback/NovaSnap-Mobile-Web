@@ -120,7 +120,7 @@ export default function AuthScreen() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-white text-black font-bold py-4 rounded-2xl mt-6 flex items-center justify-center gap-2 hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-bold py-4 rounded-2xl mt-6 flex items-center justify-center gap-2 hover:from-cyan-300 hover:to-blue-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {loading ? <Loader2 size={20} className="animate-spin" /> : (
               <>

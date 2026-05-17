@@ -446,7 +446,7 @@ export default function CameraView() {
                   ) : (
                     <button 
                       onClick={() => setShowSendTo(true)}
-                      className="bg-yellow-400 text-black px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-yellow-300 transition-colors shadow-lg ml-auto cursor-pointer"
+                      className="bg-gradient-to-r from-cyan-400 to-blue-500 text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:from-cyan-300 hover:to-blue-400 transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)] ml-auto cursor-pointer"
                     >
                       Send To <Send size={18} />
                     </button>
@@ -484,7 +484,7 @@ export default function CameraView() {
                   <RefreshCw size={20} />
                 </button>
                 <button onClick={toggleFlash} className="w-12 h-12 glass-dark rounded-full flex items-center justify-center text-white">
-                  {flashMode ? <Zap size={20} className="text-yellow-400" /> : <ZapOff size={20} />}
+                  {flashMode ? <Zap size={20} className="text-cyan-400" /> : <ZapOff size={20} />}
                 </button>
                 <button className="w-12 h-12 glass-dark rounded-full flex items-center justify-center text-white">
                   <Circle size={20} />
