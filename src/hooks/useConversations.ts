@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
@@ -27,11 +27,12 @@ function pickFirst<T>(value: T | T[] | null | undefined): T | null {
 export const useConversations = () => {
   const { user } = useAppStore();
   const queryClient = useQueryClient();
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
+    const createChannel = () => supabase
       .channel(`conversation-members:${user.id}:${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
@@ -60,10 +61,39 @@ export const useConversations = () => {
 
           queryClient.invalidateQueries({ queryKey: ['conversations', user.id] });
         }
-      )
-      .subscribe();
+      );
+
+    let channel = createChannel();
+    const subscribeWithRetry = () => {
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          if (retryTimeoutRef.current) {
+            clearTimeout(retryTimeoutRef.current);
+            retryTimeoutRef.current = null;
+          }
+          return;
+        }
+
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          supabase.removeChannel(channel);
+          if (!retryTimeoutRef.current) {
+            retryTimeoutRef.current = setTimeout(() => {
+              channel = createChannel();
+              retryTimeoutRef.current = null;
+              subscribeWithRetry();
+            }, 1500);
+          }
+        }
+      });
+    };
+
+    subscribeWithRetry();
 
     return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
   }, [queryClient, user]);
