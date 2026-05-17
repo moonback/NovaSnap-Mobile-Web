@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { useToast } from '../components/ui/ToastProvider';
 
 export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
@@ -9,6 +10,7 @@ export default function AuthScreen() {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +41,7 @@ export default function AuthScreen() {
         // This usually goes in a Supabase trigger, but for UI feedback:
         if (data.user) {
           // If we want to do something specific after sign up
-          alert('Check your email for the confirmation link!');
+          toast('Check your email for the confirmation link!', 'success');
         }
       }
     } catch (err: any) {

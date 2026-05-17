@@ -3,9 +3,11 @@ import { Camera, RefreshCw, Zap, ZapOff, Circle, AlertCircle, X, Send, Download,
 import { useConversations } from '../../hooks/useConversations';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
+import { useToast } from '../ui/ToastProvider';
 
 export default function CameraView() {
   const { user, directChatId, setDirectChatId } = useAppStore();
+  const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -295,9 +297,9 @@ export default function CameraView() {
     } catch (err: any) {
       console.error(err);
       if (err.message?.includes('row-level security')) {
-        alert('Action failed: Supabase RLS permissions missing for "messages" table. Please add an INSERT policy.');
+        toast('Action failed: Supabase RLS permissions missing for "messages" table. Please add an INSERT policy.', 'error');
       } else {
-        alert('Failed to send: ' + err.message);
+        toast('Failed to send: ' + err.message, 'error');
       }
     } finally {
       setIsSending(false);
@@ -328,9 +330,9 @@ export default function CameraView() {
     } catch (err: any) {
       console.error(err);
       if (err.message?.includes('row-level security')) {
-        alert('Action failed: Supabase RLS permissions missing for "stories" table. Please configure an INSERT policy with "user_id" check in your database setting.');
+        toast('Action failed: Supabase RLS permissions missing for "stories" table. Please configure an INSERT policy with "user_id" check in your database setting.', 'error');
       } else {
-        alert('Failed to post story: ' + err.message);
+        toast('Failed to post story: ' + err.message, 'error');
       }
     } finally {
       setIsSending(false);

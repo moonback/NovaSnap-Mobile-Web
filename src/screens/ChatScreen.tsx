@@ -5,6 +5,7 @@ import { Loader2, LogOut, X } from 'lucide-react';
 import ConversationScreen from './ConversationScreen';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store/useAppStore';
+import { useToast } from '../components/ui/ToastProvider';
 
 export default function ChatScreen() {
   const { data: conversations, isLoading } = useConversations();
@@ -12,6 +13,7 @@ export default function ChatScreen() {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const { toast } = useToast();
 
   const { user } = useAppStore();
   const queryClient = useQueryClient();
@@ -95,7 +97,7 @@ export default function ChatScreen() {
       
     } catch (e: any) {
       console.error(e);
-      alert("Failed to start chat: " + e.message);
+      toast("Failed to start chat: " + e.message, "error");
     } finally {
       setIsCreating(false);
     }

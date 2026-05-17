@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { pcmToBase64, playAudioChunk, resetAudioSync } from '../utils/audio';
+import { useToast } from './ui/ToastProvider';
 
 export default function GeminiOrb() {
+  const { toast } = useToast();
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [transcription, setTranscription] = useState<string>('');
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  // ✅ AudioWorklet replaces deprecated ScriptProcessorNode
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
 
   const startVoice = async () => {
@@ -48,8 +51,6 @@ export default function GeminiOrb() {
         }
         
         // ── Video capture — throttled to 1 frame / 4s ─────────────
-        // 1 fps causes ~75% wasted CPU on encode+base64+JSON. 4s is enough for
-        // contextual AI awareness without killing battery.
         const videoTrack = stream.getVideoTracks()[0];
         if (videoTrack) {
           const imageCapture = new (window as any).ImageCapture(videoTrack);
@@ -61,7 +62,6 @@ export default function GeminiOrb() {
             isSendingFrame = true;
             try {
               const bitmap = await imageCapture.grabFrame();
-              // ✅ Downscale to 320×240 before encoding — AI doesn't need full res
               const canvas = document.createElement('canvas');
               canvas.width = 320; canvas.height = 240;
               canvas.getContext('2d')?.drawImage(bitmap, 0, 0, 320, 240);
@@ -69,25 +69,45 @@ export default function GeminiOrb() {
               ws.send(JSON.stringify({ video: base64Jpeg }));
             } catch { /* ignore frame grab errors when stopping */ }
             finally { isSendingFrame = false; }
-            setTimeout(sendVideoFrame, 4000); // ✅ every 4s, not 1s
+            setTimeout(sendVideoFrame, 4000);
           };
           sendVideoFrame();
         }
 
-        const source = audioCtx.createMediaStreamSource(stream);
-        // ScriptProcessorNode — deprecated but functional (AudioWorklet upgrade planned)
-        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-        processorRef.current = processor;
-        
-        source.connect(processor);
-        processor.connect(audioCtx.destination);
+        // ── ✅ AudioWorklet audio capture (replaces ScriptProcessorNode) ──
+        // The worklet processor runs in a dedicated audio thread — immune to
+        // main-thread GC pauses that caused glitches with ScriptProcessorNode.
+        try {
+          await audioCtx.audioWorklet.addModule('/pcm-capture-processor.js');
+          const workletNode = new AudioWorkletNode(audioCtx, 'pcm-capture-processor', {
+            processorOptions: { bufferSize: 4096 },
+          });
+          workletNodeRef.current = workletNode;
 
-        processor.onaudioprocess = (e) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            const base64 = pcmToBase64(e.inputBuffer.getChannelData(0));
-            ws.send(JSON.stringify({ audio: base64 }));
-          }
-        };
+          workletNode.port.onmessage = (e) => {
+            if (ws.readyState === WebSocket.OPEN && e.data?.pcm) {
+              const base64 = pcmToBase64(e.data.pcm);
+              ws.send(JSON.stringify({ audio: base64 }));
+            }
+          };
+
+          const source = audioCtx.createMediaStreamSource(stream);
+          source.connect(workletNode);
+          // Do NOT connect workletNode to destination — avoids mic echo feedback
+        } catch (workletErr) {
+          console.warn('AudioWorklet unavailable, falling back to ScriptProcessorNode:', workletErr);
+          // ── Graceful fallback for browsers without AudioWorklet support ──
+          const source = audioCtx.createMediaStreamSource(stream);
+          const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+          source.connect(processor);
+          processor.connect(audioCtx.destination);
+          processor.onaudioprocess = (e) => {
+            if (ws.readyState === WebSocket.OPEN) {
+              const base64 = pcmToBase64(e.inputBuffer.getChannelData(0));
+              ws.send(JSON.stringify({ audio: base64 }));
+            }
+          };
+        }
       };
 
       ws.onmessage = (event) => {
@@ -105,7 +125,7 @@ export default function GeminiOrb() {
       };
 
       ws.onerror = (e) => {
-        console.error("WS Error", e);
+        console.error('WS Error', e);
         stopVoice();
       };
 
@@ -113,18 +133,21 @@ export default function GeminiOrb() {
         stopVoice();
       };
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setIsConnecting(false);
       setIsActive(false);
+      toast(err.message || 'Failed to start Nova AI session.', 'error');
     }
   };
 
   const stopVoice = () => {
     setIsActive(false);
     setIsConnecting(false);
-    if (processorRef.current && audioCtxRef.current) {
-      processorRef.current.disconnect();
+    if (workletNodeRef.current) {
+      workletNodeRef.current.port.postMessage({ type: 'stop' });
+      workletNodeRef.current.disconnect();
+      workletNodeRef.current = null;
     }
     if (audioCtxRef.current) {
       audioCtxRef.current.close().catch(console.error);
@@ -152,9 +175,7 @@ export default function GeminiOrb() {
   };
 
   useEffect(() => {
-    return () => {
-      stopVoice();
-    };
+    return () => { stopVoice(); };
   }, []);
 
   return (
