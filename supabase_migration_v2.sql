@@ -33,34 +33,43 @@ DROP POLICY IF EXISTS "Allow select for temporary_snaps" ON storage.objects;
 DROP POLICY IF EXISTS "Allow insert for temporary_snaps" ON storage.objects;
 
 -- Nouvelles politiques : accès uniquement pour les utilisateurs authentifiés
+-- (Avec drop préalable pour garantir l'idempotence totale)
+DROP POLICY IF EXISTS "Auth read avatars" ON storage.objects;
 CREATE POLICY "Auth read avatars"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'avatars' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Auth insert avatars" ON storage.objects;
 CREATE POLICY "Auth insert avatars"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Auth read chats" ON storage.objects;
 CREATE POLICY "Auth read chats"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'chats' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Auth insert chats" ON storage.objects;
 CREATE POLICY "Auth insert chats"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'chats' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Auth read stories" ON storage.objects;
 CREATE POLICY "Auth read stories"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'stories' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Auth insert stories" ON storage.objects;
 CREATE POLICY "Auth insert stories"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'stories' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Auth read snaps" ON storage.objects;
 CREATE POLICY "Auth read snaps"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'temporary_snaps' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Auth insert snaps" ON storage.objects;
 CREATE POLICY "Auth insert snaps"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'temporary_snaps' AND auth.role() = 'authenticated');
@@ -107,14 +116,37 @@ CREATE INDEX IF NOT EXISTS idx_conversation_members_conversation
 
 
 -- ──────────────────────────────────────────────────────────────────────
--- 5. POLITIQUE conversation_members — Supprimer la récursion infinie
+-- 5. POLITIQUES DE SECURITE CORRIGÉES (RLS)
 -- ──────────────────────────────────────────────────────────────────────
-DROP POLICY IF EXISTS "Users can view members of their conversations"
-  ON public.conversation_members;
 
+-- --- A. Table conversation_members ---
+-- Supprime les anciennes politiques pour éviter les doublons ou conflits
+DROP POLICY IF EXISTS "Users can view members of their conversations" ON public.conversation_members;
+DROP POLICY IF EXISTS "Users can join conversations" ON public.conversation_members;
+DROP POLICY IF EXISTS "Users can add members to conversations" ON public.conversation_members;
+
+-- Lecture : tous les utilisateurs connectés
 CREATE POLICY "Users can view members of their conversations"
   ON public.conversation_members FOR SELECT
-  USING (auth.uid() IS NOT NULL);
+  USING (auth.role() = 'authenticated');
+
+-- Ecriture : permet aux utilisateurs connectés d'ajouter des membres aux conversations (indispensable pour les chats 1v1)
+CREATE POLICY "Users can add members to conversations"
+  ON public.conversation_members FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+
+
+-- --- B. Table conversations ---
+DROP POLICY IF EXISTS "Authenticated users can create conversations" ON public.conversations;
+DROP POLICY IF EXISTS "Users can view their conversations" ON public.conversations;
+
+CREATE POLICY "Authenticated users can create conversations"
+  ON public.conversations FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Users can view their conversations"
+  ON public.conversations FOR SELECT
+  USING (auth.role() = 'authenticated');
 
 
 -- ──────────────────────────────────────────────────────────────────────

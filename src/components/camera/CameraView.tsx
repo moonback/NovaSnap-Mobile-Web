@@ -264,12 +264,14 @@ export default function CameraView() {
       
     if (error) throw error;
     
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
+    // ✅ Secure Signed URL: generated for 24 hours (86400s)
+    // This perfectly matches the ephemeral lifetime of stories/snaps and prevents public leaks.
+    const { data: signedData, error: signedError } = await supabase.storage
       .from(bucketName)
-      .getPublicUrl(fileName);
+      .createSignedUrl(fileName, 86400);
       
-    return publicUrlData.publicUrl;
+    if (signedError) throw signedError;
+    return signedData.signedUrl;
   };
 
   const handleSendToChat = async (conversationId: string) => {
