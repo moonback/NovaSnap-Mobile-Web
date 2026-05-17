@@ -86,7 +86,12 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera API non disponible.');
       const isLowPower = navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4;
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: isLowPower ? 480 : 640 }, height: { ideal: isLowPower ? 854 : 1280 }, frameRate: { ideal: isLowPower ? 24 : 30, max: 30 } },
+        video: { 
+          facingMode, 
+          width: { ideal: isLowPower ? 720 : 1080 }, 
+          height: { ideal: isLowPower ? 1280 : 1920 }, 
+          frameRate: { ideal: isLowPower ? 24 : 30, max: 30 } 
+        },
         audio: true,
       });
       streamRef.current = newStream;
