@@ -13,6 +13,37 @@ import ProfileScreen from './screens/ProfileScreen';
 import FriendsScreen from './screens/FriendsScreen';
 import UserProfileScreen from './screens/UserProfileScreen';
 
+
+type ViewKey = 'chat' | 'camera' | 'stories';
+
+type Dimensions = {
+  width: number;
+  height: number;
+  isDesktop: boolean;
+};
+
+
+const VIEWS = ['chat', 'camera', 'stories'] as const;
+
+const isViewKey = (value: string): value is ViewKey =>
+  (VIEWS as readonly string[]).includes(value);
+
+const getInitialDimensions = (): Dimensions => {
+  if (typeof window === 'undefined') {
+    return { width: 390, height: 844, isDesktop: false };
+  }
+
+  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  const isDesktop = viewportWidth >= 768;
+
+  return {
+    width: Math.round(isDesktop ? Math.min(430, viewportWidth) : viewportWidth),
+    height: Math.round(isDesktop ? Math.min(932, viewportHeight) : viewportHeight),
+    isDesktop,
+  };
+};
+
 // ── Heartbeat de présence ─────────────────────────────────────
 function HeartbeatProvider() {
   useOnlineStatus();
@@ -86,27 +117,55 @@ export default function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   
   // NOUVEAU: Gestion des dimensions réactives pour le conteneur centré
-  const [dimensions, setDimensions] = useState({
-    width: typeof window !== 'undefined' ? window.innerWidth : 390,
-    height: typeof window !== 'undefined' ? window.innerHeight : 844,
-    isDesktop: false
-  });
+  const [dimensions, setDimensions] = useState<Dimensions>(getInitialDimensions);
 
   useEffect(() => {
-    const handleResize = () => {
-      const isDesktop = window.innerWidth >= 768;
-      const width = isDesktop ? Math.min(430, window.innerWidth) : window.innerWidth;
-      const height = isDesktop ? Math.min(932, window.innerHeight) : window.innerHeight;
-      setDimensions({ width, height, isDesktop });
+    let rafId = 0;
+
+    const updateDimensions = () => {
+      const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const isDesktop = viewportWidth >= 768;
+      const width = Math.round(isDesktop ? Math.min(430, viewportWidth) : viewportWidth);
+      const height = Math.round(isDesktop ? Math.min(932, viewportHeight) : viewportHeight);
+
+      setDimensions((prev) => {
+        if (prev.width === width && prev.height === height && prev.isDesktop === isDesktop) {
+          return prev;
+        }
+
+        return { width, height, isDesktop };
+      });
     };
 
+    const handleResize = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateDimensions);
+    };
+
+    const visualViewport = window.visualViewport;
+
     window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    visualViewport?.addEventListener('resize', handleResize);
+    updateDimensions();
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      visualViewport?.removeEventListener('resize', handleResize);
+    };
   }, []);
 
-  const views = ['chat', 'camera', 'stories'];
-  const currentIndex = views.indexOf(currentView);
+  const resolvedIndex = isViewKey(currentView) ? VIEWS.indexOf(currentView) : -1;
+  const currentIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
+
+  useEffect(() => {
+    if (resolvedIndex < 0) {
+      setCurrentView('chat');
+    }
+  }, [resolvedIndex, setCurrentView]);
 
   useEffect(() => {
     const checkAndCreateProfile = async (
@@ -225,8 +284,7 @@ export default function App() {
         className="relative overflow-hidden transition-all duration-300 z-10"
         style={{
           width: dimensions.width,
-          height: dimensions.isDesktop ? 'min(900px, 95vh)' : '100%',
-          maxHeight: dimensions.isDesktop ? '900px' : 'none',
+          height: dimensions.height,
           borderRadius: dimensions.isDesktop ? '40px' : '0px',
           border: dimensions.isDesktop ? '8px solid #1c1c24' : 'none',
           boxShadow: dimensions.isDesktop 
@@ -244,17 +302,19 @@ export default function App() {
 
         <motion.div
           className="flex h-full touch-pan-y"
-          style={{ width: dimensions.width * 3 }}
+          style={{ width: dimensions.width * VIEWS.length }}
           animate={controls}
           drag="x"
-          dragConstraints={{ left: -dimensions.width * 2, right: 0 }}
+          dragConstraints={{ left: -dimensions.width * (VIEWS.length - 1), right: 0 }}
           dragElastic={0.15}
           onDragEnd={(_e, { offset, velocity }) => {
             const swipe = swipePower(offset.x, velocity.x);
-            if (swipe < -swipeConfidenceThreshold && currentIndex < 2) {
-              setCurrentView(views[currentIndex + 1] as 'chat' | 'camera' | 'stories');
+            if (swipe < -swipeConfidenceThreshold && currentIndex < VIEWS.length - 1) {
+              const nextView = VIEWS[currentIndex + 1];
+              setCurrentView(nextView);
             } else if (swipe > swipeConfidenceThreshold && currentIndex > 0) {
-              setCurrentView(views[currentIndex - 1] as 'chat' | 'camera' | 'stories');
+              const previousView = VIEWS[currentIndex - 1];
+              setCurrentView(previousView);
             } else {
               controls.start({ x: -currentIndex * dimensions.width });
             }
@@ -272,7 +332,7 @@ export default function App() {
           </div>
           {/* Stories */}
           <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
-            {Math.abs(currentIndex - 2) <= 1 && <StoriesScreen />}
+            {Math.abs(currentIndex - (VIEWS.length - 1)) <= 1 && <StoriesScreen />}
           </div>
         </motion.div>
 
