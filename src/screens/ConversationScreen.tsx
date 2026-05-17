@@ -3,13 +3,14 @@ import { supabase } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { ChevronLeft, Send, Camera as CameraIcon } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import EphemeralMedia from '../components/chat/EphemeralMedia';
 
 interface Message {
   id: string;
   content: string;
   sender_id: string;
   created_at: string;
-  message_type: string;
+  message_type: 'TEXT' | 'IMAGE' | 'VIDEO';
   media_url?: string;
   users?: {
     username: string;
@@ -128,18 +129,15 @@ export default function ConversationScreen({ conversationId, onBack }: { convers
               <div 
                 className={`px-4 py-2.5 rounded-2xl ${
                   isMe 
-                    ? 'bg-blue-600 text-white rounded-br-sm' 
-                    : 'glass text-white rounded-bl-sm'
+                    ? (msg.message_type === 'TEXT' ? 'bg-blue-600 text-white rounded-br-sm' : '') 
+                    : (msg.message_type === 'TEXT' ? 'glass text-white rounded-bl-sm' : '')
                 }`}
               >
                 {msg.message_type === 'TEXT' && (
                   <p className="text-[15px] leading-relaxed break-words">{msg.content}</p>
                 )}
-                {msg.message_type === 'IMAGE' && msg.media_url && (
-                  <img src={msg.media_url} alt="Snap" className="rounded-lg max-w-full" />
-                )}
-                {msg.message_type === 'VIDEO' && msg.media_url && (
-                  <video src={msg.media_url} controls className="rounded-lg max-w-full" />
+                {(msg.message_type === 'IMAGE' || msg.message_type === 'VIDEO') && msg.media_url && (
+                  <EphemeralMedia messageId={msg.id} mediaUrl={msg.media_url} mediaType={msg.message_type as 'IMAGE' | 'VIDEO'} isMe={isMe} />
                 )}
               </div>
               <span className="text-[10px] text-white/30 mt-1 font-mono">

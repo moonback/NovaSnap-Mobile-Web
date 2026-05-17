@@ -34,7 +34,7 @@ Ce document détaille le plan de route du développement de **NovaSnap**, organi
 - [x] **Caméra :** Implémenter la capture photo via Canvas et l'enregistrement vidéo (MediaRecorder).
 - [x] **Storage :** Simuler l'upload avec Base64 ou DataURL (pour éviter limitation Supabase bucket configuration manuelle pour l'instant).
 - [x] **Chat :** Activer Supabase Realtime pour recevoir des textes en temps réel avec liste de conversation (`ConversationScreen`).
-- [ ] Créer la logique d'expiration de message (Délétion ou masquage visuel après l'ouverture et fin du timer).
+- [x] Créer la logique d'expiration de message (Délétion ou masquage visuel après l'ouverture et fin du timer).
 - [x] **Stories :** Permettre de poster une Story (24h de visibilité) + Fetch actif depuis la Base.
 
 ---
@@ -52,7 +52,7 @@ Ce document détaille le plan de route du développement de **NovaSnap**, organi
 *Objectif : Assurer des performances idéales en environnement PWA / Mobile natif.*
 
 - [ ] Notifications Push Firebase/Expo (alerte Nouveau snap, Capture d'écran).
-- [ ] Gestion du Caching (React Query, SW persist pour mode offline visuel).
+- [x] Gestion du Caching (React Query, SW persist pour mode offline visuel) - implémentation basique PWA.
 - [ ] Refactorisation des rendus lourds (Virtualisation de listes complexes dans le Chat).
 - [ ] Migration vers React Native (Expo) si l'empaquetage Web ne remplit pas les objectifs de performance matérielle stricte (accès bas niveau API Flash/Zoom).
 - [ ] Sécurisation finale des règles RDS de Supabase.
