@@ -9,13 +9,18 @@ import {
   GEMINI_INPUT_SAMPLE_RATE,
 } from '../utils/audio';
 import { useToast } from './ui/ToastProvider';
-import { Mic, MicOff } from 'lucide-react';
+import { Eye, EyeOff, Mic, MicOff } from 'lucide-react';
+
+const TRANSCRIPT_PREF_KEY = 'novasnap_nova_show_transcript';
 
 export default function GeminiOrb() {
   const { toast } = useToast();
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [transcription, setTranscription] = useState<string>('');
+  const [transcription, setTranscription] = useState('');
+  const [showTranscript, setShowTranscript] = useState(
+    () => localStorage.getItem(TRANSCRIPT_PREF_KEY) !== 'false',
+  );
   const wsRef = useRef<WebSocket | null>(null);
   const captureCtxRef = useRef<AudioContext | null>(null);
   const playbackCtxRef = useRef<AudioContext | null>(null);
@@ -92,10 +97,14 @@ export default function GeminiOrb() {
               }
               break;
 
-            case 'text':
+            case 'transcript':
               if (msg.data) {
-                setTranscription((prev: string) => prev + msg.data);
+                setTranscription((prev) => prev + msg.data);
               }
+              break;
+
+            case 'transcript_turn':
+              setTranscription((prev) => (prev.endsWith('\n') ? prev : `${prev}\n`));
               break;
 
             case 'interrupted':
@@ -307,6 +316,14 @@ export default function GeminiOrb() {
     setTranscription('');
   };
 
+  const toggleTranscript = () => {
+    setShowTranscript((prev) => {
+      const next = !prev;
+      localStorage.setItem(TRANSCRIPT_PREF_KEY, String(next));
+      return next;
+    });
+  };
+
   useEffect(() => () => stopVoice(), []);
 
   return (
@@ -340,18 +357,40 @@ export default function GeminiOrb() {
         </div>
       </button>
 
-      {/* Transcription */}
-      <div className="text-center min-h-[48px] flex flex-col items-center justify-center max-w-xs px-4">
-        {isActive ? (
-          <p className="text-sm font-medium text-white leading-snug">
-            {transcription || <span className="text-white/40 animate-pulse">En écoute...</span>}
-          </p>
+      <div className="flex flex-col items-center gap-2 max-w-xs px-4">
+        {showTranscript ? (
+          <div className="text-center min-h-[48px] flex flex-col items-center justify-center w-full">
+            {isActive ? (
+              <p className="text-sm font-medium text-white leading-snug">
+                {transcription || (
+                  <span className="text-white/40 animate-pulse">En écoute...</span>
+                )}
+              </p>
+            ) : (
+              <div>
+                <p className="text-sm font-bold text-white">Nova AI</p>
+                <p className="text-xs text-white/30 mt-0.5">Assistant vocal en français</p>
+              </div>
+            )}
+          </div>
+        ) : isActive ? (
+          <p className="text-xs text-white/40 animate-pulse">En écoute...</p>
         ) : (
-          <div>
+          <div className="text-center">
             <p className="text-sm font-bold text-white">Nova AI</p>
-            <p className="text-xs text-white/30 mt-0.5">Connecté à Gemini Live</p>
+            <p className="text-xs text-white/30 mt-0.5">Assistant vocal en français</p>
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={toggleTranscript}
+          className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/35 hover:text-white/60 transition-colors"
+          aria-pressed={showTranscript}
+        >
+          {showTranscript ? <EyeOff size={12} /> : <Eye size={12} />}
+          {showTranscript ? 'Masquer les sous-titres' : 'Afficher les sous-titres'}
+        </button>
       </div>
     </div>
   );

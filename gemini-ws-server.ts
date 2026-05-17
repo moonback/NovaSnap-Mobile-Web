@@ -224,13 +224,19 @@ async function startServer() {
                   }));
                 }
 
-                // Send text data
-                const textData = parts.find((p: any) => p.text)?.text;
-                if (textData) {
-                  clientWs.send(JSON.stringify({ type: 'text', data: textData }));
+                const outputTx = message.serverContent?.outputTranscription;
+                if (outputTx?.text) {
+                  clientWs.send(JSON.stringify({
+                    type: 'transcript',
+                    data: outputTx.text,
+                    finished: !!outputTx.finished,
+                  }));
                 }
 
-                // Send interruption signal
+                if (message.serverContent?.turnComplete) {
+                  clientWs.send(JSON.stringify({ type: 'transcript_turn' }));
+                }
+
                 if (message.serverContent?.interrupted) {
                   clientWs.send(JSON.stringify({ type: 'interrupted' }));
                 }
@@ -264,6 +270,7 @@ async function startServer() {
             },
             config: {
               responseModalities: [Modality.AUDIO],
+              outputAudioTranscription: {},
               speechConfig: {
                 languageCode: 'fr-FR',
                 voiceConfig: {
