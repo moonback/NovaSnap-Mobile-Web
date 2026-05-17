@@ -172,12 +172,24 @@ export default function CameraView() {
   };
 
   const discardMedia = () => {
-    if (capturedMedia?.type === 'video' && capturedMedia.url.startsWith('blob:')) {
-      URL.revokeObjectURL(capturedMedia.url);
-    }
+    const urlToRevoke = capturedMedia?.url;
+    const isVideo = capturedMedia?.type === 'video';
+
     setCapturedMedia(null);
     setShowSendTo(false);
     startCamera(); 
+
+    if (isVideo && urlToRevoke && urlToRevoke.startsWith('blob:')) {
+      // Delay revocation slightly to allow React to safely unmount the <video> element,
+      // avoiding ERR_FILE_NOT_FOUND console errors.
+      setTimeout(() => {
+        try {
+          URL.revokeObjectURL(urlToRevoke);
+        } catch (e) {
+          console.warn("Failed to revoke object URL:", e);
+        }
+      }, 100);
+    }
   };
 
   const handleSendToChat = async (conversationId: string) => {

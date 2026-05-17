@@ -18,9 +18,37 @@ export default function App() {
   const currentIndex = views.indexOf(currentView);
 
   useEffect(() => {
+    const checkAndCreateProfile = async (u: any) => {
+      if (!u) return;
+      try {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', u.id)
+          .maybeSingle();
+
+        if (!profile) {
+          const username = u.user_metadata?.username || `user_${u.id.substring(0, 8)}`;
+          const display_name = u.user_metadata?.display_name || username;
+          
+          await supabase.from('users').insert({
+            id: u.id,
+            username: username,
+            display_name: display_name,
+            avatar_url: u.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${username}`
+          });
+        }
+      } catch (err) {
+        console.error("Error creating/checking profile:", err);
+      }
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        checkAndCreateProfile(session.user);
+      }
       setIsInitializing(false);
     });
 
@@ -29,6 +57,9 @@ export default function App() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        checkAndCreateProfile(session.user);
+      }
     });
 
     return () => subscription.unsubscribe();

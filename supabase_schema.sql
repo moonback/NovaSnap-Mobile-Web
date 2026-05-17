@@ -135,9 +135,92 @@ WITH CHECK (
   )
 );
 
+-- Friendships RLS
+CREATE POLICY "Users can view their own friendships" 
+ON public.friendships FOR SELECT 
+USING (user_id = auth.uid() OR friend_id = auth.uid());
+
+CREATE POLICY "Users can initiate friendships" 
+ON public.friendships FOR INSERT 
+WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update their own friendships" 
+ON public.friendships FOR UPDATE 
+USING (user_id = auth.uid() OR friend_id = auth.uid());
+
+CREATE POLICY "Users can delete their own friendships" 
+ON public.friendships FOR DELETE 
+USING (user_id = auth.uid() OR friend_id = auth.uid());
+
+-- Conversations RLS
+CREATE POLICY "Users can view their conversations" 
+ON public.conversations FOR SELECT 
+USING (
+  id IN (
+    SELECT conversation_id FROM public.conversation_members WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Authenticated users can create conversations" 
+ON public.conversations FOR INSERT 
+WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Conversation Members RLS
+CREATE POLICY "Users can view members of their conversations" 
+ON public.conversation_members FOR SELECT 
+USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Users can join conversations" 
+ON public.conversation_members FOR INSERT 
+WITH CHECK (user_id = auth.uid());
+
+-- Stories RLS
+CREATE POLICY "Stories are viewable by authenticated users" 
+ON public.stories FOR SELECT 
+USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Users can insert their own stories" 
+ON public.stories FOR INSERT 
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own stories" 
+ON public.stories FOR DELETE 
+USING (auth.uid() = user_id);
+
+
 -- ========== REALTIME PUBLICATION ==========
 DROP PUBLICATION IF EXISTS supabase_realtime;
 CREATE PUBLICATION supabase_realtime FOR TABLE public.messages, public.message_status, public.conversations, public.conversation_members;
 
 -- ========== STORAGE POLICIES ==========
 -- Assurez-vous de créer manuellement les buckets 'avatars', 'chats', 'stories', 'temporary_snaps' dans le dashboard Supabase.
+
+-- ========== TRIGGER AUTO PROFILE ON SIGNUP ==========
+-- Ce déclencheur crée automatiquement un profil dans public.users lors de l'inscription dans auth.users
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, username, display_name, avatar_url, snap_score)
+  VALUES (
+    new.id,
+    COALESCE(new.raw_user_meta_data->>'username', 'user_' || substr(new.id::text, 1, 8)),
+    COALESCE(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'username', 'User ' || substr(new.id::text, 1, 8)),
+    new.raw_user_meta_data->>'avatar_url',
+    0
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+
+-- 1. Drop the recursive policy if it exists
+DROP POLICY IF EXISTS "Users can view members of their conversations" ON public.conversation_members;
+
+-- 2. Create the new clean, flat, high-performance policy
+CREATE POLICY "Users can view members of their conversations" 
+ON public.conversation_members FOR SELECT 
+USING (auth.uid() IS NOT NULL);
