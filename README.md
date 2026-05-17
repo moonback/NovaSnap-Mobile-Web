@@ -4,7 +4,7 @@ Une application sociale mobile-first de nouvelle génération centrée sur la ca
 
 ## 🚀 Présentation
 
-NovaSnap redéfinit l'interaction sociale avec une interface "Camera-First" immersive. Naviguez de manière fluide entre vos conversations, votre caméra et vos stories via une navigation par swipe (type TikTok/Snapchat), enrichie par un design "Glassmorphism" et des fonctionnalités WebSocket/WebRTC premium. 
+NovaSnap redéfinit l'interaction sociale avec une interface "Camera-First" immersive. Naviguez de manière fluide entre la carte, vos conversations, votre caméra et vos stories via une navigation par swipe (type TikTok/Snapchat), enrichie par un design "Glassmorphism" et des fonctionnalités WebSocket/WebRTC premium. 
 
 ## 🛠️ Stack Technique
 
@@ -23,11 +23,11 @@ NovaSnap redéfinit l'interaction sociale avec une interface "Camera-First" imme
 
 ## ✨ Fonctionnalités Principales (MVP)
 
-- 📸 **Camera-First UI :** Ouverture immédiate sur la caméra (Front/Back) avec contrôles instantanés.
-- 💨 **Navigation Swipeable :** Transition physique fluide entre Chat ← Caméra → Stories.
-- 💬 **Chat Realtime :** Messagerie en temps réel, statuts de lecture, typing indicators.
-- ⏱️ **Snaps Éphémères :** Partage de photos/vidéos avec délai d'expiration sécurisé.
-- 📖 **Stories 24h :** Flux de stories continu avec lecteur intégré.
+- 🌍 **Snap Map (Carte mondiale) :** Carte Leaflet intégrée avec géolocalisation en temps réel, amis à proximité, heatmap d'activité et Mode Fantôme.
+- 📸 **Camera-First UI & Éditeur Premium :** Caméra avec contrôles instantanés, outil de recadrage libre, effet Boomerang et filtres.
+- 💨 **Navigation Swipeable :** Transition physique fluide entre Carte ← Chat ← Caméra → Stories.
+- 💬 **Chat Realtime & Éphémère :** Messagerie temps réel avec messages éphémères (auto-suppression après lecture) et sauvegarde manuelle.
+- 📖 **Stories Groupées 24h :** Flux de stories continu classé par créateur et ordonné chronologiquement avec lecteur segmenté interactif.
 - 🤖 **IA Vocale Intégrée :** Assistant "Voice Orb" boosté par Gemini pour l'analyse visuelle et vocale.
 
 ## 📋 Prérequis
@@ -85,7 +85,7 @@ novasnap/
 │   │   ├── camera/         # Interface caméra spécifique
 │   │   └── navigation/     # Barre de navigation globale
 │   ├── lib/                # Utilitaires et configurations services (Supabase, Utils)
-│   ├── screens/            # Vues principales (Chat, Stories)
+│   ├── screens/            # Vues principales (Map, Chat, Camera, Stories, Profil)
 │   ├── store/              # Stores Zustand (useAppStore.ts)
 │   ├── App.tsx             # Composant racine (Router Framer Motion)
 │   ├── index.css           # Tailwind + Variables CSS Immersives
@@ -124,10 +124,9 @@ LIVEKIT_API_SECRET="votre_livekit_secret"
 
 En complément du schéma initial, appliquez aussi les migrations versionnées suivantes dans l’éditeur SQL Supabase, dans l’ordre :
 
-1. `supabase_migration_v5.sql` — durcissement des policies Storage `INSERT` par préfixe utilisateur (`<uid>/...`).
-2. `supabase_migration_v6.sql` — ajout `messages.client_message_id` + index unique partiel pour idempotence d’envoi.
-3. `supabase_migration_v7.sql` — policies Storage `UPDATE/DELETE` owner-only par préfixe utilisateur.
-4. `supabase_migration_v8.sql` — fonction de purge TTL des snaps éphémères expirés.
+1. `supabase_migration_v5.sql` à `v8.sql` — Durcissement Storage, idempotence DB, purge TTL.
+2. `supabase_migration_v9.sql` à `v12.sql` — Système d'amis, RLS sur les amitiés, et optimisation des triggers.
+3. `supabase_migration_v13.sql` — Extension des profils et gestion avancée de la présence.
 
 ### Planification purge TTL (optionnelle)
 Si `pg_cron` est activé sur votre projet Supabase, planifiez `public.purge_expired_temporary_snaps()` toutes les 5 minutes (snippet inclus dans `supabase_migration_v8.sql`).
@@ -136,17 +135,16 @@ Si `pg_cron` est activé sur votre projet Supabase, planifiez `public.purge_expi
 
 ## 📈 Statut Actuel du Projet (Mai 2026)
 
-- ✅ Auth + profils utilisateurs Supabase stabilisés.
-- ✅ Chat realtime + optimistic UI + idempotence message (`client_message_id`).
-- ✅ Caméra mobile durcie (lifecycle stream, low-power mode, validation upload).
-- ✅ Stories + chargements skeletons harmonisés.
-- ✅ Sécurité renforcée : migrations `V5` à `V8` (Storage RLS, idempotence DB, purge TTL).
-- ✅ WebSocket serveur `/live` protégé contre payloads surdimensionnés.
+- ✅ **Snap Map :** Carte mondiale avec Leaflet, GPS en temps réel, Heatmap, Mode Ghost et stories géolocalisées.
+- ✅ **Éditeur Média Complet :** Recadrage précis, dessin, texte, stickers, rotation, contrôle de vitesse, et mode Boomerang.
+- ✅ **Stories Groupées :** Triées par créateur et chronologiquement, avec un player story de qualité premium (segments, auto-play).
+- ✅ **Messagerie Éphémère :** Suppression automatique à la lecture, avec option de sauvegarde manuelle ("Keep in Chat").
+- ✅ **Base Technique Solide :** Auth, profils, système d'amis, WebRTC, WebSocket protégés, requêtes optimisées.
 
 ### Prochaines priorités
-1. Monitoring/alerting production (échecs de purge TTL, erreurs realtime, saturation WS).
-2. Dashboard qualité temps réel (latence message, taux reconnect, volume retries).
-3. Durcissement anti-abus avancé (ratelimit par user/token et quotas applicatifs).
+1. Finaliser la phase 3 "IA Native" (Analyse de snap, traduction automatique, génération d'images).
+2. Dual Camera (Capture simultanée avant/arrière).
+3. Monétisation et options avancées (Musique sur snaps, GIPHY).
 
 ## 🤝 Bonnes Pratiques pour Contribuer
 
