@@ -2,7 +2,7 @@
 // NovaSnap Service Worker — Cache + Web Push Notifications
 // ============================================================
 
-const CACHE_NAME = 'novasnap-cache-v2';
+const CACHE_NAME = 'novasnap-cache-v3';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
 
 // ── Icônes par type de notification ─────────────────────────
@@ -49,20 +49,27 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// ── Fetch (cache-first pour les assets statiques) ────────────
+// ── Fetch (Network-First pour navigations, Cache-First sinon) ────────────
 self.addEventListener('fetch', (event) => {
   // Ne pas intercepter les requêtes API Supabase
   if (event.request.url.includes('supabase.co')) return;
 
+  // Stratégie Network-First pour les navigations (HTML)
+  // Évite de servir un index.html de production obsolète en mode développement
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match('/index.html');
+      })
+    );
+    return;
+  }
+
+  // Stratégie Cache-First pour le reste
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
-      return fetch(event.request).catch(() => {
-        // Fallback offline : retourner index.html pour les navigations
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-      });
+      return fetch(event.request);
     })
   );
 });
