@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { pcmToBase64, playAudioChunk, resetAudioSync } from '../utils/audio';
+import {
+  pcmToBase64,
+  playAudioChunk,
+  resetAudioSync,
+  disposePlaybackChain,
+  parseSampleRateFromMime,
+  GEMINI_OUTPUT_SAMPLE_RATE,
+  GEMINI_INPUT_SAMPLE_RATE,
+} from '../utils/audio';
 import { useToast } from './ui/ToastProvider';
 import { Mic, MicOff } from 'lucide-react';
 
@@ -9,7 +17,8 @@ export default function GeminiOrb() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [transcription, setTranscription] = useState<string>('');
   const wsRef = useRef<WebSocket | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const captureCtxRef = useRef<AudioContext | null>(null);
+  const playbackCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
@@ -65,8 +74,21 @@ export default function GeminiOrb() {
               break;
 
             case 'audio':
-              if (msg.data && audioCtxRef.current) {
-                playAudioChunk(audioCtxRef.current, msg.data);
+              if (msg.data) {
+                if (!playbackCtxRef.current) {
+                  playbackCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+                    sampleRate: GEMINI_OUTPUT_SAMPLE_RATE,
+                  });
+                }
+                const playbackCtx = playbackCtxRef.current;
+                if (playbackCtx.state === 'suspended') {
+                  playbackCtx.resume();
+                }
+                playAudioChunk(
+                  playbackCtx,
+                  msg.data,
+                  parseSampleRateFromMime(msg.mimeType),
+                );
               }
               break;
 
@@ -211,15 +233,20 @@ export default function GeminiOrb() {
 
       console.log('[Nova AI] ✅ Accès média accordé');
 
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
-        sampleRate: 16000,
+      const captureCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
+        sampleRate: GEMINI_INPUT_SAMPLE_RATE,
       });
-      audioCtxRef.current = audioCtx;
-      if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
+      captureCtxRef.current = captureCtx;
+      if (captureCtx.state === 'suspended') {
+        await captureCtx.resume();
       }
 
-      await startAudioCapture(ws, sessionId, stream, audioCtx);
+      playbackCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+        sampleRate: GEMINI_OUTPUT_SAMPLE_RATE,
+      });
+      await playbackCtxRef.current.resume().catch(() => undefined);
+
+      await startAudioCapture(ws, sessionId, stream, captureCtx);
 
       if (!isSessionAlive(sessionId)) return;
 
@@ -261,9 +288,11 @@ export default function GeminiOrb() {
     scriptProcessorRef.current?.disconnect();
     scriptProcessorRef.current = null;
 
-    // Fermer le contexte audio
-    audioCtxRef.current?.close().catch(console.error);
-    audioCtxRef.current = null;
+    disposePlaybackChain();
+    captureCtxRef.current?.close().catch(console.error);
+    captureCtxRef.current = null;
+    playbackCtxRef.current?.close().catch(console.error);
+    playbackCtxRef.current = null;
 
     // Arrêter la vidéo preview
     if (videoPreviewRef.current) {
