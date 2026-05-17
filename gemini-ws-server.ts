@@ -46,7 +46,7 @@ function getRawDataSize(data: unknown): number {
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = parseInt(process.env.PORT || '3000', 10);
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", service: "NovaSnap Gemini Live Server" });
@@ -100,6 +100,7 @@ async function startServer() {
     // ── Auth: wait for first message ──
     let authenticated = false;
     let geminiSession: any = null;
+    let geminiReady = false; // Flag to track if Gemini session is ready
     let userId = 'anonymous';
 
     const authTimeout = setTimeout(() => {
@@ -150,6 +151,7 @@ async function startServer() {
             callbacks: {
               onopen: () => {
                 console.log(`✅ Gemini Live session opened for user ${userId}`);
+                geminiReady = true; // Mark session as ready
                 if (clientWs.readyState === WebSocket.OPEN) {
                   clientWs.send(JSON.stringify({ type: 'connected', message: 'Gemini Live session established' }));
                 }
@@ -214,6 +216,12 @@ Réponds toujours en français de manière naturelle et conversationnelle.`,
 
               const msg = JSON.parse(data.toString());
 
+              // Only forward data if Gemini session is ready
+              if (!geminiReady) {
+                console.warn(`⏳ Gemini session not ready yet for user ${userId}, ignoring message`);
+                return;
+              }
+
               // Forward audio to Gemini
               if (msg.type === 'audio' && msg.data && geminiSession) {
                 geminiSession.sendRealtimeInput({
@@ -234,6 +242,7 @@ Réponds toujours en français de manière naturelle et conversationnelle.`,
 
           clientWs.on("close", () => {
             console.log(`📴 Client WebSocket closed for user ${userId}`);
+            geminiReady = false;
             releaseSlot();
             if (geminiSession && typeof geminiSession.close === 'function') {
               geminiSession.close();
