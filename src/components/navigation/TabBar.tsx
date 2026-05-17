@@ -2,9 +2,11 @@ import React from 'react';
 import { MessageCircle, Camera, Play, Compass, Images } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../../store/useAppStore';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function TabBar() {
   const { currentView, setCurrentView, showMemories, setShowMemories } = useAppStore();
+  const t = useTheme();
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
@@ -12,8 +14,7 @@ export default function TabBar() {
       <div
         className="absolute inset-0"
         style={{
-          background:
-            'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 55%, transparent 100%)',
+          background: t.tabGradient,
         }}
       />
 
@@ -31,14 +32,14 @@ export default function TabBar() {
               size={27}
               strokeWidth={currentView === 'map' ? 2.5 : 1.8}
               className={`transition-all duration-200 ${
-                currentView === 'map' ? 'text-white' : 'text-white/45'
+                currentView === 'map' ? t.tabActive : t.tabInactive
               }`}
               fill={currentView === 'map' ? 'rgba(255,255,255,0.12)' : 'none'}
             />
           </div>
           <span
             className={`text-[10px] font-bold tracking-wide transition-all duration-200 ${
-              currentView === 'map' ? 'text-white' : 'text-white/35'
+                currentView === 'map' ? t.tabActive : t.tabInactive
             }`}
           >
             Carte
@@ -46,7 +47,7 @@ export default function TabBar() {
           {currentView === 'map' && (
             <motion.span
               layoutId="tab-dot"
-              className="w-1 h-1 rounded-full bg-white"
+              className={`w-1 h-1 rounded-full ${t.tabDot}`}
             />
           )}
         </button>
@@ -62,14 +63,14 @@ export default function TabBar() {
               size={27}
               strokeWidth={currentView === 'chat' ? 2.5 : 1.8}
               className={`transition-all duration-200 ${
-                currentView === 'chat' ? 'text-white' : 'text-white/45'
+                currentView === 'chat' ? t.tabActive : t.tabInactive
               }`}
               fill={currentView === 'chat' ? 'rgba(255,255,255,0.12)' : 'none'}
             />
           </div>
           <span
             className={`text-[10px] font-bold tracking-wide transition-all duration-200 ${
-              currentView === 'chat' ? 'text-white' : 'text-white/35'
+                currentView === 'chat' ? t.tabActive : t.tabInactive
             }`}
           >
             Chat
@@ -77,7 +78,7 @@ export default function TabBar() {
           {currentView === 'chat' && (
             <motion.span
               layoutId="tab-dot"
-              className="w-1 h-1 rounded-full bg-white"
+              className={`w-1 h-1 rounded-full ${t.tabDot}`}
             />
           )}
         </button>
@@ -109,7 +110,7 @@ export default function TabBar() {
           </motion.button>
           <span
             className={`mt-2 text-[10px] font-bold tracking-wide transition-all duration-200 ${
-              currentView === 'camera' ? 'text-snap-yellow' : 'text-white/35'
+              currentView === 'camera' ? 'text-snap-yellow' : t.tabInactive
             }`}
           >
             Caméra
@@ -126,13 +127,13 @@ export default function TabBar() {
             size={27}
             strokeWidth={currentView === 'stories' ? 2.5 : 1.8}
             className={`transition-all duration-200 ${
-              currentView === 'stories' ? 'text-white' : 'text-white/45'
+              currentView === 'stories' ? t.tabActive : t.tabInactive
             }`}
             fill={currentView === 'stories' ? 'rgba(255,255,255,0.12)' : 'none'}
           />
           <span
             className={`text-[10px] font-bold tracking-wide transition-all duration-200 ${
-              currentView === 'stories' ? 'text-white' : 'text-white/35'
+              currentView === 'stories' ? t.tabActive : t.tabInactive
             }`}
           >
             Stories
@@ -140,7 +141,7 @@ export default function TabBar() {
           {currentView === 'stories' && (
             <motion.span
               layoutId="tab-dot"
-              className="w-1 h-1 rounded-full bg-white"
+              className={`w-1 h-1 rounded-full ${t.tabDot}`}
             />
           )}
         </button>
@@ -155,13 +156,13 @@ export default function TabBar() {
             size={27}
             strokeWidth={showMemories ? 2.5 : 1.8}
             className={`transition-all duration-200 ${
-              showMemories ? 'text-white' : 'text-white/45'
+              showMemories ? t.tabActive : t.tabInactive
             }`}
             fill={showMemories ? 'rgba(255,255,255,0.12)' : 'none'}
           />
           <span
             className={`text-[10px] font-bold tracking-wide transition-all duration-200 ${
-              showMemories ? 'text-white' : 'text-white/35'
+              showMemories ? t.tabActive : t.tabInactive
             }`}
           >
             Memories
@@ -169,7 +170,7 @@ export default function TabBar() {
           {showMemories && (
             <motion.span
               layoutId="tab-dot"
-              className="w-1 h-1 rounded-full bg-white"
+              className={`w-1 h-1 rounded-full ${t.tabDot}`}
             />
           )}
         </button>
