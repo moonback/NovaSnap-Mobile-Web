@@ -10,7 +10,7 @@ import { useToast } from '../components/ui/ToastProvider';
 import type { AppUserProfile, ConversationRow } from '../lib/types';
 
 export default function ChatScreen() {
-  const { data: conversations, isLoading } = useConversations();
+  const { data: conversations, isLoading, realtimeStatus } = useConversations();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -140,7 +140,12 @@ export default function ChatScreen() {
   return (
     <div className="w-full h-full bg-[#050505] text-white flex flex-col pt-12 px-4 overflow-y-auto pb-24 relative">
       <div className="flex justify-between items-center mb-6 mx-2">
-        <h1 className="text-2xl font-bold">Conversations</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Conversations</h1>
+          <p className={`text-[10px] mt-1 font-mono uppercase tracking-wider ${realtimeStatus === 'connected' ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {realtimeStatus === 'connected' ? 'Realtime connected' : 'Realtime reconnecting'}
+          </p>
+        </div>
         <div className="flex gap-2">
           <div 
             onClick={() => setShowNewChatModal(true)} 

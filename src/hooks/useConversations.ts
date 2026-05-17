@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
@@ -28,6 +28,7 @@ export const useConversations = () => {
   const { user } = useAppStore();
   const queryClient = useQueryClient();
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'reconnecting'>('connecting');
 
   useEffect(() => {
     if (!user) return;
@@ -67,6 +68,7 @@ export const useConversations = () => {
     const subscribeWithRetry = () => {
       channel.subscribe((status) => {
         if (status === 'SUBSCRIBED') {
+          setRealtimeStatus('connected');
           if (retryTimeoutRef.current) {
             clearTimeout(retryTimeoutRef.current);
             retryTimeoutRef.current = null;
@@ -75,6 +77,7 @@ export const useConversations = () => {
         }
 
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setRealtimeStatus('reconnecting');
           supabase.removeChannel(channel);
           if (!retryTimeoutRef.current) {
             retryTimeoutRef.current = setTimeout(() => {
@@ -98,7 +101,7 @@ export const useConversations = () => {
     };
   }, [queryClient, user]);
 
-  return useQuery<ConversationRow[]>({
+  const query = useQuery<ConversationRow[]>({
     queryKey: ['conversations', user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -153,4 +156,6 @@ export const useConversations = () => {
     enabled: !!user,
     staleTime: 20_000,
   });
+
+  return { ...query, realtimeStatus };
 };
