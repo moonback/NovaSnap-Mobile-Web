@@ -8,6 +8,7 @@ export default function StoriesScreen() {
   const { data: stories, isLoading } = useStories();
   const { setCurrentView } = useAppStore();
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
+  const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
 
   // Auto-advance story
   useEffect(() => {
@@ -57,25 +58,43 @@ export default function StoriesScreen() {
               </div>
             )}
 
-            {stories?.map((story, index) => (
-               <div key={story.id} className="flex-shrink-0 w-24 space-y-2" onClick={() => setActiveStoryIndex(index)}>
-                <div className="aspect-[9/16] rounded-2xl cursor-pointer relative overflow-hidden border-2 border-cyan-400 bg-black">
-                  {story.media_type === 'IMAGE' ? (
-                    <img src={story.media_url} className="w-full h-full object-cover" alt="Thumbnail" />
-                  ) : (
-                    <video src={story.media_url} muted playsInline className="w-full h-full object-cover" />
-                  )}
-                  {story.media_type === 'VIDEO' && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <div className="w-6 h-6 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-white">
-                        <span className="text-[10px]">▶</span>
+            {stories?.map((story, index) => {
+              const isFailed = failedUrls[story.media_url];
+              return (
+                <div key={story.id} className="flex-shrink-0 w-24 space-y-2" onClick={() => setActiveStoryIndex(index)}>
+                  <div className="aspect-[9/16] rounded-2xl cursor-pointer relative overflow-hidden border-2 border-cyan-400 bg-black flex items-center justify-center">
+                    {isFailed ? (
+                      <div className="w-full h-full bg-gradient-to-tr from-slate-900 to-cyan-950 flex flex-col items-center justify-center p-2 text-center">
+                        <span className="text-[9px] font-bold tracking-wider text-cyan-400/80 uppercase">Expired</span>
                       </div>
-                    </div>
-                  )}
+                    ) : story.media_type === 'IMAGE' ? (
+                      <img 
+                        src={story.media_url} 
+                        className="w-full h-full object-cover" 
+                        alt="Thumbnail" 
+                        onError={() => setFailedUrls(prev => ({ ...prev, [story.media_url]: true }))}
+                      />
+                    ) : (
+                      <video 
+                        src={story.media_url} 
+                        muted 
+                        playsInline 
+                        className="w-full h-full object-cover" 
+                        onError={() => setFailedUrls(prev => ({ ...prev, [story.media_url]: true }))}
+                      />
+                    )}
+                    {!isFailed && story.media_type === 'VIDEO' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <div className="w-6 h-6 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-white">
+                          <span className="text-[10px]">▶</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-center font-medium truncate">{story.users?.username || 'User'}</p>
                 </div>
-                <p className="text-xs text-center font-medium truncate">{story.users?.username || 'User'}</p>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Placeholder for Stories if empty */}
             {!isLoading && stories?.length === 0 && (
@@ -118,10 +137,27 @@ export default function StoriesScreen() {
             </button>
           </div>
 
-          {stories[activeStoryIndex].media_type === 'IMAGE' ? (
-             <img src={stories[activeStoryIndex].media_url} className="w-full h-full object-cover" alt="Story" />
+          {failedUrls[stories[activeStoryIndex].media_url] ? (
+            <div className="w-full h-full bg-gradient-to-tr from-slate-950 via-slate-900 to-cyan-950 flex flex-col items-center justify-center p-6 text-center gap-2">
+              <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl font-bold">!</div>
+              <h3 className="text-lg font-bold text-white">Story Expired</h3>
+              <p className="text-white/40 text-xs max-w-[200px]">This story is no longer available on our secure servers.</p>
+            </div>
+          ) : stories[activeStoryIndex].media_type === 'IMAGE' ? (
+             <img 
+               src={stories[activeStoryIndex].media_url} 
+               className="w-full h-full object-cover" 
+               alt="Story" 
+               onError={() => setFailedUrls(prev => ({ ...prev, [stories[activeStoryIndex].media_url]: true }))}
+             />
           ) : (
-             <video src={stories[activeStoryIndex].media_url} autoPlay playsInline className="w-full h-full object-cover" />
+             <video 
+               src={stories[activeStoryIndex].media_url} 
+               autoPlay 
+               playsInline 
+               className="w-full h-full object-cover" 
+               onError={() => setFailedUrls(prev => ({ ...prev, [stories[activeStoryIndex].media_url]: true }))}
+             />
           )}
 
           <div className="absolute bottom-12 inset-x-0 p-6 flex flex-col justify-end bg-gradient-to-t from-black/80 to-transparent">
