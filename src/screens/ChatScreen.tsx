@@ -130,21 +130,21 @@ export default function ChatScreen() {
   }
 
   return (
-    <div className="w-full h-full bg-black text-white flex flex-col overflow-hidden">
+    <div className="w-full h-full screen-shell text-white flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <button
           onClick={() => setShowProfile(true)}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+          className="w-10 h-10 rounded-2xl glass-panel flex items-center justify-center active:scale-95 transition-all"
         >
           <User size={18} className="text-white" />
         </button>
 
-        <h1 className="text-xl font-black tracking-tight">Chat</h1>
+        <h1 className="text-[24px] font-black tracking-tight bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">Chat</h1>
 
         <button
           onClick={() => setShowNewChatModal(true)}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+          className="w-10 h-10 rounded-2xl glass-panel flex items-center justify-center active:scale-95 transition-all"
         >
           <Edit3 size={17} className="text-white" />
         </button>
@@ -160,7 +160,7 @@ export default function ChatScreen() {
           <input
             type="text"
             placeholder="Rechercher..."
-            className="w-full bg-white/8 border border-white/8 rounded-full h-10 pl-10 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition-all text-sm"
+            className="w-full glass-panel rounded-2xl h-11 pl-10 pr-4 text-white placeholder-white/35 focus:outline-none focus:border-white/25 transition-all text-sm"
             readOnly
             onClick={() => setShowNewChatModal(true)}
           />
@@ -169,7 +169,7 @@ export default function ChatScreen() {
 
       {/* Realtime status */}
       {realtimeStatus !== 'connected' && (
-        <div className="mx-4 mb-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
+        <div className="mx-4 mb-2 px-3 py-2 rounded-2xl bg-amber-500/10 border border-amber-400/25 flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
           <span className="text-amber-400 text-xs font-medium">Reconnexion en cours...</span>
         </div>
@@ -206,7 +206,7 @@ export default function ChatScreen() {
                 <button
                   key={conv.id}
                   onClick={() => setActiveConversationId(conv.id)}
-                  className="w-full flex items-center gap-3 px-2 py-3 rounded-2xl hover:bg-white/5 active:bg-white/8 transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-3xl glass-panel hover:bg-white/10 active:scale-[0.995] transition-all text-left mb-2"
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">

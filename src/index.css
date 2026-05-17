@@ -99,3 +99,61 @@ body {
   color: #f7f8ff;
   text-rendering: optimizeLegibility;
 }
+
+:root {
+  --bg-0: #06070d;
+  --bg-1: #0e1222;
+  --glass-1: rgba(255,255,255,0.06);
+  --glass-2: rgba(255,255,255,0.1);
+  --line-soft: rgba(255,255,255,0.14);
+  --neon: #7c8bff;
+}
+
+.app-bottom-fade {
+  background: linear-gradient(to top, rgba(5,7,14,0.98) 18%, rgba(5,7,14,0.68) 52%, transparent 100%);
+}
+
+.glass-floating-nav {
+  background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.03));
+  border: 1px solid var(--line-soft);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: 0 24px 64px rgba(2, 5, 17, 0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.tab-pill {
+  position: absolute;
+  top: -2px;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 40% 30%, rgba(255,255,255,0.2), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,255,255,0.18);
+}
+
+.camera-fab {
+  background: radial-gradient(circle at 35% 20%, #fffda3 8%, #fffc00 45%, #e3c900 100%);
+  box-shadow: 0 16px 48px rgba(255, 248, 69, 0.45), 0 0 0 7px rgba(255, 252, 0, 0.14);
+}
+
+.camera-fab-inner {
+  position: absolute;
+  inset: 7px;
+  border-radius: inherit;
+  border: 1px solid rgba(0,0,0,0.2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.58);
+}
+
+.screen-shell {
+  background:
+    radial-gradient(130% 90% at 50% -10%, rgba(112, 132, 255, 0.22), transparent 52%),
+    radial-gradient(90% 120% at 100% 10%, rgba(0, 207, 255, 0.1), transparent 55%),
+    linear-gradient(180deg, #0a0d1a 0%, #070910 55%, #05070d 100%);
+}
+
+.glass-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}

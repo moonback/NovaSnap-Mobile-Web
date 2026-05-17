@@ -123,17 +123,17 @@ export default function StoriesScreen() {
   }, [activeGroupIndex, activeStoryIndex, groupedStories]);
 
   return (
-    <div className="relative w-full h-full bg-black text-white flex flex-col overflow-hidden">
+    <div className="relative w-full h-full screen-shell text-white flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-14 pb-4">
           <div>
-            <h1 className="text-xl font-black tracking-tight">Stories</h1>
+            <h1 className="text-[24px] font-black tracking-tight bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">Stories</h1>
             <p className="text-[11px] text-white/45 mt-0.5">{totalStories} story{totalStories > 1 ? 'ies' : ''} · {uniqueCreators} créateur{uniqueCreators > 1 ? 's' : ''}</p>
           </div>
           <button
             onClick={() => setShowAI(!showAI)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-              showAI ? 'bg-snap-yellow text-black shadow-snap-sm' : 'bg-white/10 text-white/70'
+              showAI ? 'bg-snap-yellow text-black shadow-snap-sm' : 'glass-panel text-white/80'
             }`}
           >
             <Zap size={13} />
@@ -144,7 +144,7 @@ export default function StoriesScreen() {
         <div className="flex-1 overflow-y-auto scroll-hide pb-28">
           {/* AI Section */}
           {showAI && (
-            <div className="mx-4 mb-5 rounded-3xl overflow-hidden border border-white/8 bg-white/3">
+            <div className="mx-4 mb-5 rounded-3xl overflow-hidden glass-panel">
               <div className="px-4 pt-4 pb-2 flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-snap-yellow animate-pulse" />
                 <span className="text-xs font-bold text-snap-yellow uppercase tracking-wider">Gemini Live AI</span>
@@ -159,7 +159,7 @@ export default function StoriesScreen() {
           )}
 
           <div className="px-4 mb-5">
-            <div className="glass-card rounded-3xl p-4 border border-white/10">
+            <div className="glass-panel rounded-3xl p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-extrabold">Ton fil Stories</p>
