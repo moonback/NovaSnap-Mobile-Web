@@ -229,7 +229,7 @@ export default function App() {
     if (session) {
       controls.start(
         { x: -currentIndex * dimensions.width },
-        { type: 'spring', stiffness: 350, damping: 32 }
+        { type: 'spring', stiffness: 300, damping: 28, mass: 0.9 }
       );
     }
   }, [currentIndex, controls, session, dimensions.width]);
@@ -290,7 +290,7 @@ export default function App() {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#07070a] flex items-center justify-center overflow-hidden font-sans">
+    <div className="fixed inset-0 screen-shell flex items-center justify-center overflow-hidden font-sans">
       {/* NOUVEAU : Arrière-plan premium pour grand écran (effet de lumière néon jaune) */}
       {dimensions.isDesktop && (
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -325,7 +325,7 @@ export default function App() {
           boxShadow: dimensions.isDesktop
             ? '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 252, 0, 0.05)'
             : 'none',
-          background: '#000',
+          background: 'linear-gradient(180deg, #070910 0%, #05070d 100%)',
         }}
       >
         {/* NOUVEAU: Dynamic Island factice sur Desktop pour accentuer le look premium */}
@@ -342,7 +342,7 @@ export default function App() {
           animate={controls}
           drag="x"
           dragConstraints={{ left: -dimensions.width * (VIEWS.length - 1), right: 0 }}
-          dragElastic={0.15}
+          dragElastic={0.22}
           onDragEnd={(_e, { offset, velocity }) => {
             const swipe = swipePower(offset.x, velocity.x);
             if (swipe < -swipeConfidenceThreshold && currentIndex < VIEWS.length - 1) {
@@ -357,21 +357,21 @@ export default function App() {
           }}
         >
           {/* Map */}
-          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+          <div className="h-full flex-shrink-0 screen-shell" style={{ width: dimensions.width }}>
             {Math.abs(currentIndex - 0) <= 1 && <MapScreen />}
           </div>
           {/* Chat */}
-          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+          <div className="h-full flex-shrink-0 screen-shell" style={{ width: dimensions.width }}>
             <ChatScreen />
           </div>
           {/* Camera */}
-          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+          <div className="h-full flex-shrink-0 screen-shell" style={{ width: dimensions.width }}>
             {Math.abs(currentIndex - 2) <= 1 && (
               <CameraView isActive={currentView === 'camera'} />
             )}
           </div>
           {/* Stories */}
-          <div className="h-full flex-shrink-0 bg-black" style={{ width: dimensions.width }}>
+          <div className="h-full flex-shrink-0 screen-shell" style={{ width: dimensions.width }}>
             {Math.abs(currentIndex - 3) <= 1 && <StoriesScreen />}
           </div>
         </motion.div>
