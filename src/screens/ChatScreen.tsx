@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
-import { useConversations } from '../hooks/useConversations';
+import { useConversations, type ConversationRow } from '../hooks/useConversations';
 import { Loader2, User, X } from 'lucide-react';
 import ConversationScreen from './ConversationScreen';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -41,7 +41,9 @@ export default function ChatScreen() {
 
 
 
-  const handleStartChat = async (targetUser: any) => {
+  type AppUser = { id: string; username: string | null; display_name: string | null; avatar_url: string | null };
+
+  const handleStartChat = async (targetUser: AppUser) => {
     if (!user) return;
     setIsCreating(true);
     try {
@@ -101,25 +103,29 @@ export default function ChatScreen() {
       setActiveConversationId(newConv.id);
       setShowNewChatModal(false);
       
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      toast("Failed to start chat: " + e.message, "error");
+      const parsedError = e instanceof Error ? e : new Error('Failed to start chat');
+      toast('Failed to start chat: ' + parsedError.message, 'error');
     } finally {
       setIsCreating(false);
     }
   };
 
-  const otherUsers = allUsers?.filter(u => u.id !== user?.id) || [];
-  const filteredUsers = otherUsers.filter(u => 
+  const otherUsers = allUsers?.filter((u) => u.id !== user?.id) || [];
+  const filteredUsers = otherUsers.filter((u) => 
     u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (u.display_name && u.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  const activeConversation = useMemo(() => {
+    return conversations?.find((c: ConversationRow) => c.conversations?.id === activeConversationId)?.conversations;
+  }, [activeConversationId, conversations]);
+
   if (activeConversationId) {
-    const activeConvObj = conversations?.find((c: any) => c.conversations?.id === activeConversationId)?.conversations;
-    const otherMember = activeConvObj?.conversation_members?.find((m: any) => m.user_id !== user?.id);
+    const otherMember = activeConversation?.conversation_members?.find((m) => m.user_id !== user?.id);
     const otherAvatar = otherMember?.users?.avatar_url;
-    const chatTitle = activeConvObj?.title || 'Chat';
+    const chatTitle = activeConversation?.title || 'Chat';
 
     return (
       <ConversationScreen 
@@ -150,8 +156,16 @@ export default function ChatScreen() {
       
       <div className="flex-1 flex flex-col gap-3">
         {isLoading && (
-          <div className="flex justify-center p-8 text-white/40">
-            <Loader2 className="animate-spin" />
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 rounded-3xl glass border border-white/5">
+                <div className="w-12 h-12 rounded-full bg-white/10 animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-1/3 bg-white/10 rounded animate-pulse" />
+                  <div className="h-3 w-2/3 bg-white/10 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -164,7 +178,7 @@ export default function ChatScreen() {
             const hasNew = lastMsg && lastMsg.sender_id !== user?.id;
             
             // Find the other member's avatar
-            const otherMember = conv.conversation_members?.find((m: any) => m.user_id !== user?.id);
+            const otherMember = conv.conversation_members?.find((m) => m.user_id !== user?.id);
             const otherAvatar = otherMember?.users?.avatar_url;
 
             return (
