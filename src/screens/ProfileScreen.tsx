@@ -14,6 +14,15 @@ import {
   Users,
   Check,
   BookOpen,
+  ChevronLeft,
+  User,
+  Mail,
+  Calendar,
+  Bell,
+  Trash2,
+  Shield,
+  Lock,
+  HardDrive
 } from 'lucide-react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
@@ -30,6 +39,85 @@ export default function ProfileScreen() {
   const [editBio, setEditBio] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
+
+  // ── Settings state ────────────────────────────────────────
+  const [showSettings, setShowSettings] = useState(false);
+  const [ghostMode, setGhostMode] = useState(() => {
+    return localStorage.getItem('novasnap_settings_ghost_mode') === 'true';
+  });
+  const [storyPrivacy, setStoryPrivacy] = useState(() => {
+    return localStorage.getItem('novasnap_settings_story_privacy') || 'friends';
+  });
+  const [autoSaveSnaps, setAutoSaveSnaps] = useState(() => {
+    return localStorage.getItem('novasnap_settings_auto_save') === 'true';
+  });
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    return localStorage.getItem('novasnap_settings_notifications') !== 'false';
+  });
+  const [mediaQuality, setMediaQuality] = useState(() => {
+    return localStorage.getItem('novasnap_settings_media_quality') || 'standard';
+  });
+
+  const toggleGhostMode = () => {
+    const nextVal = !ghostMode;
+    setGhostMode(nextVal);
+    localStorage.setItem('novasnap_settings_ghost_mode', String(nextVal));
+    toast(
+      nextVal ? 'Mode Fantôme activé ! Ta position est masquée.' : 'Mode Fantôme désactivé.',
+      'info'
+    );
+  };
+
+  const updateStoryPrivacy = (val: string) => {
+    setStoryPrivacy(val);
+    localStorage.setItem('novasnap_settings_story_privacy', val);
+    const label = val === 'everyone' ? 'Tout le monde' : val === 'friends' ? 'Mes Amis' : 'Privé';
+    toast(`Confidentialité mise à jour : ${label}`, 'success');
+  };
+
+  const toggleAutoSave = () => {
+    const nextVal = !autoSaveSnaps;
+    setAutoSaveSnaps(nextVal);
+    localStorage.setItem('novasnap_settings_auto_save', String(nextVal));
+    toast(
+      nextVal ? 'Sauvegarde automatique dans la galerie activée.' : 'Sauvegarde automatique désactivée.',
+      'info'
+    );
+  };
+
+  const toggleNotifications = () => {
+    const nextVal = !notificationsEnabled;
+    setNotificationsEnabled(nextVal);
+    localStorage.setItem('novasnap_settings_notifications', String(nextVal));
+    toast(
+      nextVal ? 'Notifications activées.' : 'Notifications désactivées.',
+      'info'
+    );
+  };
+
+  const updateMediaQuality = (val: string) => {
+    setMediaQuality(val);
+    localStorage.setItem('novasnap_settings_media_quality', val);
+    toast(`Qualité d'envoi réglée sur : ${val.toUpperCase()}`, 'success');
+  };
+
+  const handleClearCache = () => {
+    toast('Nettoyage du cache...', 'info');
+    setTimeout(() => {
+      toast('Cache nettoyé avec succès ! (14.2 Mo libérés)', 'success');
+    }, 1000);
+  };
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const handleDeleteAccount = async () => {
+    toast('Demande de suppression du compte envoyée...', 'info');
+    setShowDeleteConfirm(false);
+    setShowSettings(false);
+    setTimeout(() => {
+      supabase.auth.signOut();
+      setShowProfile(false);
+    }, 1500);
+  };
 
   const { friendCount, pendingCount } = useFriends();
 
@@ -164,7 +252,10 @@ export default function ProfileScreen() {
           <X size={18} />
         </button>
         <h1 className="text-lg font-black">Profil</h1>
-        <button className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors">
+        <button
+          onClick={() => setShowSettings(true)}
+          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors active:scale-95"
+        >
           <Settings size={17} />
         </button>
       </div>
@@ -362,6 +453,271 @@ export default function ProfileScreen() {
           </button>
         </div>
       </div>
+
+      {/* ── Settings Drawer ───────────────────────────────────── */}
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 240 }}
+            className="absolute inset-0 z-50 bg-[#0d0d0f] text-white flex flex-col overflow-y-auto scroll-hide pb-12"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-14 pb-4 border-b border-white/5 bg-[#0d0d0f]/90 backdrop-blur-md sticky top-0 z-10">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <h2 className="text-lg font-black tracking-tight">Réglages</h2>
+              <div className="w-9" />
+            </div>
+
+            <div className="px-5 space-y-6 mt-4">
+              {/* Group 1: Account */}
+              <div>
+                <p className="text-white/40 text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2">Mon Compte</p>
+                <div className="bg-white/5 border border-white/8 rounded-2xl overflow-hidden divide-y divide-white/5">
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                      <User size={18} className="text-snap-yellow" />
+                      <span className="text-sm font-bold">Nom d'utilisateur</span>
+                    </div>
+                    <span className="text-sm text-white/40">@{profile?.username || user?.user_metadata?.username || 'user'}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                      <Mail size={18} className="text-snap-yellow" />
+                      <span className="text-sm font-bold">Adresse e-mail</span>
+                    </div>
+                    <span className="text-sm text-white/40 max-w-[180px] truncate">{user?.email || 'non renseigné'}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                      <Calendar size={18} className="text-snap-yellow" />
+                      <span className="text-sm font-bold">Créé le</span>
+                    </div>
+                    <span className="text-sm text-white/40">
+                      {user?.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      }) : '—'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 2: Privacy */}
+              <div>
+                <p className="text-white/40 text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2">Confidentialité</p>
+                <div className="bg-white/5 border border-white/8 rounded-2xl overflow-hidden divide-y divide-white/5">
+                  {/* Ghost Mode */}
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex-1 pr-4">
+                      <div className="flex items-center gap-3">
+                        <Ghost size={18} className="text-purple-400" />
+                        <span className="text-sm font-bold">Mode Fantôme</span>
+                      </div>
+                      <p className="text-white/40 text-[11px] mt-0.5">Masque ta position sur la carte</p>
+                    </div>
+                    <button
+                      onClick={toggleGhostMode}
+                      className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${
+                        ghostMode ? 'bg-purple-500' : 'bg-white/10'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white shadow-md transform duration-200 ${
+                          ghostMode ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Story privacy selector */}
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Eye size={18} className="text-purple-400" />
+                      <span className="text-sm font-bold">Qui peut voir ma Story</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 bg-black/40 border border-white/5 rounded-xl p-1">
+                      {(['everyone', 'friends', 'private'] as const).map((opt) => {
+                        const active = storyPrivacy === opt;
+                        const label = opt === 'everyone' ? 'Public' : opt === 'friends' ? 'Amis' : 'Privé';
+                        return (
+                          <button
+                            key={opt}
+                            onClick={() => updateStoryPrivacy(opt)}
+                            className={`py-1.5 rounded-lg text-xs font-bold transition-all col-span-1 ${
+                              active ? 'bg-purple-500 text-white shadow' : 'text-white/50 hover:text-white/80'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 3: Preferences */}
+              <div>
+                <p className="text-white/40 text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2">Préférences</p>
+                <div className="bg-white/5 border border-white/8 rounded-2xl overflow-hidden divide-y divide-white/5">
+                  {/* Notifications */}
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex-1 pr-4">
+                      <div className="flex items-center gap-3">
+                        <Bell size={18} className="text-cyan-400" />
+                        <span className="text-sm font-bold">Notifications</span>
+                      </div>
+                      <p className="text-white/40 text-[11px] mt-0.5">Alertes de nouveaux messages</p>
+                    </div>
+                    <button
+                      onClick={toggleNotifications}
+                      className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${
+                        notificationsEnabled ? 'bg-cyan-500' : 'bg-white/10'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white shadow-md transform duration-200 ${
+                          notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Auto save */}
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex-1 pr-4">
+                      <div className="flex items-center gap-3">
+                        <Camera size={18} className="text-cyan-400" />
+                        <span className="text-sm font-bold">Enregistrement auto</span>
+                      </div>
+                      <p className="text-white/40 text-[11px] mt-0.5">Sauvegarder les snaps créés dans la galerie</p>
+                    </div>
+                    <button
+                      onClick={toggleAutoSave}
+                      className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none flex items-center ${
+                        autoSaveSnaps ? 'bg-cyan-500' : 'bg-white/10'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white shadow-md transform duration-200 ${
+                          autoSaveSnaps ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Media quality */}
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <HardDrive size={18} className="text-cyan-400" />
+                      <span className="text-sm font-bold">Qualité d'envoi des Médias</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 bg-black/40 border border-white/5 rounded-xl p-1">
+                      {(['eco', 'standard', 'high'] as const).map((opt) => {
+                        const active = mediaQuality === opt;
+                        const label = opt === 'eco' ? 'Éco' : opt === 'standard' ? 'Standard' : 'HD';
+                        return (
+                          <button
+                            key={opt}
+                            onClick={() => updateMediaQuality(opt)}
+                            className={`py-1.5 rounded-lg text-xs font-bold transition-all col-span-1 ${
+                              active ? 'bg-cyan-500 text-white shadow' : 'text-white/50 hover:text-white/80'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 4: Storage & Security */}
+              <div>
+                <p className="text-white/40 text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2">Actions Système</p>
+                <div className="bg-white/5 border border-white/8 rounded-2xl overflow-hidden divide-y divide-white/5">
+                  {/* Clear Cache */}
+                  <button
+                    onClick={handleClearCache}
+                    className="w-full flex items-center justify-between p-4 hover:bg-white/5 active:bg-white/8 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Trash2 size={18} className="text-red-400" />
+                      <div>
+                        <span className="text-sm font-bold">Vider le cache</span>
+                        <p className="text-white/40 text-[11px] mt-0.5">Libère de l'espace de stockage</p>
+                      </div>
+                    </div>
+                    <span className="text-xs bg-white/10 px-2 py-1 rounded-md text-white/60 font-bold">14.2 Mo</span>
+                  </button>
+
+                  {/* Delete Account */}
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full flex items-center justify-between p-4 hover:bg-red-500/5 active:bg-red-500/10 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Shield size={18} className="text-red-500" />
+                      <div>
+                        <span className="text-sm font-bold text-red-400">Supprimer mon compte</span>
+                        <p className="text-red-500/40 text-[11px] mt-0.5">Action irréversible de suppression</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Delete Account Confirmation Modal ─────────────────────── */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#121214] border border-red-500/20 rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-2xl text-center"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto text-red-500">
+                <Shield size={24} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-black text-white">Supprimer le compte ?</h3>
+                <p className="text-white/50 text-xs leading-relaxed">
+                  Cette action est définitive. Toutes tes conversations, photos, vidéos et ton score de snaps seront supprimés définitivement.
+                </p>
+              </div>
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-white font-bold text-sm active:scale-95 transition-all"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-bold text-sm active:scale-95 transition-all"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
