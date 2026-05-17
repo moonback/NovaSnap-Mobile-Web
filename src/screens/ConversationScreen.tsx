@@ -91,6 +91,8 @@ export default function ConversationScreen({ conversationId, onBack }: { convers
     },
     onSuccess: () => {
       setNewMessage('');
+      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['conversations', user?.id] });
     }
   });
 
