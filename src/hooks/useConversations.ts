@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
+import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 
 export const useConversations = () => {
@@ -27,6 +27,13 @@ export const useConversations = () => {
               message_type,
               created_at,
               sender_id
+            ),
+            conversation_members (
+              user_id,
+              users (
+                username,
+                avatar_url
+              )
             )
           )
         `)
@@ -40,7 +47,24 @@ export const useConversations = () => {
         return [];
       }
 
-      return data as any[];
+      // Resolve signed URLs for all avatars fetched
+      const convsWithSignedAvatars = await Promise.all(
+        (data as any[]).map(async (row) => {
+          if (row.conversations?.conversation_members) {
+            row.conversations.conversation_members = await Promise.all(
+              row.conversations.conversation_members.map(async (member: any) => {
+                if (member.users?.avatar_url) {
+                  member.users.avatar_url = await getValidMediaUrl('avatars', member.users.avatar_url);
+                }
+                return member;
+              })
+            );
+          }
+          return row;
+        })
+      );
+
+      return convsWithSignedAvatars;
     },
     enabled: !!user,
   });

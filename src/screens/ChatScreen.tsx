@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useConversations } from '../hooks/useConversations';
 import { Loader2, User, X } from 'lucide-react';
 import ConversationScreen from './ConversationScreen';
@@ -26,7 +26,15 @@ export default function ChatScreen() {
         .from('users')
         .select('id, username, display_name, avatar_url');
       if (error) throw error;
-      return data;
+
+      const usersWithAvatars = await Promise.all(data.map(async (u) => {
+        if (u.avatar_url) {
+          u.avatar_url = await getValidMediaUrl('avatars', u.avatar_url);
+        }
+        return u;
+      }));
+      
+      return usersWithAvatars;
     },
     enabled: showNewChatModal
   });
@@ -108,10 +116,17 @@ export default function ChatScreen() {
   );
 
   if (activeConversationId) {
+    const activeConvObj = conversations?.find((c: any) => c.conversations?.id === activeConversationId)?.conversations;
+    const otherMember = activeConvObj?.conversation_members?.find((m: any) => m.user_id !== user?.id);
+    const otherAvatar = otherMember?.users?.avatar_url;
+    const chatTitle = activeConvObj?.title || 'Chat';
+
     return (
       <ConversationScreen 
         conversationId={activeConversationId} 
-        onBack={() => setActiveConversationId(null)} 
+        onBack={() => setActiveConversationId(null)}
+        title={chatTitle}
+        avatarUrl={otherAvatar}
       />
     );
   }
@@ -145,9 +160,12 @@ export default function ChatScreen() {
             const conv = convObj.conversations;
             if (!conv) return null;
             
-            // Format sender and time info if any message exists
             const lastMsg = conv.messages && conv.messages[0];
             const hasNew = lastMsg && lastMsg.sender_id !== user?.id;
+            
+            // Find the other member's avatar
+            const otherMember = conv.conversation_members?.find((m: any) => m.user_id !== user?.id);
+            const otherAvatar = otherMember?.users?.avatar_url;
 
             return (
               <div 
@@ -156,8 +174,12 @@ export default function ChatScreen() {
                 className="flex items-center gap-3 p-3 rounded-3xl glass hover:bg-white/5 transition-colors cursor-pointer border border-white/5"
               >
                 <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-400 to-purple-500 p-[1px]">
-                  <div className="w-full h-full rounded-full bg-black flex items-center justify-center font-bold text-xs">
-                    {conv.title?.substring(0, 2).toUpperCase() || 'CH'}
+                  <div className="w-full h-full rounded-full bg-black flex items-center justify-center font-bold text-xs overflow-hidden">
+                    {otherAvatar ? (
+                      <img src={otherAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      conv.title?.substring(0, 2).toUpperCase() || 'CH'
+                    )}
                   </div>
                 </div>
                 <div className="flex-1">
@@ -251,8 +273,12 @@ export default function ChatScreen() {
                 className={`flex items-center gap-3 p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/5 ${isCreating ? 'pointer-events-none opacity-50' : ''}`}
               >
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-400 to-purple-500 flex items-center justify-center font-bold text-xs p-[1px]">
-                  <div className="w-full h-full bg-black rounded-full flex items-center justify-center">
-                    {u.username?.substring(0, 2).toUpperCase()}
+                  <div className="w-full h-full bg-black rounded-full flex items-center justify-center overflow-hidden">
+                    {u.avatar_url ? (
+                      <img src={u.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      u.username?.substring(0, 2).toUpperCase()
+                    )}
                   </div>
                 </div>
                 <div className="flex-1">

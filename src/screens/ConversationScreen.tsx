@@ -17,7 +17,17 @@ interface Message {
   };
 }
 
-export default function ConversationScreen({ conversationId, onBack }: { conversationId: string, onBack: () => void }) {
+export default function ConversationScreen({ 
+  conversationId, 
+  onBack,
+  title = 'Chat',
+  avatarUrl
+}: { 
+  conversationId: string, 
+  onBack: () => void,
+  title?: string,
+  avatarUrl?: string
+}) {
   const { user, setCurrentView, setDirectChatId } = useAppStore();
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -128,12 +138,16 @@ export default function ConversationScreen({ conversationId, onBack }: { convers
           <ChevronLeft size={28} />
         </button>
         <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-purple-500 p-[1px] mr-3">
-          <div className="w-full h-full rounded-full bg-black flex items-center justify-center font-bold text-xs text-white">
-            CH
+          <div className="w-full h-full rounded-full bg-black flex items-center justify-center font-bold text-xs text-white overflow-hidden">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              title.substring(0, 2).toUpperCase()
+            )}
           </div>
         </div>
         <div>
-          <h2 className="text-white font-bold text-lg leading-tight">Chat</h2>
+          <h2 className="text-white font-bold text-lg leading-tight">{title}</h2>
           <p className="text-white/40 text-xs font-mono">Online</p>
         </div>
       </div>
