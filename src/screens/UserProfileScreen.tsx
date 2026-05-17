@@ -304,14 +304,14 @@ export default function UserProfileScreen() {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className="fixed inset-0 z-50 bg-black text-white flex flex-col overflow-y-auto scroll-hide"
+      className="fixed inset-0 z-50 screen-shell text-white flex flex-col overflow-y-auto scroll-hide"
       onClick={() => setShowRemoveConfirm(false)}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-14 pb-4 shrink-0">
         <button
           onClick={() => setViewingProfileUserId(null)}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+          className="w-10 h-10 rounded-2xl glass-panel flex items-center justify-center hover:bg-white/15 transition-colors"
         >
           <X size={18} />
         </button>
@@ -408,7 +408,7 @@ export default function UserProfileScreen() {
             </button>
             <button
               onClick={handleMessage}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white/8 border border-white/10 text-white font-bold text-sm rounded-2xl active:scale-95 transition-all"
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 glass-panel text-white font-bold text-sm rounded-2xl active:scale-95 transition-all"
             >
               <MessageCircle size={16} />
               Message

@@ -443,7 +443,7 @@ export default function MapScreen() {
         
         <button
           onClick={() => setShowSettings(true)}
-          className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/8 flex items-center justify-center text-white active:scale-95 transition-all pointer-events-auto shadow-lg"
+          className="w-10 h-10 rounded-2xl glass-panel flex items-center justify-center text-white active:scale-95 transition-all pointer-events-auto shadow-lg"
         >
           <Settings size={18} />
         </button>
@@ -457,7 +457,7 @@ export default function MapScreen() {
           className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${
             isGhostMode 
               ? 'bg-purple-600/90 border-purple-400 text-white shadow-purple-500/20' 
-              : 'bg-black/60 backdrop-blur-md border-white/10 text-white/80 hover:text-white'
+              : 'glass-panel text-white/80 hover:text-white'
           }`}
           title={isGhostMode ? 'Mode Fantôme actif (Position cachée)' : 'Partager ma position'}
         >
@@ -473,7 +473,7 @@ export default function MapScreen() {
           className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${
             showHeatmap 
               ? 'bg-orange-500/90 border-orange-400 text-white shadow-orange-500/20' 
-              : 'bg-black/60 backdrop-blur-md border-white/10 text-white/80 hover:text-white'
+              : 'glass-panel text-white/80 hover:text-white'
           }`}
           title="Afficher la Heatmap d'activité"
         >
@@ -504,7 +504,7 @@ export default function MapScreen() {
           </div>
         )}
 
-        <motion.div layout className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[32px] p-4 pointer-events-auto shadow-2xl flex flex-col overflow-hidden">
+        <motion.div layout className="glass-panel border border-white/10 rounded-[32px] p-4 pointer-events-auto shadow-2xl flex flex-col overflow-hidden">
           {/* Handle / Toggle */}
           <div 
             className="w-full flex items-center justify-center pt-1 pb-3 cursor-pointer"
@@ -729,7 +729,7 @@ export default function MapScreen() {
       {/* 6. Fully Integrated Segmented Map Story Player */}
       <AnimatePresence>
         {activeStory && (
-          <div className="absolute inset-0 z-50 bg-black flex flex-col">
+          <div className="absolute inset-0 z-50 screen-shell flex flex-col">
             {/* Progress Bar */}
             <div className="absolute top-0 inset-x-0 pt-12 px-3 flex gap-1 z-10">
               <div className="h-[3px] flex-1 bg-white/25 rounded-full overflow-hidden">

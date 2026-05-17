@@ -335,10 +335,10 @@ export default function ConversationScreen({
   const initials = title.substring(0, 2).toUpperCase();
 
   return (
-    <div className="absolute inset-0 bg-black z-50 flex flex-col">
+    <div className="absolute inset-0 screen-shell z-50 flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 px-3 pt-12 pb-3 border-b border-white/8">
-        <button onClick={onBack} className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors">
+      <div className="flex items-center gap-3 px-3 pt-12 pb-3 border-b border-white/10 glass-panel">
+        <button onClick={onBack} className="w-10 h-10 rounded-2xl flex items-center justify-center text-white hover:bg-white/10 transition-colors">
           <ChevronLeft size={26} />
         </button>
 
@@ -357,7 +357,7 @@ export default function ConversationScreen({
           <p className="text-white/30 text-xs">Messages éphémères</p>
         </div>
 
-        <button className="w-9 h-9 rounded-full flex items-center justify-center text-white/50 hover:bg-white/10 transition-colors">
+        <button className="w-10 h-10 rounded-2xl flex items-center justify-center text-white/50 hover:bg-white/10 transition-colors">
           <MoreVertical size={20} />
         </button>
       </div>
@@ -425,7 +425,7 @@ export default function ConversationScreen({
 
       {/* Typing Indicator */}
       {Object.keys(typingUsers).length > 0 && (
-        <div className="px-5 py-2.5 flex items-center gap-2 bg-gradient-to-r from-zinc-950/60 to-transparent border-t border-white/5 shrink-0">
+        <div className="px-5 py-2.5 flex items-center gap-2 glass-panel border-t border-white/10 shrink-0">
           <div className="flex gap-1 items-center shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-snap-yellow animate-bounce" style={{ animationDelay: '0ms' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-snap-yellow animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -444,7 +444,7 @@ export default function ConversationScreen({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 180, opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="border-t border-white/5 bg-zinc-950/90 backdrop-blur-md overflow-hidden flex flex-col pointer-events-auto shrink-0 z-40"
+            className="border-t border-white/10 glass-panel overflow-hidden flex flex-col pointer-events-auto shrink-0 z-40"
           >
             <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
               <span className="text-[10px] font-black text-white/30 uppercase tracking-wider">Emojis</span>
@@ -472,12 +472,12 @@ export default function ConversationScreen({
       </AnimatePresence>
 
       {/* Input */}
-      <div className="px-3 py-3 border-t border-white/8 pb-6 shrink-0 bg-black z-30">
+      <div className="px-3 py-3 border-t border-white/10 pb-6 shrink-0 glass-panel z-30">
         <form onSubmit={handleSend} className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => { setDirectChatId(conversationId); setCurrentView('camera'); onBack(); }}
-            className="w-11 h-11 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/12 transition-all shrink-0"
+            className="w-11 h-11 rounded-2xl glass-panel flex items-center justify-center text-white/60 hover:text-white hover:bg-white/12 transition-all shrink-0"
           >
             <CameraIcon size={22} />
           </button>
@@ -487,7 +487,7 @@ export default function ConversationScreen({
             value={newMessage}
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder="Envoyer un message..."
-            className="flex-1 bg-white/8 border border-white/10 rounded-full h-11 px-5 text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition-all text-[15px]"
+            className="flex-1 glass-panel rounded-2xl h-11 px-5 text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition-all text-[15px]"
           />
 
           {newMessage.trim() ? (

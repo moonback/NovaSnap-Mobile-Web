@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, UserPlus, Ghost, Infinity as InfinityIcon } from 'lucide-react';
 import { useConversations } from '../../hooks/useConversations';
 import { useFriends } from '../../hooks/useFriends';
@@ -511,9 +512,9 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 
   return (
-    <div className="relative w-full h-full bg-black overflow-hidden">
+    <div className="relative w-full h-full screen-shell overflow-hidden">
       {/* Camera viewport — full screen, rounded corners */}
-      <div className="absolute inset-0 mx-2 my-2 rounded-[32px] overflow-hidden bg-zinc-950">
+      <div className="absolute inset-0 mx-2 my-2 rounded-[32px] overflow-hidden bg-zinc-950 border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.65)]">
         {error ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-8">
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-red-400 text-2xl">!</div>
@@ -672,7 +673,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
             <canvas ref={canvasRef} className="hidden" />
 
             {/* Gradient overlays */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/50 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-transparent to-black/70 pointer-events-none" />
 
             {/* ── Topbar (Left & Right) ── */}
             <div className="absolute top-0 inset-x-0 z-20 px-5 pt-12 pb-3 pointer-events-none flex justify-between items-start">
@@ -738,18 +739,26 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
             </div>
 
             {/* Recording indicator */}
-            {isRecording && (
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 glass-dark px-4 py-2 rounded-full flex items-center gap-2 z-10">
-                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-white text-xs font-mono font-bold">{formatTime(recordingDuration)}</span>
-              </div>
-            )}
+            <AnimatePresence>
+              {isRecording && (
+                <motion.div
+                  initial={{ y: -14, opacity: 0, scale: 0.95 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  exit={{ y: -12, opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.22 }}
+                  className="absolute top-6 left-1/2 -translate-x-1/2 glass-dark px-4 py-2 rounded-full flex items-center gap-2 z-10 border border-red-300/30"
+                >
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-white text-xs font-mono font-bold tracking-wider">REC {formatTime(recordingDuration)}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* ── Zone shutter (au-dessus du TabBar) ── */}
             <div className="absolute bottom-[140px] inset-x-0 flex flex-col items-center gap-4 z-10">
               {/* Hint text */}
               {!isRecording && (
-                <p className="text-white/40 text-xs font-semibold tracking-wider drop-shadow-md">
+                <p className="text-white/55 text-[11px] font-semibold tracking-[0.16em] uppercase drop-shadow-md">
                   Appuie pour photo · Maintiens pour vidéo
                 </p>
               )}
@@ -765,7 +774,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
                   onMouseLeave={handlePressEnd}
                   onTouchStart={handlePressStart}
                   onTouchEnd={handlePressEnd}
-                  className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer relative ${
+                  className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer relative will-change-transform ${
                     isRecording ? 'scale-110' : 'hover:scale-105 active:scale-95'
                   }`}
                 >
@@ -773,9 +782,13 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
                   <div className={`absolute inset-[-6px] rounded-full border-2 transition-all duration-300 ${
                     isRecording ? 'border-red-500 animate-pulse' : 'border-white/30'
                   }`} />
-                  <div className={`absolute inset-[-12px] rounded-full border transition-all duration-300 ${
-                    isRecording ? 'border-red-500/20' : 'border-white/10'
-                  }`} />
+                  <motion.div
+                    animate={isRecording ? { scale: [1, 1.08, 1], opacity: [0.45, 0.2, 0.45] } : { scale: 1, opacity: 0.55 }}
+                    transition={isRecording ? { duration: 1.15, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.25 }}
+                    className={`absolute inset-[-12px] rounded-full border transition-all duration-300 ${
+                    isRecording ? 'border-red-500/25' : 'border-white/15'
+                  }`}
+                  />
                   
                   {/* Inner button */}
                   <div className={`w-full h-full rounded-full transition-all duration-300 flex items-center justify-center ${
