@@ -374,6 +374,13 @@ export default function ConversationScreen({
           </div>
         )}
 
+        {!isLoading && (!messages || messages.length === 0) && (
+          <div className={`my-auto mx-auto max-w-[260px] rounded-3xl px-5 py-6 text-center border ${t.border} ${t.surface}`}>
+            <p className={`font-bold text-sm ${t.text}`}>Aucun message pour le moment</p>
+            <p className={`text-xs mt-1 ${t.textMuted}`}>Écris le premier message pour démarrer la conversation.</p>
+          </div>
+        )}
+
         {messages?.map((msg) => {
           const isMe = msg.sender_id === user?.id;
           const isSaved = msg.is_saved ?? false;
@@ -396,12 +403,16 @@ export default function ConversationScreen({
                 ${(msg.message_type === 'TEXT' || isMe || isSaved) ? 'relative' : ''}
                 ${msg.message_type === 'TEXT' ? (
                   isMe
-                    ? isSaved ? 'bg-white/10 border border-white/15 text-white rounded-br-sm' : 'bg-snap-yellow text-black rounded-br-sm'
-                    : isSaved ? 'bg-white/10 border border-white/15 text-white rounded-bl-sm' : 'bg-white/12 text-white rounded-bl-sm'
+                    ? isSaved
+                      ? `${t.isLight ? 'bg-black/8 border border-black/15 text-[#0d0e1a]' : 'bg-white/10 border border-white/15 text-white'} rounded-br-sm`
+                      : 'bg-snap-yellow text-black rounded-br-sm'
+                    : isSaved
+                      ? `${t.isLight ? 'bg-black/8 border border-black/15 text-[#0d0e1a]' : 'bg-white/10 border border-white/15 text-white'} rounded-bl-sm`
+                      : `${t.isLight ? 'bg-white border border-black/10 text-[#0d0e1a]' : 'bg-white/12 text-white'} rounded-bl-sm`
                 ) : ''}
               `}>
                 {msg.message_type === 'TEXT' && (
-                  <p className={`text-[15px] leading-relaxed break-words font-medium ${isMe && !isSaved ? 'text-black' : 'text-white'}`}>
+                  <p className={`text-[15px] leading-relaxed break-words font-medium ${isMe && !isSaved ? 'text-black' : t.isLight ? 'text-[#0d0e1a]' : 'text-white'}`}>
                     {msg.content}
                   </p>
                 )}
@@ -409,8 +420,8 @@ export default function ConversationScreen({
                   <EphemeralMedia messageId={msg.id} mediaUrl={msg.media_url} mediaType={msg.message_type} isMe={isMe} isSaved={isSaved} />
                 )}
                 {isSaved && (
-                  <span className={`absolute -top-2 ${isMe ? '-left-2' : '-right-2'} w-5 h-5 rounded-full bg-white/15 flex items-center justify-center`}>
-                    {isSaving ? <Loader2 size={10} className="animate-spin text-white" /> : <BookmarkCheck size={10} className="text-snap-yellow" />}
+                  <span className={`absolute -top-2 ${isMe ? '-left-2' : '-right-2'} w-5 h-5 rounded-full ${t.isLight ? 'bg-black/12' : 'bg-white/15'} flex items-center justify-center`}>
+                    {isSaving ? <Loader2 size={10} className={`animate-spin ${t.isLight ? 'text-[#0d0e1a]' : 'text-white'}`} /> : <BookmarkCheck size={10} className="text-snap-yellow" />}
                   </span>
                 )}
               </div>
@@ -463,7 +474,7 @@ export default function ConversationScreen({
                   key={emoji}
                   type="button"
                   onClick={() => setNewMessage((prev) => prev + emoji)}
-                  className="text-2xl flex items-center justify-center hover:bg-black/10 p-1.5 rounded-xl active:scale-75 transition-all"
+                  className={`text-2xl flex items-center justify-center p-1.5 rounded-xl active:scale-75 transition-all ${t.isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
                 >
                   {emoji}
                 </button>
@@ -489,7 +500,7 @@ export default function ConversationScreen({
             value={newMessage}
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder="Envoyer un message..."
-            className={`flex-1 ${t.input} border ${t.border} rounded-full h-11 px-5 ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'} focus:outline-none focus:border-white/20 transition-all text-[15px]`}
+            className={`flex-1 ${t.input} border ${t.border} rounded-full h-11 px-5 ${t.text} ${t.isLight ? 'placeholder-black/30 focus:border-black/20' : 'placeholder-white/30 focus:border-white/20'} focus:outline-none transition-all text-[15px]`}
           />
 
           {newMessage.trim() ? (
