@@ -654,28 +654,22 @@ export default function ProfileScreen() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#121214] border border-red-500/20 rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-2xl text-center"
+              className={`border border-red-500/20 rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-2xl text-center ${t.isLight ? 'bg-white' : 'bg-[#121214]'} ${t.text}`}
             >
               <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto text-red-500">
                 <Shield size={24} />
               </div>
               <div className="space-y-2">
-                <h3 className="text-lg font-black text-white">Supprimer le compte ?</h3>
-                <p className="text-white/50 text-xs leading-relaxed">
+                <h3 className="text-lg font-black">Supprimer le compte ?</h3>
+                <p className={`text-xs leading-relaxed ${t.textSubtle}`}>
                   Cette action est définitive. Toutes tes conversations, photos, vidéos et ton score de snaps seront supprimés définitivement.
                 </p>
               </div>
               <div className="flex gap-2.5 pt-2">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-white font-bold text-sm active:scale-95 transition-all"
-                >
+                <button onClick={() => setShowDeleteConfirm(false)} className={`flex-1 py-3 rounded-xl font-bold text-sm active:scale-95 transition-all ${t.surface} ${t.text}`}>
                   Annuler
                 </button>
-                <button
-                  onClick={handleDeleteAccount}
-                  className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-bold text-sm active:scale-95 transition-all"
-                >
+                <button onClick={handleDeleteAccount} className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-bold text-sm active:scale-95 transition-all">
                   Supprimer
                 </button>
               </div>

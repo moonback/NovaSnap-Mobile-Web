@@ -1,22 +1,12 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import {
-  X,
-  Search,
-  Ghost,
-  UserPlus,
-  Check,
-  Clock,
-  UserMinus,
-  MessageCircle,
-  Camera,
-  Users,
-} from 'lucide-react';
+import { X, Search, Ghost, UserPlus, Check, Clock, UserMinus, MessageCircle, Camera, Users } from 'lucide-react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { useFriends } from '../hooks/useFriends';
 import { useToast } from '../components/ui/ToastProvider';
+import { useTheme } from '../hooks/useTheme';
 import { AvatarOnlineBadge } from '../components/ui/OnlineIndicator';
 import type { AppUserProfile, FriendWithProfile } from '../lib/types';
 
