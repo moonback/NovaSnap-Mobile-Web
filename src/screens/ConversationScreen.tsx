@@ -52,6 +52,7 @@ export default function ConversationScreen({
   const t = useTheme();
   const [newMessage, setNewMessage] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
@@ -359,9 +360,56 @@ export default function ConversationScreen({
           <p className={`${t.textMuted} text-xs`}>Messages éphémères</p>
         </div>
 
-        <button className={`w-9 h-9 rounded-full flex items-center justify-center ${t.textMuted} ${t.surfaceHover} transition-colors`}>
-          <MoreVertical size={20} />
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => setShowMenu(!showMenu)} 
+            className={`w-9 h-9 rounded-full flex items-center justify-center ${t.textMuted} ${t.surfaceHover} transition-colors`}
+          >
+            <MoreVertical size={20} />
+          </button>
+          
+          <AnimatePresence>
+            {showMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowMenu(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  transition={{ duration: 0.15 }}
+                  className={`absolute right-0 top-12 w-48 rounded-2xl shadow-xl z-50 border overflow-hidden ${t.isLight ? 'bg-white border-black/10' : 'bg-zinc-900 border-white/10'}`}
+                >
+                  <button 
+                    onClick={async () => {
+                      setShowMenu(false);
+                      if (!user) return;
+                      try {
+                        const { error } = await supabase
+                          .from('conversation_members')
+                          .delete()
+                          .eq('conversation_id', conversationId)
+                          .eq('user_id', user.id);
+                        if (error) throw error;
+                        queryClient.setQueryData(['conversations', user.id], (old: any) => 
+                          old?.filter((row: any) => row.conversations?.id !== conversationId) ?? []
+                        );
+                        onBack();
+                      } catch (err) {
+                        console.error('Erreur lors de la suppression de la conversation:', err);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold transition-colors text-red-500 ${t.surfaceHover}`}
+                  >
+                    Supprimer le chat
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Messages */}

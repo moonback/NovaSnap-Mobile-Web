@@ -59,6 +59,7 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
   }, [conv.id, onDelete, x]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
     if (isDeleting) return;
     isDragging.current = false;
     startX.current = e.clientX;
@@ -68,6 +69,9 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
   const handlePointerMove = (e: React.PointerEvent) => {
     if (isDeleting) return;
     const delta = e.clientX - startX.current;
+    if (Math.abs(delta) > 6) {
+      e.stopPropagation();
+    }
     // Only allow left swipe
     if (delta > 0) { x.set(0); return; }
     isDragging.current = Math.abs(delta) > 6;
