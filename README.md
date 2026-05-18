@@ -28,7 +28,7 @@ Sur desktop, l'app s'affiche dans un **mockup iPhone** centré (430×932px) avec
 - **WebRTC :** LiveKit (rooms audio/vidéo — intégration en cours)
 - **Intelligence Artificielle :** Google Gemini Live API (`@google/genai`)
 - **Serveur Express :** `server.ts` (proxy API, build production)
-- **PWA :** Service Worker + Web Push (VAPID) + Badge API
+- **PWA :** Service Worker de Qualité Production (SWR, Network-First, Mode Offline), Web Push (VAPID) + Badge API
 
 ---
 
@@ -139,13 +139,14 @@ Sur desktop, l'app s'affiche dans un **mockup iPhone** centré (430×932px) avec
   - **Suppression du compte**
 - Déconnexion
 
-### 🔔 Notifications Push (PWA)
-- Abonnement Web Push via **VAPID** (Service Worker)
-- Demande de permission différée (3s après chargement)
-- **Badge d'app** mis à jour en temps réel (Badge API)
-- Notifications in-app via Supabase Realtime (INSERT sur `notifications`)
-- Navigation automatique depuis une notification (clic → vue correspondante)
-- Types : `NEW_MESSAGE`, `SNAP_OPENED`, `FRIEND_REQUEST`, `FRIEND_ACCEPTED`, `NEW_STORY`, `SNAP_SCREENSHOT`
+### 📱 Expérience PWA Premium & Push
+- **Support Hors Ligne (Offline) :** Stratégies de cache avancées (Network-First, Stale-While-Revalidate, Cache-First pour les images) et fallback `offline.html` animé et réactif.
+- **Gestion du Cycle de Vie PWA :** Pop-ups immersives (via Framer Motion) pour l'installation (`InstallPrompt`) et les mises à jour du Service Worker (`UpdatePrompt`).
+- **Icônes & Manifest :** Compatibilité native absolue avec Maskable Icons (Android), Apple Touch Icons (iOS), et raccourcis système (Nouveau Snap, Messages, Snap Map).
+- **Notifications Web Push :** Abonnement via **VAPID** avec une demande de permission intelligente (différée) pour ne pas entraver l'UX.
+- **Actions Push Riches :** Interaction directe depuis la notification (ex: "💬 Répondre", "✅ Accepter l'ami").
+- **Badge d'App Native :** Mise à jour du compteur dynamique sur l'icône de l'application (Badge API).
+- **Navigation Profonde (Deep-Link) :** Redirection ciblée (clic sur la notification → navigation auto vers le chat ou la vue correspondante) gérée par le Service Worker.
 
 ### 🟢 Présence & Statut en Ligne
 - **Heartbeat** automatique toutes les 30 secondes (`update_user_heartbeat`)
@@ -339,7 +340,7 @@ novasnap/
 | Memories (galerie, lightbox, sélection multiple) | ✅ Complet |
 | Système d'amis complet | ✅ Complet |
 | Statut en ligne + heartbeat | ✅ Complet |
-| Notifications push PWA (VAPID) | ✅ Complet |
+| PWA de Qualité Production (Offline, Install, Push) | ✅ Complet |
 | Thème dark/light | ✅ Complet |
 | Mode Desktop (iPhone + profil déporté) | ✅ Complet |
 | Profil premium + Réglages | ✅ Complet |
