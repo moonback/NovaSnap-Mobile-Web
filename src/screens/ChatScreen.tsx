@@ -2,7 +2,7 @@ import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useConversations } from '../hooks/useConversations';
 import { useFriends } from '../hooks/useFriends';
-import { Loader2, User, X, Search, Edit3, ChevronRight, Trash2 } from 'lucide-react';
+import { Loader2, User, X, Search, Edit3, ChevronRight, Trash2, Check, Users } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import ConversationScreen from './ConversationScreen';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -183,11 +183,31 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
     onOpen();
   };
 
+  const getGroupGradient = (preset: string) => {
+    switch (preset) {
+      case 'emerald':
+        return 'from-emerald-400 to-teal-600 text-white';
+      case 'cyan':
+        return 'from-cyan-400 to-blue-600 text-white';
+      case 'gold':
+        return 'from-yellow-400 via-orange-500 to-red-500 text-white';
+      case 'sunset':
+      default:
+        return 'from-indigo-500 via-purple-500 to-pink-500 text-white';
+    }
+  };
+
   const lastMsg = conv.messages?.[0];
   const hasNew = !!(lastMsg && lastMsg.sender_id !== userId && (!lastMsg.opened_by || !lastMsg.opened_by.includes(userId || '')));
-  const otherMember = conv.conversation_members?.find((m) => m.user_id !== userId);
+  
+  const isGroup = conv.is_group;
+  const titleParts = conv.title?.split('::') ?? [];
+  const displayTitle = titleParts[0] || 'Chat';
+  const avatarPreset = titleParts[1] || 'sunset';
+
+  const otherMember = !isGroup ? conv.conversation_members?.find((m) => m.user_id !== userId) : null;
   const otherAvatar = otherMember?.users?.avatar_url;
-  const initials = conv.title?.substring(0, 2).toUpperCase() || 'CH';
+  const initials = displayTitle.substring(0, 2).toUpperCase() || 'GP';
 
   const ringColor = hasNew 
     ? lastMsg?.message_type === 'IMAGE' 
@@ -224,10 +244,15 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
       >
         <div className="relative shrink-0">
           <div className={`w-14 h-14 rounded-full overflow-hidden transition-all duration-300 ${hasNew ? `ring-2 ${ringColor} ring-offset-2 ${t.isLight ? 'ring-offset-[#f0f2f8]' : 'ring-offset-black'}` : ''}`}>
-            {otherAvatar
-              ? <img src={otherAvatar} alt="Avatar" className="w-full h-full object-cover" />
-              : <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">{initials}</div>
-            }
+            {isGroup ? (
+              <div className={`w-full h-full bg-gradient-to-br ${getGroupGradient(avatarPreset)} flex items-center justify-center font-black text-white text-[15px] tracking-wider shadow-inner`}>
+                {initials}
+              </div>
+            ) : otherAvatar ? (
+              <img src={otherAvatar} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">{initials}</div>
+            )}
           </div>
           {hasNew && (
             <div 
@@ -239,7 +264,7 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-0.5">
-            <span className={`font-black text-[15.5px] tracking-tight truncate ${t.text}`}>{conv.title}</span>
+            <span className={`font-black text-[15.5px] tracking-tight truncate ${t.text}`}>{displayTitle}</span>
             {lastMsg && <span className={`text-[11px] shrink-0 ml-2 ${t.textFaint}`}>{timeAgo(lastMsg.created_at)}</span>}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
@@ -267,6 +292,79 @@ export default function ChatScreen() {
   const { user, setShowProfile, setIsInConversation } = useAppStore();
   const t = useTheme();
   const queryClient = useQueryClient();
+
+  // Group creation states
+  const [modalMode, setModalMode] = useState<'chat' | 'group'>('chat');
+  const [groupTitle, setGroupTitle] = useState('');
+  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+  const [selectedPreset, setSelectedPreset] = useState<'sunset' | 'emerald' | 'cyan' | 'gold'>('sunset');
+
+  const toggleFriendSelection = (friendId: string) => {
+    setSelectedFriends((prev) =>
+      prev.includes(friendId) ? prev.filter((id) => id !== friendId) : [...prev, friendId]
+    );
+  };
+
+  const handleStartGroup = async () => {
+    if (!user || !groupTitle.trim() || selectedFriends.length === 0) return;
+    setIsCreating(true);
+    try {
+      const newConvId = crypto.randomUUID();
+      const fullTitle = `${groupTitle.trim()}::${selectedPreset}`;
+      
+      // 1. Create group conversation
+      const { error: createError } = await supabase
+        .from('conversations')
+        .insert({ id: newConvId, is_group: true, title: fullTitle });
+      if (createError) throw createError;
+
+      // 2. Add current user first (essential for RLS conversation memberships insertion)
+      const { error: selfMemberError } = await supabase
+        .from('conversation_members')
+        .insert({ conversation_id: newConvId, user_id: user.id });
+      if (selfMemberError) throw selfMemberError;
+
+      // 3. Add other members in batch insert
+      const membersToInsert = selectedFriends.map((friendId) => ({
+        conversation_id: newConvId,
+        user_id: friendId,
+      }));
+      const { error: membersError } = await supabase
+        .from('conversation_members')
+        .insert(membersToInsert);
+      if (membersError) throw membersError;
+
+      // 4. Send group system creation message
+      await supabase.from('messages').insert({
+        conversation_id: newConvId,
+        sender_id: user.id,
+        message_type: 'TEXT',
+        content: `📢 ${user.user_metadata?.display_name || user.user_metadata?.username || user.email?.split('@')[0] || 'Un utilisateur'} a créé le groupe "${groupTitle.trim()}"`,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      
+      setActiveConversationPreview({
+        title: groupTitle.trim() + '::' + selectedPreset,
+        avatarUrl: 'group',
+      });
+      setActiveConversationId(newConvId);
+      setIsInConversation(true);
+      setShowNewChatModal(false);
+      
+      // Reset states
+      setGroupTitle('');
+      setSelectedFriends([]);
+      setSelectedPreset('sunset');
+      setModalMode('chat');
+      toast('Groupe créé avec succès ! 🎉', 'success');
+    } catch (e) {
+      const parsedError = e instanceof Error ? e : new Error('Impossible de créer le groupe');
+      toast('Erreur : ' + parsedError.message, 'error');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const handleDeleteConversation = useCallback(async (convId: string) => {
     if (!user) return;
@@ -499,40 +597,209 @@ export default function ChatScreen() {
         )}
       </div>
 
-      {/* New Chat Modal */}
+      {/* New Chat / Group Modal */}
       {showNewChatModal && (
         <div className={`absolute inset-0 z-50 flex justify-center backdrop-blur-md ${t.isLight ? 'bg-[#f0f2f8]/75' : 'bg-black/70'} ${t.text}`}>
           <div className={`w-full max-w-[430px] h-full flex flex-col ${t.isLight ? 'bg-[#f0f2f8]/98' : 'bg-black/95'} border-x ${t.borderMuted}`}>
-          <div className={`flex items-center gap-3 px-4 pt-14 pb-4 border-b ${t.borderMuted}`}>
-            <button onClick={() => { setShowNewChatModal(false); setSearchQuery(''); }} className={`w-9 h-9 rounded-full flex items-center justify-center ${t.iconBtn}`}>
-              <X size={18} />
-            </button>
-            <h2 className="text-lg font-black flex-1">Nouveau chat</h2>
-          </div>
-          <div className="px-4 py-4">
-            <div className="relative">
-              <Search size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Rechercher un utilisateur..." autoFocus
-                className={`w-full border rounded-full h-11 pl-10 pr-4 text-sm focus:outline-none focus:border-snap-yellow/50 transition-all ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'}`}
-              />
+            
+            {/* Header */}
+            <div className={`flex items-center gap-3 px-4 pt-14 pb-4 border-b ${t.borderMuted}`}>
+              <button
+                onClick={() => {
+                  setShowNewChatModal(false);
+                  setSearchQuery('');
+                  setGroupTitle('');
+                  setSelectedFriends([]);
+                  setModalMode('chat');
+                }}
+                className={`w-9 h-9 rounded-full flex items-center justify-center ${t.iconBtn}`}
+              >
+                <X size={18} />
+              </button>
+              <h2 className="text-lg font-black flex-1">
+                {modalMode === 'chat' ? 'Nouveau chat' : 'Créer un groupe'}
+              </h2>
             </div>
-          </div>
-          <div className="flex-1 overflow-y-auto scroll-hide px-4 pb-8">
-            {isUsersLoading && <div className="flex justify-center pt-12"><Loader2 className={`animate-spin ${t.textMuted}`} size={28} /></div>}
-            {!isUsersLoading && filteredUsers.length === 0 && <div className={`text-center pt-12 text-sm ${t.textMuted}`}>Aucun utilisateur trouvé</div>}
-            {!isUsersLoading && filteredFriendUsers.length > 0 && (
-              <>
-                <p className={`text-xs font-bold uppercase tracking-wider mb-2 px-2 ${t.textMuted}`}>Amis</p>
-                {filteredFriendUsers.map((u) => <UserRow key={u.id} user={u} isFriend isCreating={isCreating} onSelect={() => handleStartChat(u)} />)}
-              </>
+
+            {/* Sliding tab switcher */}
+            <div className="px-4 py-3 flex justify-center border-b border-black/5 dark:border-white/5">
+              <div className={`flex p-1 rounded-full w-full max-w-[340px] border ${t.isLight ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
+                <button
+                  type="button"
+                  onClick={() => setModalMode('chat')}
+                  className={`flex-1 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all ${modalMode === 'chat' ? 'bg-snap-yellow text-black shadow-md scale-100' : `${t.textMuted} hover:text-current active:scale-95`}`}
+                >
+                  Nouveau Chat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalMode('group')}
+                  className={`flex-1 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all ${modalMode === 'group' ? 'bg-snap-yellow text-black shadow-md scale-100' : `${t.textMuted} hover:text-current active:scale-95`}`}
+                >
+                  Nouveau Groupe
+                </button>
+              </div>
+            </div>
+
+            {modalMode === 'group' && (
+              /* Group customization panel */
+              <div className="flex flex-col items-center gap-4 py-4 px-6 border-b border-black/5 dark:border-white/5">
+                <div className="relative group">
+                  <div className="absolute inset-0 rounded-full bg-snap-yellow/15 blur-lg scale-110" />
+                  <div
+                    className={`w-20 h-20 rounded-full flex items-center justify-center font-black text-white text-2xl tracking-wider shadow-[0_4px_20px_rgba(0,0,0,0.15)] ring-4 ring-offset-2 transition-all duration-300 ${t.isLight ? 'ring-black/5 ring-offset-[#f0f2f8]' : 'ring-white/5 ring-offset-black'}`}
+                    style={{
+                      background: selectedPreset === 'sunset' ? 'linear-gradient(to bottom right, #6366f1, #a855f7, #ec4899)' :
+                                  selectedPreset === 'emerald' ? 'linear-gradient(to bottom right, #34d399, #0d9488)' :
+                                  selectedPreset === 'cyan' ? 'linear-gradient(to bottom right, #22d3ee, #2563eb)' :
+                                  'linear-gradient(to bottom right, #facc15, #f97316, #ef4444)'
+                    }}
+                  >
+                    {groupTitle.trim().substring(0, 2).toUpperCase() || 'GP'}
+                  </div>
+                </div>
+
+                {/* Group name input */}
+                <input
+                  type="text"
+                  value={groupTitle}
+                  onChange={(e) => setGroupTitle(e.target.value)}
+                  placeholder="Nom du groupe..."
+                  maxLength={30}
+                  className={`w-full text-center border-b font-extrabold text-lg focus:outline-none focus:border-snap-yellow transition-colors py-1 bg-transparent ${t.isLight ? 'border-black/10' : 'border-white/10'} ${t.text}`}
+                />
+
+                {/* Gradient preset selectors */}
+                <div className="flex items-center gap-3 mt-1">
+                  {(['sunset', 'emerald', 'cyan', 'gold'] as const).map((preset) => (
+                    <button
+                      type="button"
+                      key={preset}
+                      onClick={() => setSelectedPreset(preset)}
+                      className={`w-8 h-8 rounded-full transition-all duration-300 relative ${selectedPreset === preset ? 'scale-110 ring-2 ring-snap-yellow ring-offset-2' : 'scale-90 hover:scale-100 opacity-70'}`}
+                      style={{
+                        background: preset === 'sunset' ? 'linear-gradient(to bottom right, #6366f1, #a855f7, #ec4899)' :
+                                    preset === 'emerald' ? 'linear-gradient(to bottom right, #34d399, #0d9488)' :
+                                    preset === 'cyan' ? 'linear-gradient(to bottom right, #22d3ee, #2563eb)' :
+                                    'linear-gradient(to bottom right, #facc15, #f97316, #ef4444)',
+                        '--tw-ring-offset-color': t.isLight ? '#f0f2f8' : '#000'
+                      } as React.CSSProperties}
+                    >
+                      {selectedPreset === preset && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Check size={12} className="text-white drop-shadow" strokeWidth={3} />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
-            {!isUsersLoading && filteredOtherUsers.length > 0 && (
-              <>
-                {filteredFriendUsers.length > 0 && <p className={`text-xs font-bold uppercase tracking-wider mb-2 mt-4 px-2 ${t.textMuted}`}>Autres utilisateurs</p>}
-                {filteredOtherUsers.map((u) => <UserRow key={u.id} user={u} isFriend={false} isCreating={isCreating} onSelect={() => handleStartChat(u)} />)}
-              </>
-            )}
-          </div>
+
+            {/* Search bar */}
+            <div className="px-4 py-3">
+              <div className="relative">
+                <Search size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={modalMode === 'chat' ? "Rechercher un utilisateur..." : "Filtrer tes amis..."}
+                  autoFocus={modalMode === 'chat'}
+                  className={`w-full border rounded-full h-11 pl-10 pr-4 text-sm focus:outline-none focus:border-snap-yellow/50 transition-all bg-transparent ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'}`}
+                />
+              </div>
+            </div>
+
+            {/* Members / Users List */}
+            <div className="flex-1 overflow-y-auto scroll-hide px-4 pb-8 flex flex-col gap-1.5">
+              {isUsersLoading && <div className="flex justify-center pt-12"><Loader2 className={`animate-spin ${t.textMuted}`} size={28} /></div>}
+              
+              {!isUsersLoading && modalMode === 'chat' && (
+                <>
+                  {filteredUsers.length === 0 && <div className={`text-center pt-12 text-sm ${t.textMuted}`}>Aucun utilisateur trouvé</div>}
+                  {filteredFriendUsers.length > 0 && (
+                    <>
+                      <p className={`text-xs font-bold uppercase tracking-wider mb-1 mt-1 px-2 ${t.textMuted}`}>Amis</p>
+                      {filteredFriendUsers.map((u) => <UserRow key={u.id} user={u} isFriend isCreating={isCreating} onSelect={() => handleStartChat(u)} />)}
+                    </>
+                  )}
+                  {filteredOtherUsers.length > 0 && (
+                    <>
+                      <p className={`text-xs font-bold uppercase tracking-wider mb-1 mt-3 px-2 ${t.textMuted}`}>Autres utilisateurs</p>
+                      {filteredOtherUsers.map((u) => <UserRow key={u.id} user={u} isFriend={false} isCreating={isCreating} onSelect={() => handleStartChat(u)} />)}
+                    </>
+                  )}
+                </>
+              )}
+
+              {!isUsersLoading && modalMode === 'group' && (
+                <>
+                  {/* For group creation, we show a multi-select list of friends */}
+                  {filteredFriendUsers.length === 0 ? (
+                    <div className={`text-center pt-12 text-sm ${t.textMuted}`}>Aucun ami trouvé. Ajoute des amis pour créer un groupe !</div>
+                  ) : (
+                    <>
+                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 px-2 ${t.textMuted}`}>Choisis les membres de ton groupe ({selectedFriends.length} sélectionné{selectedFriends.length > 1 ? 's' : ''})</p>
+                      <div className="flex flex-col gap-1">
+                        {filteredFriendUsers.map((u) => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => toggleFriendSelection(u.id)}
+                            className={`w-full flex items-center justify-between px-3 py-3 rounded-2xl transition-all text-left ${t.surfaceHover} border border-transparent active:scale-[0.99]`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 rounded-full overflow-hidden shrink-0">
+                                {u.avatar_url ? (
+                                  <img src={u.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
+                                    {u.username?.substring(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className={`font-bold text-[14.5px] truncate ${t.text}`}>{u.display_name || u.username}</p>
+                                <p className={`text-xs ${t.textMuted}`}>@{u.username}</p>
+                              </div>
+                            </div>
+                            
+                            {/* Premium checkbox circle */}
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedFriends.includes(u.id) ? 'bg-snap-yellow border-snap-yellow scale-105 shadow-[0_2px_8px_rgba(255,252,0,0.4)]' : `${t.isLight ? 'border-black/15' : 'border-white/15'}`}`}>
+                              {selectedFriends.includes(u.id) && (
+                                <Check size={11} className="text-black" strokeWidth={3.5} />
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Create group CTA Button */}
+                  {filteredFriendUsers.length > 0 && (
+                    <div className="pt-4 mt-auto">
+                      <button
+                        type="button"
+                        disabled={isCreating || !groupTitle.trim() || selectedFriends.length === 0}
+                        onClick={handleStartGroup}
+                        className={`w-full py-4 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 rounded-2xl transition-all ${(!groupTitle.trim() || selectedFriends.length === 0) ? `bg-black/10 dark:bg-white/10 ${t.textMuted} cursor-not-allowed` : 'bg-snap-yellow text-black hover:scale-[1.02] active:scale-98 shadow-[0_4px_25px_rgba(255,252,0,0.35)]'}`}
+                      >
+                        {isCreating ? (
+                          <Loader2 className="animate-spin text-black" size={18} />
+                        ) : (
+                          <>
+                            <Users size={16} />
+                            Créer le groupe ({selectedFriends.length})
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

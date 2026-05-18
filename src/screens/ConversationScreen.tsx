@@ -382,7 +382,25 @@ export default function ConversationScreen({
     sendMessageMutation.mutate({ content: trimmedMessage, meta: { clientMessageId: crypto.randomUUID() } });
   };
 
-  const initials = title.substring(0, 2).toUpperCase();
+  const getGroupGradient = (preset: string) => {
+    switch (preset) {
+      case 'emerald':
+        return 'from-emerald-400 to-teal-600 text-white';
+      case 'cyan':
+        return 'from-cyan-400 to-blue-600 text-white';
+      case 'gold':
+        return 'from-yellow-400 via-orange-500 to-red-500 text-white';
+      case 'sunset':
+      default:
+        return 'from-indigo-500 via-purple-500 to-pink-500 text-white';
+    }
+  };
+
+  const isGroup = title.includes('::') || (avatarUrl === 'group');
+  const titleParts = title.split('::');
+  const displayTitle = titleParts[0];
+  const avatarPreset = titleParts[1] || 'sunset';
+  const initials = displayTitle.substring(0, 2).toUpperCase();
 
   return (
     <div className={`relative w-full h-full z-50 flex flex-col ${t.bg} ${t.text}`}>
@@ -393,7 +411,11 @@ export default function ConversationScreen({
         </button>
 
         <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 shadow-sm border border-black/5 dark:border-white/5">
-          {avatarUrl ? (
+          {isGroup ? (
+            <div className={`w-full h-full bg-gradient-to-br ${getGroupGradient(avatarPreset)} flex items-center justify-center font-black text-white text-xs tracking-wider`}>
+              {initials}
+            </div>
+          ) : avatarUrl ? (
             <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-xs">
@@ -403,7 +425,7 @@ export default function ConversationScreen({
         </div>
 
         <div className="flex-1 min-w-0">
-          <h2 className={`font-black ${t.text} text-[15.5px] tracking-tight leading-tight truncate`}>{title}</h2>
+          <h2 className={`font-black ${t.text} text-[15.5px] tracking-tight leading-tight truncate`}>{displayTitle}</h2>
           <p className={`${t.textMuted} text-[11px] font-medium tracking-wide flex items-center gap-1`}>
             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" /> Messages éphémères
           </p>
@@ -498,6 +520,11 @@ export default function ConversationScreen({
               onTouchCancel={handlePressEnd}
               ref={(el) => { if (el && !isMe && msg.message_type === 'TEXT') markAsOpened(msg); }}
             >
+              {!isMe && isGroup && msg.users?.username && (
+                <span className={`text-[10px] font-black uppercase tracking-wider mb-1.5 ml-2.5 ${t.textMuted}`}>
+                  {msg.users.username}
+                </span>
+              )}
               <div className={`
                 px-4 py-2.5 rounded-[18px] select-none shadow-sm transition-all duration-300
                 ${(msg.message_type === 'TEXT' || isMe || isSaved) ? 'relative' : ''}
