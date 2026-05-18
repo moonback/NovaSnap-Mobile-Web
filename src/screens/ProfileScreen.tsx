@@ -16,6 +16,7 @@ import {
   Check,
   BookOpen,
   ChevronLeft,
+  ChevronRight,
   User,
   Mail,
   Calendar,
@@ -345,28 +346,34 @@ export default function ProfileScreen() {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className={`absolute inset-0 z-50 flex flex-col overflow-y-auto scroll-hide ${t.bg} ${t.text}`}
+      className={`absolute inset-0 z-50 flex flex-col overflow-y-auto scroll-hide pb-6 ${t.bg} ${t.text}`}
     >
+      {/* Premium background neon glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[350px] h-[350px] bg-snap-yellow/5 dark:bg-snap-yellow/10 rounded-full blur-[90px] pointer-events-none z-0" />
+      
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-4">
+      <div className="flex items-center justify-between px-5 pt-5 pb-3 z-10 shrink-0">
         <button
           onClick={() => setShowProfile(false)}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}
+          className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-90 border ${t.iconBtn} ${t.borderMuted}`}
         >
           <X size={18} />
         </button>
-        <h1 className="text-lg font-black">Profil</h1>
+        <div className="text-center">
+          <h1 className="text-sm font-black tracking-widest uppercase text-snap-yellow opacity-90">Mon Profil</h1>
+          <p className={`text-[10px] ${t.textMuted} font-bold mt-0.5`}>NovaSnap Premium</p>
+        </div>
         <button
           onClick={() => setShowSettings(true)}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors active:scale-95 ${t.iconBtn}`}
+          className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-90 border ${t.iconBtn} ${t.borderMuted}`}
         >
-          <Settings size={17} />
+          <Settings size={18} />
         </button>
       </div>
 
-      <div className="flex-1 px-5 flex flex-col items-center pb-10">
-        {/* Avatar */}
-        <div className="relative mt-4 mb-6" onClick={() => fileInputRef.current?.click()}>
+      <div className="flex-1 px-5 flex flex-col items-center z-10">
+        {/* Avatar with luxury glowing rings */}
+        <div className="relative mt-5 mb-5 cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
           <input
             type="file"
             ref={fileInputRef}
@@ -374,102 +381,153 @@ export default function ProfileScreen() {
             accept="image/*"
             onChange={handleAvatarUpload}
           />
-          <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-snap-yellow ring-offset-4 cursor-pointer"
+          
+          {/* Neon outer glow */}
+          <div className="absolute inset-0 rounded-full bg-snap-yellow/20 blur-md opacity-75 group-hover:scale-105 transition-transform" />
+          
+          <div className="w-[120px] h-[120px] rounded-full overflow-hidden ring-[4px] ring-snap-yellow ring-offset-[4px] cursor-pointer shadow-[0_0_30px_rgba(255,252,0,0.15)] relative transition-all duration-300 group-hover:scale-105"
             style={{ '--tw-ring-offset-color': t.isLight ? '#f0f2f8' : '#000' } as React.CSSProperties}>
             {isUploading ? (
-              <div className={`w-full h-full flex items-center justify-center ${t.isLight ? 'bg-black/8' : 'bg-zinc-900'}`}>
-                <Loader2 size={28} className="animate-spin text-snap-yellow" />
+              <div className={`w-full h-full flex items-center justify-center ${t.isLight ? 'bg-black/8' : 'bg-zinc-950'}`}>
+                <Loader2 size={32} className="animate-spin text-snap-yellow" />
               </div>
             ) : profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
             ) : (
-              <div className={`w-full h-full flex items-center justify-center ${t.isLight ? 'bg-black/8' : 'bg-zinc-900'}`}>
-                <Ghost size={40} className={t.textFaint} />
+              <div className={`w-full h-full flex items-center justify-center ${t.isLight ? 'bg-black/8' : 'bg-zinc-950'}`}>
+                <Ghost size={46} className={t.textFaint} />
               </div>
             )}
           </div>
-          <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-snap-yellow rounded-full flex items-center justify-center border-2 shadow-snap-sm cursor-pointer hover:scale-110 transition-transform"
-            style={{ borderColor: t.isLight ? '#f0f2f8' : '#000' }}>
-            <Camera size={15} className="text-black" />
-          </div>
+          
+          {/* Camera trigger badge */}
+          <motion.div 
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="absolute bottom-0 right-0 w-10 h-10 bg-snap-yellow rounded-full flex items-center justify-center border-[3px] shadow-[0_4px_16px_rgba(255,252,0,0.4)] cursor-pointer hover:bg-yellow-400 transition-colors"
+            style={{ borderColor: t.isLight ? '#f0f2f8' : '#000' }}
+          >
+            <Camera size={16} className="text-black" />
+          </motion.div>
         </div>
 
         {/* Name & username */}
-        <div className="text-center mb-3">
+        <div className="text-center mb-4">
           {isLoading ? (
             <>
-              <div className={`h-7 w-36 rounded-lg animate-pulse mx-auto mb-2 ${t.skeleton}`} />
-              <div className={`h-4 w-24 rounded-lg animate-pulse mx-auto ${t.skeleton}`} />
+              <div className={`h-8 w-40 rounded-xl animate-pulse mx-auto mb-2.5 ${t.skeleton}`} />
+              <div className={`h-5 w-28 rounded-full animate-pulse mx-auto ${t.skeleton}`} />
             </>
           ) : (
             <>
-              <h2 className="text-2xl font-black tracking-tight">
+              <h2 className="text-2xl font-black tracking-tight drop-shadow-sm">
                 {profile?.display_name || 'Nova User'}
               </h2>
-              <p className={`text-sm mt-1 ${t.textMuted}`}>@{profile?.username || 'user'}</p>
+              <div className="mt-1.5 inline-block">
+                <span className="text-[11px] font-black tracking-wider text-black bg-snap-yellow px-3 py-1 rounded-full shadow-[0_2px_10px_rgba(255,252,0,0.2)] border border-yellow-400 uppercase">
+                  @{profile?.username || 'user'}
+                </span>
+              </div>
             </>
           )}
         </div>
 
         {/* Bio */}
-        {profile?.bio && (
-          <p className={`text-sm text-center mb-5 max-w-xs leading-relaxed ${t.textSubtle}`}>
-            {profile.bio}
+        {profile?.bio ? (
+          <p className={`text-sm text-center mb-6 max-w-xs leading-relaxed font-medium bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 px-4 py-2.5 rounded-2xl ${t.textSubtle}`}>
+            “ {profile.bio} ”
+          </p>
+        ) : (
+          <p className={`text-xs text-center mb-6 max-w-xs italic opacity-60 ${t.textFaint}`}>
+            Aucune biographie rédigée.
           </p>
         )}
 
-        {/* Stats */}
-        <div className="w-full grid grid-cols-4 gap-2 mb-6">
-          <div className={`rounded-2xl py-4 flex flex-col items-center gap-1 border ${t.surface} ${t.border}`}>
-            <span className="text-xl font-black text-snap-yellow">
-              {isLoading ? '—' : formatScore(profile?.snap_score ?? null)}
-            </span>
-            <span className={`text-[10px] uppercase tracking-wider font-bold ${t.textMuted}`}>Score</span>
+        {/* Premium Dashboard Grid (2x2 Stats Widgets) */}
+        <div className="w-full grid grid-cols-2 gap-3 mb-6">
+          {/* Card 1: Score */}
+          <div className={`relative overflow-hidden rounded-[24px] p-4 flex flex-col justify-between border ${t.surface} ${t.border}`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Score</span>
+              <Award size={16} className="text-snap-yellow animate-pulse" />
+            </div>
+            <div>
+              <p className="text-2xl font-black tracking-tight text-snap-yellow drop-shadow-sm">
+                {isLoading ? '—' : formatScore(profile?.snap_score ?? null)}
+              </p>
+              <p className={`text-[9px] font-bold ${t.textFaint} mt-0.5`}>Nova Score actif</p>
+            </div>
           </div>
-          <div className={`rounded-2xl py-4 flex flex-col items-center gap-1 border ${t.surface} ${t.border}`}>
-            <span className={`text-xl font-black ${t.text}`}>
-              {isLoading ? '—' : storiesCount}
-            </span>
-            <span className={`text-[10px] uppercase tracking-wider font-bold ${t.textMuted}`}>Stories</span>
+
+          {/* Card 2: Stories */}
+          <div className={`relative overflow-hidden rounded-[24px] p-4 flex flex-col justify-between border ${t.surface} ${t.border}`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Stories</span>
+              <Ghost size={16} className="text-purple-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-black tracking-tight text-purple-400 drop-shadow-sm">
+                {isLoading ? '—' : storiesCount}
+              </p>
+              <p className={`text-[9px] font-bold ${t.textFaint} mt-0.5`}>Stories actives</p>
+            </div>
           </div>
-          <button
+
+          {/* Card 3: Souvenirs */}
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => { setShowProfile(false); setShowMemories(true); }}
-            className={`rounded-2xl py-4 flex flex-col items-center gap-1 border transition-colors active:scale-95 ${t.surface} ${t.border} ${t.surfaceHover}`}
+            className={`relative overflow-hidden rounded-[24px] p-4 flex flex-col justify-between border transition-all cursor-pointer ${t.surface} ${t.border} ${t.surfaceHover}`}
           >
-            <span className={`text-xl font-black ${t.text}`}>
-              {isLoading ? '—' : memoriesCount}
-            </span>
-            <span className={`text-[10px] uppercase tracking-wider font-bold ${t.textMuted}`}>Souvenirs</span>
-          </button>
-          <button
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Souvenirs</span>
+              <BookOpen size={16} className="text-cyan-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-black tracking-tight text-cyan-400 drop-shadow-sm">
+                {isLoading ? '—' : memoriesCount}
+              </p>
+              <p className={`text-[9px] font-bold text-cyan-500/80 mt-0.5`}>Voir la galerie →</p>
+            </div>
+          </motion.div>
+
+          {/* Card 4: Amis */}
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => { setShowProfile(false); setShowFriends(true); }}
-            className={`relative rounded-2xl py-4 flex flex-col items-center gap-1 border transition-colors active:scale-95 ${t.surface} ${t.border} ${t.surfaceHover}`}
+            className={`relative overflow-hidden rounded-[24px] p-4 flex flex-col justify-between border transition-all cursor-pointer ${t.surface} ${t.border} ${t.surfaceHover}`}
           >
-            <span className={`text-xl font-black ${t.text}`}>
-              {isLoading ? '—' : friendCount}
-            </span>
-            <span className={`text-[10px] uppercase tracking-wider font-bold ${t.textMuted}`}>Amis</span>
-            {pendingCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center border-2"
-                style={{ borderColor: t.isLight ? '#f0f2f8' : '#000' }}>
-                {pendingCount > 9 ? '9+' : pendingCount}
-              </span>
-            )}
-          </button>
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Amis</span>
+              <Users size={16} className="text-emerald-400" />
+            </div>
+            <div>
+              <div className="flex items-baseline gap-2">
+                <p className="text-2xl font-black tracking-tight text-emerald-400 drop-shadow-sm">
+                  {isLoading ? '—' : friendCount}
+                </p>
+                {pendingCount > 0 && (
+                  <span className="text-[10px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full animate-bounce">
+                    +{pendingCount}
+                  </span>
+                )}
+              </div>
+              <p className={`text-[9px] font-bold text-emerald-500/80 mt-0.5`}>Gérer les amis →</p>
+            </div>
+          </motion.div>
         </div>
 
-        {/* Snap score highlight */}
-        <div className="w-full bg-snap-yellow/8 border border-snap-yellow/20 rounded-2xl p-4 flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-snap-yellow/15 flex items-center justify-center">
-            <Award size={20} className="text-snap-yellow" />
+        {/* Gamified Level Card */}
+        <div className="w-full bg-gradient-to-r from-snap-yellow/15 via-yellow-500/5 to-transparent border border-snap-yellow/20 rounded-[24px] p-4 flex items-center gap-3.5 mb-6 shadow-md">
+          <div className="w-11 h-11 rounded-2xl bg-snap-yellow/20 flex items-center justify-center shadow-inner shrink-0">
+            <Award size={22} className="text-snap-yellow" />
           </div>
-          <div className="flex-1">
-            <p className={`font-bold text-sm ${t.text}`}>Nova Score</p>
-            <p className={`text-xs ${t.textMuted}`}>Continue à snapper pour augmenter ton score</p>
+          <div className="flex-1 min-w-0">
+            <p className={`font-black text-sm tracking-tight ${t.text}`}>Rang Novice · Niveau 1 🌟</p>
+            <p className={`text-[11px] leading-relaxed mt-0.5 ${t.textMuted} truncate`}>Envoie encore {Math.max(0, 50 - (profile?.snap_score ?? 0))} Snaps pour passer Niveau 2 !</p>
           </div>
-          <span className="text-snap-yellow font-black text-lg">
-            {formatScore(profile?.snap_score ?? null)}
-          </span>
         </div>
 
         {/* Inline edit form */}
@@ -480,12 +538,13 @@ export default function ProfileScreen() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="w-full overflow-hidden mb-4"
+              className="w-full overflow-hidden mb-6"
             >
-              <div className={`border rounded-2xl p-4 space-y-3 ${t.surface} ${t.border}`}>
-                <p className={`font-bold text-sm mb-1 ${t.text}`}>Modifier le profil</p>
-                <div>
-                  <label className={`text-xs font-bold uppercase tracking-wider block mb-1.5 ${t.textMuted}`}>
+              <div className={`border rounded-[24px] p-4 space-y-4 shadow-xl ${t.surface} ${t.border}`}>
+                <p className={`font-black text-sm ${t.text}`}>Modifier mes infos</p>
+                
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-black uppercase tracking-wider block ${t.textMuted}`}>
                     Nom affiché
                   </label>
                   <input
@@ -494,12 +553,13 @@ export default function ProfileScreen() {
                     onChange={(e) => setEditDisplayName(e.target.value)}
                     placeholder="Ton nom..."
                     maxLength={50}
-                    className={`w-full border rounded-xl h-11 px-4 placeholder-black/30 focus:outline-none focus:border-snap-yellow/50 transition-all text-sm ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'}`}
+                    className={`w-full border rounded-xl h-11 px-4 text-sm focus:outline-none focus:border-snap-yellow/50 transition-all ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'}`}
                   />
                 </div>
-                <div>
-                  <label className={`text-xs font-bold uppercase tracking-wider block mb-1.5 ${t.textMuted}`}>
-                    Bio
+                
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-black uppercase tracking-wider block ${t.textMuted}`}>
+                    Ma Biographie
                   </label>
                   <textarea
                     value={editBio}
@@ -507,26 +567,27 @@ export default function ProfileScreen() {
                     placeholder="Parle de toi en quelques mots..."
                     maxLength={140}
                     rows={3}
-                    className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:border-snap-yellow/50 transition-all text-sm resize-none ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'}`}
+                    className={`w-full border rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-snap-yellow/50 transition-all ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'}`}
                   />
-                  <p className={`text-xs text-right mt-1 ${t.textFaint}`}>{editBio.length}/140</p>
+                  <p className={`text-[10px] text-right font-bold ${t.textFaint}`}>{editBio.length} / 140</p>
                 </div>
-                <div className="flex gap-2 pt-1">
+                
+                <div className="flex gap-2.5 pt-1">
                   <button
                     onClick={() => setShowEditForm(false)}
-                    className={`flex-1 py-2.5 font-bold text-sm rounded-xl active:scale-95 transition-all ${t.surface} ${t.textMuted}`}
+                    className={`flex-1 py-2.5 font-bold text-xs rounded-xl active:scale-95 transition-all ${t.surface} ${t.textMuted}`}
                   >
                     Annuler
                   </button>
                   <button
                     onClick={handleSaveProfile}
                     disabled={isSaving}
-                    className="flex-1 py-2.5 bg-snap-yellow text-black font-bold text-sm rounded-xl active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                    className="flex-1 py-2.5 bg-snap-yellow text-black font-black text-xs rounded-xl active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(255,252,0,0.2)]"
                   >
                     {isSaving ? (
-                      <Loader2 size={15} className="animate-spin" />
+                      <Loader2 size={13} className="animate-spin" />
                     ) : (
-                      <Check size={15} />
+                      <Check size={13} strokeWidth={3} />
                     )}
                     Enregistrer
                   </button>
@@ -536,45 +597,75 @@ export default function ProfileScreen() {
           )}
         </AnimatePresence>
 
-        {/* Actions */}
-        <div className="w-full space-y-3 mt-auto">
+        {/* Grouped Action Card Box */}
+        <div className={`w-full border rounded-[28px] overflow-hidden backdrop-blur-xl divide-y shadow-lg mt-auto ${t.surface} ${t.border} ${t.divider}`}>
+          {/* Action 1: Souvenirs */}
           <button
             onClick={() => { setShowProfile(false); setShowMemories(true); }}
-            className={`w-full border rounded-2xl py-4 font-bold text-sm flex items-center justify-center gap-2 transition-colors active:scale-[0.98] ${t.surface} ${t.border} ${t.surfaceHover} ${t.text}`}
+            className={`w-full flex items-center justify-between py-3.5 px-4 text-left transition-colors ${t.surfaceHover}`}
           >
-            <BookOpen size={16} />
-            Mes Souvenirs
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-cyan-400/10 flex items-center justify-center">
+                <BookOpen size={16} className="text-cyan-400" />
+              </div>
+              <div>
+                <p className={`text-[13px] font-bold ${t.text}`}>Mes Souvenirs</p>
+                <p className={`text-[10px] ${t.textMuted}`}>Accède à tes snaps sauvegardés</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className={t.textFaint} />
           </button>
 
+          {/* Action 2: Amis */}
           <button
             onClick={() => { setShowProfile(false); setShowFriends(true); }}
-            className={`relative w-full border rounded-2xl py-4 font-bold text-sm flex items-center justify-center gap-2 transition-colors active:scale-[0.98] ${t.surface} ${t.border} ${t.surfaceHover} ${t.text}`}
+            className={`w-full flex items-center justify-between py-3.5 px-4 text-left transition-colors relative ${t.surfaceHover}`}
           >
-            <Users size={16} />
-            Mes amis
-            {pendingCount > 0 && (
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-red-500 text-white text-xs font-black flex items-center justify-center">
-                {pendingCount > 9 ? '9+' : pendingCount}
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-400/10 flex items-center justify-center">
+                <Users size={16} className="text-emerald-400" />
+              </div>
+              <div>
+                <p className={`text-[13px] font-bold ${t.text}`}>Mes amis</p>
+                <p className={`text-[10px] ${t.textMuted}`}>Gère tes contacts et tes demandes</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {pendingCount > 0 && (
+                <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-md">
+                  {pendingCount}
+                </span>
+              )}
+              <ChevronRight size={16} className={t.textFaint} />
+            </div>
           </button>
 
+          {/* Action 3: Modifier le profil */}
           <button
             onClick={handleOpenEdit}
-            className={`w-full border rounded-2xl py-4 font-bold text-sm flex items-center justify-center gap-2 transition-colors active:scale-[0.98] ${t.surface} ${t.border} ${t.surfaceHover} ${t.text}`}
+            className={`w-full flex items-center justify-between py-3.5 px-4 text-left transition-colors ${t.surfaceHover}`}
           >
-            <Edit2 size={16} />
-            Modifier le profil
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="w-full bg-red-500/8 border border-red-500/15 rounded-2xl py-4 font-bold text-sm text-red-400 flex items-center justify-center gap-2 hover:bg-red-500/12 transition-colors active:scale-[0.98]"
-          >
-            <LogOut size={16} />
-            Se déconnecter
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-purple-400/10 flex items-center justify-center">
+                <Edit2 size={16} className="text-purple-400" />
+              </div>
+              <div>
+                <p className={`text-[13px] font-bold ${t.text}`}>Modifier le profil</p>
+                <p className={`text-[10px] ${t.textMuted}`}>Mets à jour ton nom et ta bio</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className={t.textFaint} />
           </button>
         </div>
+
+        {/* Elegant Log Out Button */}
+        <button
+          onClick={handleLogout}
+          className="w-full bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 rounded-[22px] py-4 font-bold text-xs text-red-400 flex items-center justify-center gap-2 transition-all active:scale-[0.98] mt-4 shadow-sm mb-4"
+        >
+          <LogOut size={14} />
+          Se déconnecter
+        </button>
       </div>
 
       {/* ── Settings Drawer ───────────────────────────────────── */}
