@@ -50,16 +50,24 @@ Sur desktop, l'app s'affiche dans un **mockup iPhone** centré (430×932px) avec
 - Envoi direct vers une conversation ou publication en Story
 
 ### 💬 Chat & Messagerie
-- Liste des conversations avec aperçu du dernier message et horodatage
-- **Messages éphémères** : suppression automatique après lecture par le destinataire
-- **Sauvegarde manuelle** ("Keep in Chat") par appui long sur un message
-- **Envoi optimiste** : le message apparaît instantanément avant confirmation serveur
-- **Typing indicator** temps réel via Supabase Broadcast (indicateur animé 3 points)
-- **Picker d'emojis** intégré (32 emojis)
-- Envoi de médias (images/vidéos) directement depuis la caméra vers un chat
-- Composant `EphemeralMedia` pour l'affichage des médias éphémères
-- Skeleton loaders pendant le chargement
-- Support thème clair/sombre
+- Liste des conversations avec aperçu du dernier message, statut de lecture et horodatage.
+- **Messages éphémères fiables** : disparition automatique instantanée dès que le message a été lu par tous les membres et que l'utilisateur quitte le chat.
+- **Sauvegarde manuelle** ("Keep in Chat") pour préserver des messages spécifiques.
+- **Réactions Emoji Premium** : appui long sur un message pour afficher une barre de réactions rapides (❤️, 😂, 😮, 😢, 🙏, 🔥) et un menu contextuel complet (copie, sauvegarde, suppression).
+- **Indicateur de lecture précis ("Seen By")** : affichage transparent de la liste en direct des membres ayant vu chaque message sous le bubble.
+- **Mentions `@username` dans les groupes** : suggestions intelligentes avec autocomplétion lors de la saisie de `@`, avec surbrillance dynamique des pseudos (cyan pour les autres membres, jaune pulsé pour soi-même).
+- **Gestion de Groupe & Rôles d'Admin** :
+  - Création de groupe avec titre, membres et avatar coloré personnalisé.
+  - Attribution du rôle `ADMIN` au créateur et `MEMBER` aux autres.
+  - Actions d'Admin en direct (promouvoir/rétrograder un membre, exclure du groupe).
+  - Verrouillage de la modification de l'identité du groupe pour les non-admins.
+  - Limite stricte de **100 membres** par groupe (max 99 amis sélectionnés + le créateur).
+- **Envoi optimiste** : le message apparaît instantanément avant confirmation serveur.
+- **Typing indicator** temps réel via Supabase Broadcast (indicateur animé 3 points).
+- **Picker d'emojis** intégré (32 emojis).
+- Envoi de médias (images/vidéos) directement depuis la caméra vers un chat.
+- Composant `EphemeralMedia` pour l'affichage des médias éphémères.
+- Support thème clair/sombre.
 
 ### 🌍 Snap Map
 - Carte interactive **Leaflet** chargée dynamiquement (CDN, compatible Vite/React 19)
@@ -113,9 +121,10 @@ Sur desktop, l'app s'affiche dans un **mockup iPhone** centré (430×932px) avec
 - Badge rouge sur l'onglet "Demandes" avec compteur
 
 ### 👤 Profil & Paramètres
-- Avatar uploadable (Supabase Storage)
-- Édition du display name et de la bio (inline)
-- Statistiques : Nova Score, Stories actives, Souvenirs, Amis
+- **Design de profil ultra-premium** : apparence repensée avec flous directionnels, contours néons, effets de verre trempé, et dégradés élégants.
+- Avatar uploadable (Supabase Storage) avec recadrage et compression automatique.
+- Édition du display name et de la bio en direct (limite stricte de 140 caractères).
+- Statistiques immersives sous forme de cartes d'impact interactives : Nova Score, Stories actives, Souvenirs sauvegardés, Amis.
 - **Panneau Réglages** complet (drawer slide-in) :
   - **Thème** dark/light avec toggle persisté (localStorage)
   - **Sécurité** :
@@ -147,14 +156,16 @@ Sur desktop, l'app s'affiche dans un **mockup iPhone** centré (430×932px) avec
 - `OnlineIndicator` et `AvatarOnlineBadge` réutilisables
 
 ### 🎨 UI & Expérience
-- **Thème dark/light** global avec persistance localStorage
-- **Mode Desktop** : mockup iPhone 430×932px, Dynamic Island factice, fond néon ambiant
-- Navigation swipeable (drag physique) entre les 4 vues principales
-- Splash screen animé au démarrage
-- Modal de demande de localisation au premier lancement
-- `ToastProvider` global (success, error, info)
-- Composants `Skeleton`, `OnlineIndicator`, `NotificationBell`
-- Création automatique du profil à la première connexion (avec avatar DiceBear)
+- **Thème dark/light** global avec persistance localStorage et couleurs HSL harmonieuses.
+- **Mode Desktop Innovant** :
+  - Mockup iPhone 430×932px ultra-réaliste avec Dynamic Island interactive et fond néon réactif.
+  - **Affichage déporté du Profil** : sur grand écran (desktop), l'édition du profil apparaît de manière fluide en dehors du téléphone (sur le panneau latéral droit) avec des transitions floutées et une gestion de l'état partagé en direct.
+- Navigation swipeable fluide (drag physique en spring) entre les 4 vues principales de l'application.
+- Splash screen animé au démarrage avec fondu dynamique.
+- Modal de demande de localisation au premier lancement.
+- `ToastProvider` global (success, error, warning, info).
+- Composants réutilisables haut de gamme : `Skeleton`, `OnlineIndicator`, `NotificationBell`.
+- Création automatique du profil à la première connexion (avec avatar DiceBear).
 
 ---
 
@@ -317,8 +328,10 @@ novasnap/
 | Mode Boomerang | ✅ Complet |
 | SnapEditor (texte, dessin, stickers, crop, rotation) | ✅ Complet |
 | Aplatissement canvas (flattening) | ✅ Complet |
-| Chat temps réel + éphémère | ✅ Complet |
-| Typing indicator | ✅ Complet |
+| Chat temps réel + éphémère fiables | ✅ Complet |
+| Typing indicator + Mentions @username | ✅ Complet |
+| Réactions emoji + Menu contextuel | ✅ Complet |
+| Groupes de chat (Rôles & Limite 100) | ✅ Complet |
 | Snap Map Leaflet + GPS | ✅ Complet |
 | Mode Fantôme | ✅ Complet |
 | Heatmap + stories géolocalisées | ✅ Complet |
@@ -328,8 +341,8 @@ novasnap/
 | Statut en ligne + heartbeat | ✅ Complet |
 | Notifications push PWA (VAPID) | ✅ Complet |
 | Thème dark/light | ✅ Complet |
-| Mode Desktop (mockup iPhone) | ✅ Complet |
-| Profil + Réglages complets | ✅ Complet |
+| Mode Desktop (iPhone + profil déporté) | ✅ Complet |
+| Profil premium + Réglages | ✅ Complet |
 | Gemini AI Orb (vocal) | 🔄 En cours |
 | LiveKit (appels audio/vidéo) | 🔄 En cours |
 | Dual Camera (avant + arrière simultané) | 📋 Planifié |
