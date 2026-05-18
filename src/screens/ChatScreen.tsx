@@ -1,14 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useConversations } from '../hooks/useConversations';
 import { useFriends } from '../hooks/useFriends';
-import { Loader2, User, X, Search, Edit3, ChevronRight, MessageCircle as MessageCircleIcon2 } from 'lucide-react';
+import { Loader2, User, X, Search, Edit3, ChevronRight, Trash2 } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import ConversationScreen from './ConversationScreen';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
 import { useTheme } from '../hooks/useTheme';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import type { AppUserProfile, ConversationRow } from '../lib/types';
 
 function timeAgo(dateStr: string): string {
@@ -21,6 +22,137 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hrs / 24)}j`;
 }
 
+// ── Swipeable conversation row ────────────────────────────────
+const SWIPE_THRESHOLD = -72; // px to reveal delete action
+const DELETE_THRESHOLD = -200; // px to auto-confirm delete
+
+interface SwipeableConvRowProps {
+  conv: NonNullable<ConversationRow['conversations']>;
+  userId: string | undefined;
+  t: ReturnType<typeof useTheme>;
+  onOpen: () => void;
+  onDelete: (convId: string) => Promise<void>;
+}
+
+const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, onOpen, onDelete }) => {
+  const x = useMotionValue(0);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Delete button opacity: appears as soon as we swipe left
+  const deleteOpacity = useTransform(x, [-80, -40], [1, 0]);
+  // Scale the trash icon slightly as we pull further
+  const deleteScale = useTransform(x, [-200, -72], [1.3, 1]);
+  // Background color shifts to red when past delete threshold
+  const bgColor = useTransform(x, [-200, -72, 0], ['#ef4444', '#dc2626', '#dc2626']);
+
+  const snapBack = useCallback(() => {
+    animate(x, 0, { type: 'spring', stiffness: 400, damping: 30 });
+  }, [x]);
+
+  const confirmDelete = useCallback(async () => {
+    setIsDeleting(true);
+    // Slide fully off screen then delete
+    await animate(x, -500, { duration: 0.25, ease: 'easeIn' });
+    await onDelete(conv.id);
+  }, [conv.id, onDelete, x]);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (isDeleting) return;
+    isDragging.current = false;
+    startX.current = e.clientX;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (isDeleting) return;
+    const delta = e.clientX - startX.current;
+    // Only allow left swipe
+    if (delta > 0) { x.set(0); return; }
+    isDragging.current = Math.abs(delta) > 6;
+    x.set(Math.max(delta, -240));
+  };
+
+  const handlePointerUp = async () => {
+    if (isDeleting) return;
+    const current = x.get();
+    if (current <= DELETE_THRESHOLD) {
+      await confirmDelete();
+    } else if (current <= SWIPE_THRESHOLD) {
+      // Snap to reveal delete button
+      animate(x, -80, { type: 'spring', stiffness: 400, damping: 30 });
+    } else {
+      snapBack();
+    }
+  };
+
+  const handleClick = () => {
+    if (isDragging.current) return;
+    if (x.get() !== 0) { snapBack(); return; }
+    onOpen();
+  };
+
+  const lastMsg = conv.messages?.[0];
+  const hasNew = !!(lastMsg && lastMsg.sender_id !== userId);
+  const otherMember = conv.conversation_members?.find((m) => m.user_id !== userId);
+  const otherAvatar = otherMember?.users?.avatar_url;
+  const initials = conv.title?.substring(0, 2).toUpperCase() || 'CH';
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl mb-0.5">
+      {/* Delete background */}
+      <motion.div
+        className="absolute inset-0 flex items-center justify-end pr-5 rounded-2xl"
+        style={{ backgroundColor: bgColor }}
+      >
+        <motion.div style={{ opacity: deleteOpacity, scale: deleteScale }} className="flex flex-col items-center gap-1">
+          {isDeleting
+            ? <Loader2 size={20} className="text-white animate-spin" />
+            : <Trash2 size={20} className="text-white" />
+          }
+          <span className="text-white text-[9px] font-black uppercase tracking-wider">Supprimer</span>
+        </motion.div>
+      </motion.div>
+
+      {/* Row content */}
+      <motion.div
+        style={{ x }}
+        className={`relative flex items-center gap-3 px-2 py-3 rounded-2xl cursor-pointer select-none touch-pan-y ${t.bg} ${isDeleting ? 'pointer-events-none' : ''}`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onClick={handleClick}
+      >
+        <div className="relative shrink-0">
+          <div className={`w-14 h-14 rounded-full overflow-hidden ${hasNew ? `ring-2 ring-snap-yellow ring-offset-2 ${t.isLight ? 'ring-offset-[#f0f2f8]' : 'ring-offset-black'}` : ''}`}>
+            {otherAvatar
+              ? <img src={otherAvatar} alt="Avatar" className="w-full h-full object-cover" />
+              : <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">{initials}</div>
+            }
+          </div>
+          {hasNew && <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-snap-yellow border-2 ${t.isLight ? 'border-[#f0f2f8]' : 'border-black'}`} />}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-0.5">
+            <span className={`font-bold text-[15px] truncate ${t.text}`}>{conv.title}</span>
+            {lastMsg && <span className={`text-xs shrink-0 ml-2 ${t.textFaint}`}>{timeAgo(lastMsg.created_at)}</span>}
+          </div>
+          {lastMsg
+            ? <p className={`text-sm truncate ${hasNew ? 'text-snap-yellow font-semibold' : t.textMuted}`}>
+                {lastMsg.message_type !== 'TEXT' ? '📷 Snap' : lastMsg.content}
+              </p>
+            : <p className={`text-sm ${t.textFaint}`}>Aucun message</p>
+          }
+        </div>
+
+        {hasNew && <ChevronRight size={16} className="text-snap-yellow shrink-0" />}
+      </motion.div>
+    </div>
+  );
+};
+
 export default function ChatScreen() {
   const { data: conversations, isLoading, realtimeStatus } = useConversations();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -32,6 +164,28 @@ export default function ChatScreen() {
   const { user, setShowProfile } = useAppStore();
   const t = useTheme();
   const queryClient = useQueryClient();
+
+  const handleDeleteConversation = useCallback(async (convId: string) => {
+    if (!user) return;
+    // Optimistic removal from cache
+    queryClient.setQueryData<ConversationRow[]>(['conversations', user.id], (old) =>
+      old?.filter((row) => row.conversations?.id !== convId) ?? []
+    );
+    try {
+      // Leave the conversation (delete membership row — cascades messages via RLS/trigger)
+      const { error } = await supabase
+        .from('conversation_members')
+        .delete()
+        .eq('conversation_id', convId)
+        .eq('user_id', user.id);
+      if (error) throw error;
+      toast('Conversation supprimée', 'success');
+    } catch (e) {
+      // Rollback on error
+      queryClient.invalidateQueries({ queryKey: ['conversations', user.id] });
+      toast('Impossible de supprimer la conversation', 'error');
+    }
+  }, [user, queryClient, toast]);
 
   // Friends data for the "Nouveau chat" modal
   const { friends } = useFriends();
@@ -192,35 +346,15 @@ export default function ChatScreen() {
             {conversations.map((convObj) => {
               const conv = convObj.conversations;
               if (!conv) return null;
-              const lastMsg = conv.messages?.[0];
-              const hasNew = !!(lastMsg && lastMsg.sender_id !== user?.id);
-              const otherMember = conv.conversation_members?.find((m) => m.user_id !== user?.id);
-              const otherAvatar = otherMember?.users?.avatar_url;
-              const initials = conv.title?.substring(0, 2).toUpperCase() || 'CH';
               return (
-                <button key={conv.id} onClick={() => setActiveConversationId(conv.id)}
-                  className={`w-full flex items-center gap-3 px-2 py-3 rounded-2xl transition-colors text-left ${t.surfaceHover}`}>
-                  <div className="relative shrink-0">
-                    <div className={`w-14 h-14 rounded-full overflow-hidden ${hasNew ? `ring-2 ring-snap-yellow ring-offset-2 ${t.isLight ? 'ring-offset-[#f0f2f8]' : 'ring-offset-black'}` : ''}`}>
-                      {otherAvatar ? <img src={otherAvatar} alt="Avatar" className="w-full h-full object-cover" /> : (
-                        <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">{initials}</div>
-                      )}
-                    </div>
-                    {hasNew && <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-snap-yellow border-2 ${t.isLight ? 'border-[#f0f2f8]' : 'border-black'}`} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className={`font-bold text-[15px] truncate ${t.text}`}>{conv.title}</span>
-                      {lastMsg && <span className={`text-xs shrink-0 ml-2 ${t.textFaint}`}>{timeAgo(lastMsg.created_at)}</span>}
-                    </div>
-                    {lastMsg ? (
-                      <p className={`text-sm truncate ${hasNew ? 'text-snap-yellow font-semibold' : t.textMuted}`}>
-                        {lastMsg.message_type !== 'TEXT' ? '📷 Snap' : lastMsg.content}
-                      </p>
-                    ) : <p className={`text-sm ${t.textFaint}`}>Aucun message</p>}
-                  </div>
-                  {hasNew && <ChevronRight size={16} className="text-snap-yellow shrink-0" />}
-                </button>
+                <SwipeableConvRow
+                  key={conv.id}
+                  conv={conv}
+                  userId={user?.id}
+                  t={t}
+                  onOpen={() => setActiveConversationId(conv.id)}
+                  onDelete={handleDeleteConversation}
+                />
               );
             })}
           </div>
