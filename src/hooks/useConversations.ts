@@ -24,6 +24,22 @@ function pickFirst<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
+const avatarUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+const getCachedAvatarUrl = async (path: string) => {
+  const now = Date.now();
+  const cached = avatarUrlCache.get(path);
+  // Cache for 55 minutes (Supabase signed URLs typically expire in 60 mins)
+  if (cached && cached.expiresAt > now) {
+    return cached.url;
+  }
+  const url = await getValidMediaUrl('avatars', path);
+  if (url) {
+    avatarUrlCache.set(path, { url, expiresAt: now + 55 * 60 * 1000 });
+  }
+  return url;
+};
+
 export const useConversations = () => {
   const { user } = useAppStore();
   const queryClient = useQueryClient();
@@ -136,7 +152,7 @@ export const useConversations = () => {
                 user_id: member.user_id,
                 users: {
                   ...firstUser,
-                  avatar_url: await getValidMediaUrl('avatars', firstUser.avatar_url),
+                  avatar_url: await getCachedAvatarUrl(firstUser.avatar_url),
                 },
               };
             })
