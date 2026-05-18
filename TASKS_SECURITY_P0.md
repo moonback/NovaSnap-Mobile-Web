@@ -11,7 +11,8 @@
 - [ ] Ajouter rate limiting global par IP + user sur toutes les écritures (messages/stories/uploads).
 - [ ] Ajouter quotas journaliers anti-abus (stories/messages/IA).
 - [ ] Ajouter journalisation sécurité structurée (abuse events) + dashboard de monitoring.
-- [ ] Mettre en place rotation et validation stricte des secrets au runtime.
+- [x] Ajouter journalisation sécurité structurée minimale côté serveur Gemini Live (security events de connexion/auth/rate limit).
+- [x] Mettre en place validation stricte des secrets au runtime (interdiction fallback `VITE_GEMINI_API_KEY` côté serveur).
 
 ## Notes d'implémentation
 
