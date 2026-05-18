@@ -821,7 +821,7 @@ export default function MapScreen() {
       {/* 5. Global Settings Modal */}
       <AnimatePresence>
         {showSettings && (
-          <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-40 flex items-end justify-center p-4">
+          <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-40 flex items-end justify-center p-4 pb-28">
             <motion.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
