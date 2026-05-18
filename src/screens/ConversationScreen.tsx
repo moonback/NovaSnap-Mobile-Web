@@ -2,7 +2,18 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { useTheme } from '../hooks/useTheme';
-import { ChevronLeft, Send, Camera as CameraIcon, Loader2, BookmarkCheck, MoreVertical } from 'lucide-react';
+import {
+  ChevronLeft,
+  Send,
+  Camera as CameraIcon,
+  Loader2,
+  BookmarkCheck,
+  MoreVertical,
+  Eye,
+  LogOut,
+  Users,
+  AlertCircle
+} from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import EphemeralMedia from '../components/chat/EphemeralMedia';
@@ -79,6 +90,79 @@ export default function ConversationScreen({
   const isTypingRef = useRef(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const channelRef = useRef<any>(null);
+
+  const [showGroupDetails, setShowGroupDetails] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // ── Fetch Conversation Members (useful for showing who has seen messages and for group actions) ──
+  const { data: members = [] } = useQuery({
+    queryKey: ['conversation-members', conversationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('conversation_members')
+        .select(`
+          user_id,
+          joined_at,
+          users:users!user_id (id, username, display_name, avatar_url)
+        `)
+        .eq('conversation_id', conversationId);
+      
+      if (error) {
+        console.error('[ConversationScreen] Error fetching members:', error);
+        return [];
+      }
+
+      return (data ?? []).map((m: any) => {
+        const u = Array.isArray(m.users) ? m.users[0] : m.users;
+        return {
+          user_id: m.user_id,
+          joined_at: m.joined_at,
+          username: u?.username || 'Ami',
+          display_name: u?.display_name || u?.username || 'Ami',
+          avatar_url: u?.avatar_url || null,
+        };
+      });
+    },
+    enabled: !!conversationId,
+  });
+
+  const handleLeaveGroup = async () => {
+    if (!user) return;
+    try {
+      // 1. Send system message
+      const displayName = user.user_metadata?.display_name || user.user_metadata?.username || user.email?.split('@')[0] || 'Un membre';
+      const systemContent = `📢 ${displayName} a quitté le groupe`;
+      
+      await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        content: systemContent,
+        message_type: 'TEXT',
+        sender_id: user.id,
+        is_ephemeral: false,
+        is_saved: true,
+        opened_by: [],
+      });
+
+      // 2. Delete membership
+      const { error } = await supabase
+        .from('conversation_members')
+        .delete()
+        .eq('conversation_id', conversationId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // 3. Clear cache and go back
+      queryClient.setQueryData(['conversations', user.id], (old: any) =>
+        old?.filter((row: any) => row.conversations?.id !== conversationId) ?? []
+      );
+      
+      setShowLeaveConfirm(false);
+      onBack();
+    } catch (err) {
+      console.error('Erreur lors du départ du groupe:', err);
+    }
+  };
 
   const handleInputChange = (text: string) => {
     setNewMessage(text);
@@ -161,6 +245,39 @@ export default function ConversationScreen({
       messagesRef.current = messages;
     }
   }, [messages]);
+
+  // ── Auto mark messages as opened/read ──
+  useEffect(() => {
+    if (!user || !messages || messages.length === 0) return;
+
+    const unreadMessages = messages.filter(
+      (msg) => msg.sender_id !== user.id && (!msg.opened_by || !msg.opened_by.includes(user.id))
+    );
+
+    if (unreadMessages.length > 0) {
+      console.log(`[ConversationScreen] Automatically marking ${unreadMessages.length} messages as opened.`);
+      
+      unreadMessages.forEach(async (msg) => {
+        const newOpenedBy = [...(msg.opened_by ?? []), user.id];
+        
+        // Optimistic cache update
+        queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
+          old?.map((m) => (m.id === msg.id ? { ...m, opened_by: newOpenedBy } : m)) ?? []
+        );
+
+        try {
+          await supabase
+            .from('messages')
+            .update({ opened_by: newOpenedBy })
+            .eq('id', msg.id);
+        } catch (err) {
+          console.error('[ConversationScreen] Error updating message opened_by:', err);
+        }
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['conversations', user.id] });
+    }
+  }, [messages, user, conversationId, queryClient]);
 
   useEffect(() => {
     console.log(`[NovaChat:Realtime] Initialisation du canal realtime pour la conversation ${conversationId}...`);
@@ -247,7 +364,7 @@ export default function ConversationScreen({
 
   const markAsOpened = useCallback(async (msg: Message) => {
     if (!user) return;
-    if (msg.message_type !== 'TEXT' || !msg.is_ephemeral || msg.is_saved || msg.sender_id === user.id || msg.opened_by?.includes(user.id)) return;
+    if (msg.sender_id === user.id || msg.opened_by?.includes(user.id)) return;
 
     console.log(`[NovaChat:Lifecycle] Marquage du message ${msg.id} comme lu par l'utilisateur actuel.`);
     const newOpenedBy = [...(msg.opened_by ?? []), user.id];
@@ -424,10 +541,21 @@ export default function ConversationScreen({
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div
+          onClick={() => isGroup && setShowGroupDetails(true)}
+          className={`flex-1 min-w-0 ${isGroup ? 'cursor-pointer active:opacity-75 transition-opacity' : ''}`}
+        >
           <h2 className={`font-black ${t.text} text-[15.5px] tracking-tight leading-tight truncate`}>{displayTitle}</h2>
           <p className={`${t.textMuted} text-[11px] font-medium tracking-wide flex items-center gap-1`}>
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" /> Messages éphémères
+            {isGroup ? (
+              <>
+                <Users size={10} className="text-cyan-400" /> {members.length} membres · Détails
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" /> Messages éphémères
+              </>
+            )}
           </p>
         </div>
 
@@ -453,29 +581,54 @@ export default function ConversationScreen({
                   transition={{ duration: 0.15 }}
                   className={`absolute right-0 top-12 w-48 rounded-2xl shadow-xl z-50 border overflow-hidden ${t.isLight ? 'bg-white border-black/10' : 'bg-zinc-900 border-white/10'}`}
                 >
-                  <button
-                    onClick={async () => {
-                      setShowMenu(false);
-                      if (!user) return;
-                      try {
-                        const { error } = await supabase
-                          .from('conversation_members')
-                          .delete()
-                          .eq('conversation_id', conversationId)
-                          .eq('user_id', user.id);
-                        if (error) throw error;
-                        queryClient.setQueryData(['conversations', user.id], (old: any) =>
-                          old?.filter((row: any) => row.conversations?.id !== conversationId) ?? []
-                        );
-                        onBack();
-                      } catch (err) {
-                        console.error('Erreur lors de la suppression de la conversation:', err);
-                      }
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold transition-colors text-red-500 ${t.surfaceHover}`}
-                  >
-                    Supprimer le chat
-                  </button>
+                  {isGroup ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          setShowGroupDetails(true);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold transition-colors ${t.text} ${t.surfaceHover}`}
+                      >
+                        <Users size={16} className={t.textMuted} />
+                        Détails du groupe
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          setShowLeaveConfirm(true);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold transition-colors text-red-500 ${t.surfaceHover}`}
+                      >
+                        <LogOut size={16} />
+                        Quitter le groupe
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        setShowMenu(false);
+                        if (!user) return;
+                        try {
+                          const { error } = await supabase
+                            .from('conversation_members')
+                            .delete()
+                            .eq('conversation_id', conversationId)
+                            .eq('user_id', user.id);
+                          if (error) throw error;
+                          queryClient.setQueryData(['conversations', user.id], (old: any) =>
+                            old?.filter((row: any) => row.conversations?.id !== conversationId) ?? []
+                          );
+                          onBack();
+                        } catch (err) {
+                          console.error('Erreur lors de la suppression de la conversation:', err);
+                        }
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold transition-colors text-red-500 ${t.surfaceHover}`}
+                    >
+                      Supprimer le chat
+                    </button>
+                  )}
                 </motion.div>
               </>
             )}
@@ -507,6 +660,25 @@ export default function ConversationScreen({
           const isMe = msg.sender_id === user?.id;
           const isSaved = msg.is_saved ?? false;
           const isSaving = savingId === msg.id;
+          const isSystemMsg = msg.content.startsWith('📢');
+
+          if (isSystemMsg) {
+            return (
+              <div key={msg.id} className="w-full flex justify-center my-2 shrink-0">
+                <div className={`px-4 py-1.5 rounded-full text-[11px] font-black tracking-wide border shadow-sm ${t.isLight ? 'bg-black/5 border-black/8 text-[#0d0e1a]/60' : 'bg-white/5 border-white/5 text-white/50'}`}>
+                  {msg.content}
+                </div>
+              </div>
+            );
+          }
+
+          const seenByList = (msg.opened_by ?? [])
+            .filter((uid) => uid !== msg.sender_id)
+            .map((uid) => {
+              const m = members.find((mem) => mem.user_id === uid);
+              return m ? (m.display_name || m.username) : null;
+            })
+            .filter(Boolean) as string[];
 
           return (
             <div
@@ -552,10 +724,15 @@ export default function ConversationScreen({
                   </span>
                 )}
               </div>
-              <span className={`text-[10px] ${t.textFaint} mt-1 flex items-center gap-1`}>
-                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <span className={`text-[10px] ${t.textFaint} mt-1 flex items-center gap-1.5 flex-wrap`}>
+                <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 {msg.pending && <Loader2 size={9} className="animate-spin" />}
                 {isSaved && <span className={t.textMuted}>· Enregistré</span>}
+                {seenByList.length > 0 && (
+                  <span className="flex items-center gap-0.5 text-cyan-400 font-bold">
+                    · <Eye size={10} className="inline shrink-0" /> Vu par {seenByList.join(', ')}
+                  </span>
+                )}
               </span>
             </div>
           );
@@ -651,6 +828,126 @@ export default function ConversationScreen({
         </form>
         <p className={`text-center text-[10px] mt-2 ${t.textFaint}`}>Appui long sur un message pour l'enregistrer</p>
       </div>
+
+      {/* Group Details Bottom Sheet */}
+      <AnimatePresence>
+        {showGroupDetails && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowGroupDetails(false)}
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm pointer-events-auto"
+            />
+            {/* Bottom Sheet */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className={`fixed bottom-0 left-0 right-0 z-50 rounded-t-[32px] border-t p-6 max-h-[85%] flex flex-col pointer-events-auto ${t.isLight ? 'bg-[#f0f2f8] border-black/10' : 'bg-[#0d0d0f] border-white/10'}`}
+            >
+              {/* Handle */}
+              <div className="w-12 h-1.5 rounded-full bg-zinc-700/50 mx-auto mb-6 cursor-pointer" onClick={() => setShowGroupDetails(false)} />
+              
+              {/* Header */}
+              <div className="text-center mb-6 shrink-0">
+                <div className={`w-16 h-16 rounded-full mx-auto mb-3 shadow-md bg-gradient-to-br ${getGroupGradient(avatarPreset)} flex items-center justify-center font-black text-white text-xl`}>
+                  {initials}
+                </div>
+                <h3 className={`text-xl font-black ${t.text}`}>{displayTitle}</h3>
+                <p className={`text-xs mt-1 font-bold ${t.textMuted}`}>{members.length} membres · Groupe NovaSnap</p>
+              </div>
+
+              {/* Members List */}
+              <div className="flex-1 overflow-y-auto scroll-hide space-y-4 pr-1">
+                <h4 className={`text-[10px] font-black uppercase tracking-wider ${t.textMuted} mb-2`}>Membres</h4>
+                {members.map((member) => (
+                  <div key={member.user_id} className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-snap-yellow/10 border border-snap-yellow/20 flex items-center justify-center text-sm font-bold shrink-0">
+                      {member.avatar_url ? (
+                        <img src={member.avatar_url} className="w-full h-full rounded-full object-cover" alt="" />
+                      ) : (
+                        member.username.substring(0, 2).toUpperCase()
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold truncate ${t.text}`}>{member.display_name}</p>
+                      <p className={`text-[10px] ${t.textMuted}`}>@{member.username}</p>
+                    </div>
+                    {member.user_id === user?.id && (
+                      <span className="text-[10px] font-black text-snap-yellow bg-snap-yellow/10 border border-snap-yellow/30 px-2 py-0.5 rounded-full">
+                        Toi
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Leave Button */}
+              <div className="mt-6 pt-4 border-t border-black/5 dark:border-white/5 shrink-0">
+                <button
+                  onClick={() => {
+                    setShowGroupDetails(false);
+                    setShowLeaveConfirm(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-red-500/10 hover:bg-red-500/15 text-red-500 font-bold text-sm transition-all active:scale-[0.98]"
+                >
+                  <LogOut size={16} />
+                  Quitter le groupe
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Leave Confirmation Dialog */}
+      <AnimatePresence>
+        {showLeaveConfirm && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLeaveConfirm(false)}
+              className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6 pointer-events-auto"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className={`fixed inset-x-6 top-1/2 -translate-y-1/2 z-[61] max-w-sm mx-auto rounded-[32px] p-6 border shadow-2xl space-y-4 pointer-events-auto ${t.isLight ? 'bg-white border-black/10' : 'bg-[#121214] border-white/10'}`}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center">
+                <AlertCircle size={24} />
+              </div>
+              <div>
+                <h3 className={`text-lg font-black ${t.text}`}>Quitter le groupe ?</h3>
+                <p className={`text-sm mt-1 leading-normal ${t.textMuted}`}>
+                  Tu ne recevras plus de messages de ce groupe et ton historique de chat sera supprimé pour toi.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowLeaveConfirm(false)}
+                  className={`flex-1 py-3.5 rounded-xl font-bold text-sm bg-black/5 dark:bg-white/5 ${t.text}`}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleLeaveGroup}
+                  className="flex-1 py-3.5 rounded-xl font-black text-sm bg-red-500 text-white shadow-lg shadow-red-500/25 hover:bg-red-600 transition-colors"
+                >
+                  Quitter
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
