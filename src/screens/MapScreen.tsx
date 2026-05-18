@@ -34,7 +34,9 @@ export default function MapScreen() {
   const [isGhostMode, setIsGhostMode] = useState(() => {
     return localStorage.getItem('novasnap_settings_ghost_mode') === 'true';
   });
-  const [showHeatmap, setShowHeatmap] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(() => {
+    return localStorage.getItem('novasnap_map_show_heatmap') !== 'false';
+  });
   const [activeStory, setActiveStory] = useState<StoryRow | null>(null);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,8 +51,12 @@ export default function MapScreen() {
   );
   const [coordsLoading, setCoordsLoading] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [mapStyle, setMapStyle] = useState<'dark' | 'satellite'>('dark');
-  const [showFriendsOnMap, setShowFriendsOnMap] = useState(true);
+  const [mapStyle, setMapStyle] = useState<'dark' | 'satellite'>(() => {
+    return (localStorage.getItem('novasnap_map_style') as 'dark' | 'satellite') || 'dark';
+  });
+  const [showFriendsOnMap, setShowFriendsOnMap] = useState(() => {
+    return localStorage.getItem('novasnap_map_show_friends') !== 'false';
+  });
 
   // Stories grouped by author (one entry per user, most recent story first)
   const storyAuthors = useMemo(() => {
@@ -491,6 +497,26 @@ export default function MapScreen() {
     );
   };
 
+  const toggleHeatmap = () => {
+    const nextVal = !showHeatmap;
+    setShowHeatmap(nextVal);
+    localStorage.setItem('novasnap_map_show_heatmap', String(nextVal));
+    toast(nextVal ? 'Heatmap de chaleur activée 🔥' : 'Heatmap désactivée', 'info');
+  };
+
+  const toggleFriendsOnMap = () => {
+    const nextVal = !showFriendsOnMap;
+    setShowFriendsOnMap(nextVal);
+    localStorage.setItem('novasnap_map_show_friends', String(nextVal));
+    toast(nextVal ? 'Amis affichés sur la carte' : 'Amis masqués', 'info');
+  };
+
+  const changeMapStyle = (style: 'dark' | 'satellite') => {
+    setMapStyle(style);
+    localStorage.setItem('novasnap_map_style', style);
+    toast(`Style de carte : ${style === 'dark' ? 'Sombre' : 'Satellite'}`, 'success');
+  };
+
   const handleCenterOnFriend = (friendId: string, friendName: string) => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -626,10 +652,7 @@ export default function MapScreen() {
 
         {/* Heatmap Toggle Button */}
         <button
-          onClick={() => {
-            setShowHeatmap(!showHeatmap);
-            toast(showHeatmap ? 'Heatmap désactivée' : 'Heatmap de chaleur des Snaps activée 🔥', 'info');
-          }}
+          onClick={toggleHeatmap}
           className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${
             showHeatmap 
               ? 'bg-orange-500/90 border-orange-400 text-white shadow-orange-500/20' 
@@ -854,7 +877,7 @@ export default function MapScreen() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowHeatmap(!showHeatmap)}
+                    onClick={toggleHeatmap}
                     className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${
                       showHeatmap ? 'bg-orange-500' : 'bg-white/10'
                     }`}
@@ -879,7 +902,7 @@ export default function MapScreen() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setMapStyle(prev => prev === 'dark' ? 'satellite' : 'dark')}
+                    onClick={() => changeMapStyle(mapStyle === 'dark' ? 'satellite' : 'dark')}
                     className="px-3 py-1.5 rounded-full bg-white/10 text-[10px] font-bold active:scale-95 transition-transform"
                   >
                     Changer
@@ -898,7 +921,7 @@ export default function MapScreen() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowFriendsOnMap(!showFriendsOnMap)}
+                    onClick={toggleFriendsOnMap}
                     className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${
                       showFriendsOnMap ? 'bg-green-500' : 'bg-white/10'
                     }`}

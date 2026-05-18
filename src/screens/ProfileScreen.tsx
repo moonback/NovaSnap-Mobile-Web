@@ -275,42 +275,52 @@ export default function ProfileScreen() {
   };
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  
   const handleDeleteAccount = async () => {
     if (!user) return;
+    setIsDeletingAccount(true);
+    
     try {
-      // 1. Supprimer toutes les données utilisateur
-      // Stories
-      await supabase.from('stories').delete().eq('user_id', user.id);
-      // Messages
-      await supabase.from('messages').delete().eq('sender_id', user.id);
-      // Friendships
-      await supabase.from('friendships').delete().or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
-      // Conversation members
-      await supabase.from('conversation_members').delete().eq('user_id', user.id);
-      // Memories
-      await supabase.from('memories').delete().eq('user_id', user.id);
-      // User profile
-      await supabase.from('users').delete().eq('id', user.id);
-      
-      // 2. Supprimer le compte auth
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id);
-      if (deleteError) {
-        // Si admin.deleteUser échoue (pas de droits admin), on déconnecte simplement
-        console.warn('Admin delete failed, signing out instead:', deleteError);
+      // Appeler l'Edge Function pour suppression complète (RGPD compliant)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast('Session expirée. Reconnecte-toi.', 'error');
+        return;
       }
-      
-      toast('Compte supprimé avec succès.', 'success');
+
+      const response = await fetch(
+        `${supabase.supabaseUrl}/functions/v1/delete-account`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Échec de la suppression');
+      }
+
+      toast('✅ Compte supprimé avec succès (RGPD).', 'success');
       setShowDeleteConfirm(false);
       setShowSettings(false);
-      
-      // 3. Déconnexion
+
+      // Déconnexion après 1.5s
       setTimeout(() => {
         supabase.auth.signOut();
         setShowProfile(false);
       }, 1500);
     } catch (err) {
-      console.error('Error deleting account:', err);
-      toast('Erreur lors de la suppression du compte.', 'error');
+      console.error('[DeleteAccount] Error:', err);
+      const message = err instanceof Error ? err.message : 'Erreur inconnue';
+      toast(`Erreur : ${message}`, 'error');
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -456,10 +466,7 @@ export default function ProfileScreen() {
         >
           <X size={18} />
         </button>
-        <div className="text-center">
-          <h1 className="text-sm font-black tracking-widest uppercase text-snap-yellow opacity-90">Mon Profil</h1>
-          <p className={`text-[10px] ${t.textMuted} font-bold mt-0.5`}>NovaSnap Premium</p>
-        </div>
+        <h1 className="text-lg font-black tracking-tight">Mon Profil</h1>
         <button
           onClick={() => setShowSettings(true)}
           className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-90 border ${t.iconBtn} ${t.borderMuted}`}
@@ -1255,11 +1262,26 @@ export default function ProfileScreen() {
                 </p>
               </div>
               <div className="flex gap-2.5 pt-2">
-                <button onClick={() => setShowDeleteConfirm(false)} className={`flex-1 py-3 rounded-xl font-bold text-sm active:scale-95 transition-all ${t.surface} ${t.text}`}>
+                <button 
+                  onClick={() => setShowDeleteConfirm(false)} 
+                  disabled={isDeletingAccount}
+                  className={`flex-1 py-3 rounded-xl font-bold text-sm active:scale-95 transition-all disabled:opacity-50 ${t.surface} ${t.text}`}
+                >
                   Annuler
                 </button>
-                <button onClick={handleDeleteAccount} className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-bold text-sm active:scale-95 transition-all">
-                  Supprimer
+                <button 
+                  onClick={handleDeleteAccount} 
+                  disabled={isDeletingAccount}
+                  className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-bold text-sm active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {isDeletingAccount ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Suppression...
+                    </>
+                  ) : (
+                    'Supprimer'
+                  )}
                 </button>
               </div>
             </motion.div>

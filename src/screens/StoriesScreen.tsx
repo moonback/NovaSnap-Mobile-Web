@@ -20,6 +20,7 @@ export default function StoriesScreen() {
   const [showAI, setShowAI] = useState(false);
   const [showViewers, setShowViewers] = useState(false);
   const [currentStoryViewers, setCurrentStoryViewers] = useState<any[]>([]);
+  const [storyViewCounts, setStoryViewCounts] = useState<Record<string, number>>({});
 
   const queryClient = useQueryClient();
   const { user } = useAppStore();
@@ -27,9 +28,57 @@ export default function StoriesScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [storyToDeleteId, setStoryToDeleteId] = useState<string | null>(null);
 
+  // Charger les compteurs de vues pour toutes les stories
+  useEffect(() => {
+    if (!stories || stories.length === 0) return;
+    
+    const loadViewCounts = async () => {
+      try {
+        const storyIds = stories.map(s => s.id);
+        const { data, error } = await supabase
+          .from('story_views')
+          .select('story_id')
+          .in('story_id', storyIds);
+        
+        if (error) throw error;
+        
+        // Compter les vues par story
+        const counts: Record<string, number> = {};
+        data?.forEach(view => {
+          counts[view.story_id] = (counts[view.story_id] || 0) + 1;
+        });
+        setStoryViewCounts(counts);
+      } catch (err) {
+        console.error('[StoryViews] Error loading view counts:', err);
+      }
+    };
+    
+    loadViewCounts();
+  }, [stories]);
+
   const totalStories = stories?.length ?? 0;
   const uniqueCreators = stories ? new Set(stories.map((story) => story.user_id)).size : 0;
   const hasStories = totalStories > 0;
+
+  // Stories triées par popularité (nombre de vues) pour la section Découvrir
+  const trendingStories = React.useMemo(() => {
+    if (!stories) return [];
+    const now = new Date().getTime();
+    
+    return [...stories]
+      .filter(story => {
+        const isExpired = new Date(story.expires_at).getTime() <= now;
+        return !isExpired && !failedUrls[story.media_url];
+      })
+      .sort((a, b) => {
+        // Tri par nombre de vues (décroissant)
+        const viewsA = storyViewCounts[a.id] || 0;
+        const viewsB = storyViewCounts[b.id] || 0;
+        if (viewsB !== viewsA) return viewsB - viewsA;
+        // Si égalité, trier par date (plus récent d'abord)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+  }, [stories, storyViewCounts, failedUrls]);
 
   // Grouper les stories par utilisateur chronologiquement (de la plus ancienne à la plus récente)
   const groupedStories = React.useMemo(() => {
@@ -302,11 +351,8 @@ export default function StoriesScreen() {
               {isLoading && [...Array(4)].map((_, i) => (
                 <Skeleton key={`dsk-${i}`} className="aspect-[9/16] rounded-2xl" />
               ))}
-              {stories?.map((story) => {
-                const now = new Date().getTime();
-                const isExpired = new Date(story.expires_at).getTime() <= now;
-                if (isExpired || failedUrls[story.media_url]) return null;
-
+              {trendingStories.map((story) => {
+                const viewCount = storyViewCounts[story.id] || 0;
                 return (
                   <button
                     key={`grid-${story.id}`}
@@ -320,6 +366,15 @@ export default function StoriesScreen() {
                       <video src={story.media_url} muted playsInline className="w-full h-full object-cover" onError={() => setFailedUrls((prev) => ({ ...prev, [story.media_url]: true }))} />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                    
+                    {/* Badge de vues en haut à droite */}
+                    {viewCount > 0 && (
+                      <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-full border border-white/10">
+                        <Eye size={10} className="text-white" />
+                        <span className="text-[10px] font-black text-white">{viewCount}</span>
+                      </div>
+                    )}
+                    
                     <div className="absolute bottom-2 left-2 right-2 text-left">
                       <p className={`text-xs font-bold truncate ${t.text}`}>{story.users?.username || 'User'}</p>
                       <p className={`text-[10px] ${t.textMuted}`}>{story.media_type === 'VIDEO' ? 'Vidéo' : 'Photo'}</p>

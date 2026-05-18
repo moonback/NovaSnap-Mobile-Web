@@ -125,12 +125,35 @@ export default function UserProfileScreen() {
         .order('created_at', { ascending: false });
       if (error) return [];
       const now = new Date().getTime();
-      return (data as StoryThumb[])
-        .filter(s => new Date(s.created_at).getTime() + 86400000 > now) // Add local expiry check just in case
-        .map((s) => ({
-          ...s,
-          media_url: s.media_url, // signed URL resolution could be added here
-        }));
+      
+      // Sign URLs for private bucket access
+      const storiesWithSignedUrls = await Promise.all(
+        (data as StoryThumb[])
+          .filter(s => new Date(s.created_at).getTime() + 86400000 > now)
+          .map(async (s) => {
+            try {
+              // Extract the file path from media_url (remove bucket prefix if present)
+              const filePath = s.media_url.replace(/^https?:\/\/[^/]+\/storage\/v1\/object\/public\/stories\//, '');
+              
+              // Create signed URL with 1 hour expiration
+              const { data: signedData, error: signError } = await supabase.storage
+                .from('stories')
+                .createSignedUrl(filePath, 3600); // 1 hour
+              
+              if (signError) {
+                console.error('[UserProfile] Error signing story URL:', signError);
+                return { ...s, media_url: s.media_url }; // Fallback to original URL
+              }
+              
+              return { ...s, media_url: signedData.signedUrl };
+            } catch (err) {
+              console.error('[UserProfile] Exception signing URL:', err);
+              return { ...s, media_url: s.media_url }; // Fallback to original URL
+            }
+          })
+      );
+      
+      return storiesWithSignedUrls;
     },
     enabled: !!targetId,
   });
