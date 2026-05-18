@@ -21,6 +21,17 @@ export default function EphemeralMedia({
   isSaved = false,
 }: EphemeralMediaProps) {
   const [viewState, setViewState] = useState<'HIDDEN' | 'VIEWING' | 'EXPIRED'>('HIDDEN');
+
+  // Legacy media files (uploaded before the security migration) cannot be signed
+  // for recipients — show a graceful unavailable state instead of a broken image.
+  if (!mediaUrl) {
+    return (
+      <div className="flex items-center gap-2 p-2 px-3 rounded-lg bg-transparent text-white/40 border border-white/10">
+        <div className="w-4 h-4 rounded-sm border border-white/30" />
+        <span className="text-sm font-medium italic">Média non disponible</span>
+      </div>
+    );
+  }
   const [timeLeft, setTimeLeft] = useState(10);
   const t = useTheme();
 

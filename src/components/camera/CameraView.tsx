@@ -438,10 +438,13 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     }
   };
 
-  const uploadMedia = async (bucketName: string): Promise<{ path: string; signedUrl: string }> => {
+  const uploadMedia = async (
+    bucketName: string,
+    opts?: { conversationId?: string },
+  ): Promise<{ path: string; signedUrl: string }> => {
     if (!user || !capturedMedia) throw new Error('Aucun média capturé');
     
-    // NOUVEAU : Obtenir la version aplatie de l'image (avec textes, dessins, stickers)
+    // Obtain the flattened version of the image (with texts, drawings, stickers)
     let finalMediaUrl = capturedMedia.url;
     if (capturedMedia.type === 'image') {
       finalMediaUrl = await flattenImage();
@@ -451,7 +454,14 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     const fileBlob = await response.blob();
     validateUploadBlob(fileBlob);
     const fileExt = capturedMedia.type === 'image' ? 'jpg' : 'webm';
-    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+
+    // Path format depends on bucket:
+    //   chats:   <conversation_id>/<sender_uid>/<timestamp>.<ext>  (RLS: conversation-membership gated)
+    //   stories: <user_id>/<timestamp>.<ext>                       (RLS: owner-only insert)
+    const filePath = bucketName === 'chats' && opts?.conversationId
+      ? `${opts.conversationId}/${user.id}/${Date.now()}.${fileExt}`
+      : `${user.id}/${Date.now()}.${fileExt}`;
+
     const { error } = await supabase.storage
       .from(bucketName)
       .upload(filePath, fileBlob, { contentType: fileBlob.type, cacheControl: '3600', upsert: true });
@@ -467,7 +477,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     if (!user || !capturedMedia) return;
     setIsSending(true);
     try {
-      const { path } = await uploadMedia('chats');
+      const { path } = await uploadMedia('chats', { conversationId });
       const { error } = await supabase.from('messages').insert({
         conversation_id: conversationId,
         sender_id: user.id,
