@@ -5,18 +5,33 @@
 -- 1. Activer RLS sur story_views si ce n'est pas déjà fait
 ALTER TABLE story_views ENABLE ROW LEVEL SECURITY;
 
--- 2. Supprimer les anciennes politiques si elles existent
-DROP POLICY IF EXISTS "Users can insert their own story views" ON story_views;
-DROP POLICY IF EXISTS "Users can view story views" ON story_views;
-DROP POLICY IF EXISTS "Story authors can view their story views" ON story_views;
+-- 2. Supprimer toutes les anciennes politiques
+DO $$ 
+DECLARE
+  pol RECORD;
+BEGIN
+  FOR pol IN 
+    SELECT policyname 
+    FROM pg_policies 
+    WHERE tablename = 'story_views'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON story_views', pol.policyname);
+  END LOOP;
+END $$;
 
 -- 3. Politique INSERT: Les utilisateurs authentifiés peuvent enregistrer leurs propres vues
+-- Note: Pour INSERT, on utilise WITH CHECK sans USING
 CREATE POLICY "Users can insert their own story views"
 ON story_views
 FOR INSERT
 TO authenticated
 WITH CHECK (
   viewer_id = auth.uid()
+  AND EXISTS (
+    SELECT 1 FROM stories
+    WHERE stories.id = story_views.story_id
+    AND stories.expires_at > NOW()
+  )
 );
 
 -- 4. Politique SELECT: Les utilisateurs peuvent voir les vues de leurs propres stories
