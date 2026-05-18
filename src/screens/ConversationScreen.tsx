@@ -485,7 +485,7 @@ export default function ConversationScreen({
       </AnimatePresence>
 
       {/* Input */}
-      <div className={`px-3 py-3 border-t ${t.border} pb-6 shrink-0 ${t.isLight ? 'bg-[#f0f2f8]' : 'bg-black'} z-30`}>
+      <div className={`px-3 py-3 border-t ${t.border} pb-8 shrink-0 ${t.isLight ? 'bg-[#f0f2f8]' : 'bg-black'} z-30`}>
         <form onSubmit={handleSend} className="flex items-center gap-2">
           <button
             type="button"

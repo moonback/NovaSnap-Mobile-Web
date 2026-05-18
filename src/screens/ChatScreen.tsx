@@ -161,7 +161,7 @@ export default function ChatScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
-  const { user, setShowProfile } = useAppStore();
+  const { user, setShowProfile, setIsInConversation } = useAppStore();
   const t = useTheme();
   const queryClient = useQueryClient();
 
@@ -231,6 +231,7 @@ export default function ChatScreen() {
             avatarUrl: targetUser.avatar_url ?? undefined,
           });
           setActiveConversationId(sharedMembers[0].conversation_id);
+          setIsInConversation(true);
           setShowNewChatModal(false);
           return;
         }
@@ -264,6 +265,7 @@ export default function ChatScreen() {
         avatarUrl: targetUser.avatar_url ?? undefined,
       });
       setActiveConversationId(newConvId);
+      setIsInConversation(true);
       setShowNewChatModal(false);
     } catch (e) {
       const parsedError = e instanceof Error ? e : new Error('Impossible de démarrer la conversation');
@@ -302,6 +304,7 @@ export default function ChatScreen() {
         onBack={() => {
           setActiveConversationId(null);
           setActiveConversationPreview(null);
+          setIsInConversation(false);
         }}
         title={activeConversation?.title || activeConversationPreview?.title || 'Chat'}
         avatarUrl={otherMember?.users?.avatar_url ?? activeConversationPreview?.avatarUrl}
@@ -364,7 +367,10 @@ export default function ChatScreen() {
                   conv={conv}
                   userId={user?.id}
                   t={t}
-                  onOpen={() => setActiveConversationId(conv.id)}
+                  onOpen={() => {
+                    setActiveConversationId(conv.id);
+                    setIsInConversation(true);
+                  }}
                   onDelete={handleDeleteConversation}
                 />
               );

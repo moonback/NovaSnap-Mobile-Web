@@ -22,6 +22,8 @@ interface AppState {
   setShowMemories: (show: boolean) => void;
   isEditingSnap: boolean;
   setIsEditingSnap: (isEditing: boolean) => void;
+  isInConversation: boolean;
+  setIsInConversation: (v: boolean) => void;
   theme: Theme;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
@@ -52,6 +54,8 @@ export const useAppStore = create<AppState>((set) => ({
   setShowMemories: (show) => set({ showMemories: show }),
   isEditingSnap: false,
   setIsEditingSnap: (isEditing) => set({ isEditingSnap: isEditing }),
+  isInConversation: false,
+  setIsInConversation: (v) => set({ isInConversation: v }),
   theme: getInitialTheme(),
   toggleTheme: () =>
     set((state) => {

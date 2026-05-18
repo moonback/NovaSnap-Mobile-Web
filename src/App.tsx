@@ -118,6 +118,7 @@ export default function App() {
     viewingProfileUserId,
     showMemories,
     isEditingSnap,
+    isInConversation,
     theme,
   } = useAppStore();
   const controls = useAnimation();
@@ -457,7 +458,7 @@ export default function App() {
           </div>
         </motion.div>
 
-        {!isEditingSnap && <TabBar />}
+        {!isEditingSnap && !isInConversation && <TabBar />}
 
         <AnimatePresence>
           {showProfile && <ProfileScreen key="profile" />}
