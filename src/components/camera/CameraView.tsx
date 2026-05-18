@@ -500,11 +500,13 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24);
       const { path } = await uploadMedia('stories');
+      const privacy = localStorage.getItem('novasnap_settings_story_privacy') || 'friends';
       const { error } = await supabase.from('stories').insert({
         user_id: user.id,
         media_type: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
         media_url: path,
         expires_at: expiresAt.toISOString(),
+        visibility: privacy,
       });
       if (error) {
         console.error('Supabase Insert Error:', error);

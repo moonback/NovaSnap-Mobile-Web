@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import type { StoryRow } from '../lib/types';
@@ -25,6 +26,26 @@ const getCachedStoryUrl = async (path: string) => {
 
 export const useStories = () => {
   const { user } = useAppStore();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`stories-realtime:${user.id}:${crypto.randomUUID()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'stories' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['stories', user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, user]);
 
   return useQuery<StoryRow[]>({
     queryKey: ['stories', user?.id],
@@ -34,7 +55,7 @@ export const useStories = () => {
       const now = new Date().toISOString();
       const { data, error } = await supabase
         .from('stories')
-        .select(`id,media_url,media_type,created_at,expires_at,user_id,users!stories_user_id_fkey (username,avatar_url)`)
+        .select(`id,media_url,media_type,created_at,expires_at,user_id,visibility,users!stories_user_id_fkey (username,avatar_url)`)
         .gt('expires_at', now)
         .order('created_at', { ascending: false });
 
@@ -57,6 +78,7 @@ export const useStories = () => {
       }));
     },
     enabled: !!user,
-    staleTime: 15_000,
+    staleTime: 10_000,
+    refetchInterval: 30_000, // Background fallback polling
   });
 };

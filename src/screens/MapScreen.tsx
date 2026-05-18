@@ -242,10 +242,24 @@ export default function MapScreen() {
         cursor: pointer;
         animation: pulseYellow 1.2s infinite alternate;
       }
+      .heatmap-core {
+        background: transparent;
+        border: none;
+        pointer-events: none;
+      }
       .heatmap-activity-zone {
-        background: radial-gradient(circle, rgba(239, 68, 68, 0.6) 0%, rgba(249, 115, 22, 0.3) 45%, transparent 70%);
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle, 
+          rgba(255, 30, 0, 0.9) 0%, 
+          rgba(255, 180, 0, 0.75) 15%, 
+          rgba(30, 215, 96, 0.45) 35%, 
+          rgba(29, 155, 240, 0.2) 60%, 
+          transparent 85%);
         border-radius: 50%;
-        animation: pulseHeatmap 3s infinite;
+        filter: blur(12px);
+        mix-blend-mode: screen;
+        animation: pulseHeatmap 3s infinite alternate ease-in-out;
       }
       @keyframes pulseBlue {
         0% { transform: scale(0.9); box-shadow: 0 0 0 0px rgba(0, 132, 255, 0.5); }
@@ -260,9 +274,8 @@ export default function MapScreen() {
         100% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 252, 0, 0); }
       }
       @keyframes pulseHeatmap {
-        0% { transform: scale(0.8); opacity: 0.5; }
-        50% { transform: scale(1.2); opacity: 0.8; }
-        100% { transform: scale(0.8); opacity: 0.5; }
+        0% { transform: scale(0.85); opacity: 0.6; }
+        100% { transform: scale(1.15); opacity: 1; }
       }
     `;
     document.head.appendChild(style);
@@ -313,9 +326,10 @@ export default function MapScreen() {
     if (showHeatmap && friendLocations.length > 0) {
       friendLocations.forEach((friend) => {
         const heatmapIcon = L.divIcon({
-          className: 'heatmap-activity-zone',
-          iconSize: [80, 80],
-          iconAnchor: [40, 40],
+          className: 'heatmap-core',
+          html: '<div class="heatmap-activity-zone"></div>',
+          iconSize: [180, 180],
+          iconAnchor: [90, 90],
         });
         const layer = L.marker([friend.lat, friend.lng], { icon: heatmapIcon }).addTo(map);
         heatmapLayerRef.current.push(layer);
