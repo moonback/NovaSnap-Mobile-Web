@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, UserPlus, Ghost, Infinity as InfinityIcon } from 'lucide-react';
+import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, UserPlus, Ghost, Infinity as InfinityIcon, Sparkles } from 'lucide-react';
 import { useConversations } from '../../hooks/useConversations';
 import { useFriends } from '../../hooks/useFriends';
 import { useSaveMemory } from '../../hooks/useMemories';
@@ -8,6 +8,8 @@ import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../ui/ToastProvider';
 import NotificationBell from '../ui/NotificationBell';
 import SnapEditor, { type EditorState } from './SnapEditor';
+import { useFaceDetection } from '../../hooks/useFaceDetection';
+import FaceFilterOverlay, { getCSSFilter, type FilterType } from './FaceFilterOverlay';
 
 export default function CameraView({ isActive = true }: { isActive?: boolean }) {
   const { user, directChatId, setDirectChatId, setShowProfile, setShowFriends, setIsEditingSnap } = useAppStore();
@@ -41,6 +43,28 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const [isBoomerang, setIsBoomerang] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const playbackDirectionRef = useRef<'forward' | 'backward'>('forward');
+
+  // ── Face Detection & Filters ──
+  const [activeFilter, setActiveFilter] = useState<FilterType>('none');
+  const [showFilterPicker, setShowFilterPicker] = useState(false);
+  const filterContainerRef = useRef<HTMLDivElement>(null);
+  const { ready: faceReady, faces } = useFaceDetection({
+    enabled: isActive && !capturedMedia && activeFilter !== 'none' && activeFilter !== 'bw' && activeFilter !== 'vintage' && activeFilter !== 'neon',
+    videoElement: videoRef.current,
+    maxFaces: 2,
+  });
+
+  const FILTERS: { id: FilterType; label: string; emoji: string }[] = [
+    { id: 'none', label: 'Normal', emoji: '⭕' },
+    { id: 'beauty', label: 'Beauté', emoji: '✨' },
+    { id: 'bw', label: 'N&B', emoji: '🖤' },
+    { id: 'vintage', label: 'Vintage', emoji: '📷' },
+    { id: 'neon', label: 'Néon', emoji: '💜' },
+    { id: 'dog', label: 'Chien', emoji: '🐶' },
+    { id: 'glasses', label: 'Lunettes', emoji: '🕶️' },
+    { id: 'crown', label: 'Couronne', emoji: '👑' },
+    { id: 'hearts', label: 'Cœurs', emoji: '💕' },
+  ];
 
   // Sync local editing state with global store to hide TabBar
   useEffect(() => {
@@ -681,8 +705,28 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
               playsInline
               muted
               className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+              style={{ filter: getCSSFilter(activeFilter) }}
             />
             <canvas ref={canvasRef} className="hidden" />
+
+            {/* Face Filter Overlay (AR effects drawn on canvas) */}
+            {activeFilter !== 'none' && activeFilter !== 'bw' && activeFilter !== 'vintage' && activeFilter !== 'neon' && (
+              <FaceFilterOverlay
+                faces={faces}
+                filter={activeFilter}
+                width={430}
+                height={932}
+                mirrored={facingMode === 'user'}
+              />
+            )}
+
+            {/* Face detection loading indicator */}
+            {activeFilter !== 'none' && activeFilter !== 'bw' && activeFilter !== 'vintage' && activeFilter !== 'neon' && !faceReady && (
+              <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 glass-dark px-4 py-2 rounded-full flex items-center gap-2">
+                <Loader2 size={14} className="animate-spin text-snap-yellow" />
+                <span className="text-white/80 text-[11px] font-bold">Chargement du modèle IA…</span>
+              </div>
+            )}
 
             {/* Gradient overlays */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/50 pointer-events-none" />
@@ -757,6 +801,62 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
                 <span className="text-white text-xs font-mono font-bold">{formatTime(recordingDuration)}</span>
               </div>
             )}
+
+            {/* ── Filter Picker Carousel ── */}
+            <div className="absolute bottom-[220px] inset-x-0 z-20 pointer-events-none">
+              <div className="flex justify-center pointer-events-auto mb-2">
+                <button
+                  onClick={() => setShowFilterPicker(!showFilterPicker)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all active:scale-90 ${
+                    showFilterPicker || activeFilter !== 'none'
+                      ? 'bg-snap-yellow text-black shadow-snap'
+                      : 'glass-dark text-white/80 hover:text-white'
+                  }`}
+                >
+                  <Sparkles size={14} />
+                  {activeFilter !== 'none'
+                    ? FILTERS.find((f) => f.id === activeFilter)?.label || 'Filtre'
+                    : 'Filtres'}
+                </button>
+              </div>
+
+              {showFilterPicker && (
+                <div
+                  ref={filterContainerRef}
+                  className="flex gap-2.5 overflow-x-auto scroll-hide px-6 py-2 pointer-events-auto snap-x snap-mandatory"
+                >
+                  {FILTERS.map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => {
+                        setActiveFilter(f.id);
+                        if (f.id === 'none') setShowFilterPicker(false);
+                      }}
+                      className={`flex flex-col items-center gap-1 shrink-0 snap-center transition-all active:scale-90 ${
+                        activeFilter === f.id ? 'scale-105' : 'opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all ${
+                          activeFilter === f.id
+                            ? 'bg-snap-yellow/90 shadow-snap ring-2 ring-snap-yellow/50'
+                            : 'glass-dark hover:bg-white/15'
+                        }`}
+                      >
+                        {f.emoji}
+                      </div>
+                      <span
+                        className={`text-[9px] font-black tracking-wider uppercase ${
+                          activeFilter === f.id ? 'text-snap-yellow' : 'text-white/60'
+                        }`}
+                      >
+                        {f.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* ── Zone shutter (au-dessus du TabBar) ── */}
             <div className="absolute bottom-[140px] inset-x-0 flex flex-col items-center gap-4 z-10">
