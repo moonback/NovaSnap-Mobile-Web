@@ -104,6 +104,8 @@ export default function ConversationScreen({
     }, 1500);
   };
 
+  const messagesRef = useRef<Message[]>([]);
+
   const { data: messages, isLoading } = useQuery<Message[]>({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
@@ -122,8 +124,19 @@ export default function ConversationScreen({
         
         console.log(`[NovaChat:Query] ${data?.length ?? 0} messages bruts récupérés.`);
         
+        // Filter out already-opened ephemeral messages to prevent them from showing on refresh
+        const activeData = (data ?? []).filter((msg) => {
+          if (msg.message_type === 'TEXT' && msg.is_ephemeral && !msg.is_saved && msg.opened_by) {
+            const recipientOpened = msg.sender_id === user?.id
+              ? msg.opened_by.some((uid) => uid !== user?.id)
+              : msg.opened_by.includes(user?.id);
+            if (recipientOpened) return false;
+          }
+          return true;
+        });
+
         const processed = await Promise.all(
-          ((data ?? []) as RawMessage[]).map(async (rawMsg) => {
+          (activeData as RawMessage[]).map(async (rawMsg) => {
             const normalizedUser = Array.isArray(rawMsg.users) ? rawMsg.users[0] : rawMsg.users;
             const msg: Message = { ...rawMsg, users: normalizedUser };
             if (msg.media_url && (msg.message_type === 'IMAGE' || msg.message_type === 'VIDEO')) {
@@ -142,6 +155,12 @@ export default function ConversationScreen({
       }
     },
   });
+
+  useEffect(() => {
+    if (messages) {
+      messagesRef.current = messages;
+    }
+  }, [messages]);
 
   useEffect(() => {
     console.log(`[NovaChat:Realtime] Initialisation du canal realtime pour la conversation ${conversationId}...`);
@@ -244,27 +263,38 @@ export default function ConversationScreen({
     }
   }, [user, conversationId, queryClient]);
 
+  // Nettoyage des messages éphémères lus lors de la fermeture de la conversation
   useEffect(() => {
-    if (!messages || !user) return;
-    messages.forEach(async (msg) => {
-      if (msg.message_type !== 'TEXT' || !msg.is_ephemeral || msg.is_saved || !msg.opened_by) return;
-      const recipientOpened = msg.sender_id === user.id
-        ? msg.opened_by.some((uid) => uid !== user.id)
-        : msg.opened_by.includes(user.id);
-        
-      if (recipientOpened) {
-        console.log(`[NovaChat:Lifecycle] Le destinataire a ouvert le message éphémère ${msg.id}. Lancement de la suppression.`);
-        queryClient.setQueryData<Message[]>(['messages', conversationId], (old) => old?.filter((m) => m.id !== msg.id) ?? []);
-        try {
-          const { error } = await supabase.from('messages').delete().eq('id', msg.id);
-          if (error) console.error(`[NovaChat:Lifecycle] Erreur lors de la suppression du message éphémère ${msg.id} :`, error);
-          else console.log(`[NovaChat:Lifecycle] Message éphémère ${msg.id} supprimé avec succès de Supabase.`);
-        } catch (e) {
-          console.error(`[NovaChat:Lifecycle] Exception lors de la suppression du message éphémère ${msg.id} :`, e);
-        }
+    return () => {
+      const currentUser = user;
+      if (!currentUser) return;
+      
+      const currentMessages = messagesRef.current;
+      if (!currentMessages || currentMessages.length === 0) return;
+
+      const toDeleteIds = currentMessages
+        .filter((msg) => {
+          if (msg.message_type !== 'TEXT' || !msg.is_ephemeral || msg.is_saved || !msg.opened_by) return false;
+          const recipientOpened = msg.sender_id === currentUser.id
+            ? msg.opened_by.some((uid) => uid !== currentUser.id)
+            : msg.opened_by.includes(currentUser.id);
+          return recipientOpened;
+        })
+        .map((msg) => msg.id);
+
+      if (toDeleteIds.length > 0) {
+        console.log(`[NovaChat:Cleanup] Suppression de ${toDeleteIds.length} messages éphémères lus lors de la fermeture :`, toDeleteIds);
+        supabase
+          .from('messages')
+          .delete()
+          .in('id', toDeleteIds)
+          .then(({ error }) => {
+            if (error) console.error('[NovaChat:Cleanup] Erreur lors de la suppression des messages éphémères lus:', error);
+            else console.log('[NovaChat:Cleanup] Nettoyage des messages éphémères lus terminé avec succès.');
+          });
       }
-    });
-  }, [messages, user, conversationId, queryClient]);
+    };
+  }, [conversationId, user]);
 
   const toggleSave = useCallback(async (msg: Message) => {
     if (!user || savingId) return;
@@ -357,12 +387,12 @@ export default function ConversationScreen({
   return (
     <div className={`relative w-full h-full z-50 flex flex-col ${t.bg} ${t.text}`}>
       {/* Header */}
-      <div className={`flex items-center gap-3 px-3 pt-12 pb-3 border-b ${t.border}`}>
-        <button onClick={onBack} className={`w-9 h-9 rounded-full flex items-center justify-center ${t.text} ${t.surfaceHover} transition-colors`}>
+      <div className={`sticky top-0 z-40 backdrop-blur-xl flex items-center gap-3 px-3 pt-12 pb-3.5 border-b ${t.isLight ? 'bg-white/80 border-black/5' : 'bg-zinc-950/80 border-white/5'}`}>
+        <button onClick={onBack} className={`w-9 h-9 rounded-full flex items-center justify-center ${t.text} hover:bg-black/5 dark:hover:bg-white/5 transition-colors`}>
           <ChevronLeft size={26} />
         </button>
 
-        <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
+        <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 shadow-sm border border-black/5 dark:border-white/5">
           {avatarUrl ? (
             <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
@@ -373,8 +403,10 @@ export default function ConversationScreen({
         </div>
 
         <div className="flex-1 min-w-0">
-          <h2 className={`font-black ${t.text} text-[15px] leading-tight truncate`}>{title}</h2>
-          <p className={`${t.textMuted} text-xs`}>Messages éphémères</p>
+          <h2 className={`font-black ${t.text} text-[15.5px] tracking-tight leading-tight truncate`}>{title}</h2>
+          <p className={`${t.textMuted} text-[11px] font-medium tracking-wide flex items-center gap-1`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" /> Messages éphémères
+          </p>
         </div>
 
         <div className="relative">
@@ -440,9 +472,12 @@ export default function ConversationScreen({
         )}
 
         {!isLoading && (!messages || messages.length === 0) && (
-          <div className={`my-auto mx-auto max-w-[260px] rounded-3xl px-5 py-6 text-center border ${t.border} ${t.surface}`}>
-            <p className={`font-bold text-sm ${t.text}`}>Aucun message pour le moment</p>
-            <p className={`text-xs mt-1 ${t.textMuted}`}>Écris le premier message pour démarrer la conversation.</p>
+          <div className={`my-auto mx-auto max-w-[270px] rounded-[24px] px-6 py-7 text-center border shadow-sm ${t.border} ${t.surface} bg-white/50 dark:bg-zinc-900/30 backdrop-blur-md`}>
+            <div className="w-12 h-12 bg-snap-yellow/10 rounded-full flex items-center justify-center mx-auto mb-3">
+              <span className="text-xl">👻</span>
+            </div>
+            <p className={`font-black text-sm tracking-tight ${t.text}`}>Aucun message pour le moment</p>
+            <p className={`text-xs mt-1.5 leading-normal ${t.textMuted}`}>Écris le premier message pour démarrer la conversation.</p>
           </div>
         )}
 
@@ -454,7 +489,7 @@ export default function ConversationScreen({
           return (
             <div
               key={msg.id}
-              className={`flex flex-col max-w-[78%] ${isMe ? 'self-end items-end' : 'self-start items-start'} ${msg.pending ? 'opacity-60' : ''}`}
+              className={`flex flex-col max-w-[80%] ${isMe ? 'self-end items-end' : 'self-start items-start'} ${msg.pending ? 'opacity-60' : ''}`}
               onMouseDown={() => handlePressStart(msg)}
               onMouseUp={handlePressEnd}
               onMouseLeave={handlePressEnd}
@@ -464,20 +499,20 @@ export default function ConversationScreen({
               ref={(el) => { if (el && !isMe && msg.message_type === 'TEXT') markAsOpened(msg); }}
             >
               <div className={`
-                px-4 py-2.5 rounded-2xl select-none
+                px-4 py-2.5 rounded-[18px] select-none shadow-sm transition-all duration-300
                 ${(msg.message_type === 'TEXT' || isMe || isSaved) ? 'relative' : ''}
                 ${msg.message_type === 'TEXT' ? (
                   isMe
                     ? isSaved
-                      ? `${t.isLight ? 'bg-black/8 border border-black/15 text-[#0d0e1a]' : 'bg-white/10 border border-white/15 text-white'} rounded-br-sm`
-                      : 'bg-snap-yellow text-black rounded-br-sm'
+                      ? `${t.isLight ? 'bg-black/5 border border-black/10 text-[#0d0e1a]' : 'bg-white/5 border border-white/10 text-white'} rounded-tr-none`
+                      : 'bg-[#00b2ff] text-white font-semibold rounded-tr-none shadow-[0_2px_8px_rgba(0,178,255,0.2)]'
                     : isSaved
-                      ? `${t.isLight ? 'bg-black/8 border border-black/15 text-[#0d0e1a]' : 'bg-white/10 border border-white/15 text-white'} rounded-bl-sm`
-                      : `${t.isLight ? 'bg-white border border-black/10 text-[#0d0e1a]' : 'bg-white/12 text-white'} rounded-bl-sm`
+                      ? `${t.isLight ? 'bg-black/5 border border-black/10 text-[#0d0e1a]' : 'bg-white/5 border border-white/10 text-white'} rounded-tl-none`
+                      : `${t.isLight ? 'bg-white border border-black/8 text-[#0d0e1a]' : 'bg-[#1c1d29] border border-white/5 text-white'} rounded-tl-none`
                 ) : ''}
               `}>
                 {msg.message_type === 'TEXT' && (
-                  <p className={`text-[15px] leading-relaxed break-words font-medium ${isMe && !isSaved ? 'text-black' : t.isLight ? 'text-[#0d0e1a]' : 'text-white'}`}>
+                  <p className={`text-[14.5px] leading-relaxed break-words font-semibold ${isMe && !isSaved ? 'text-white' : t.isLight ? 'text-[#0d0e1a]' : 'text-white'}`}>
                     {msg.content}
                   </p>
                 )}
@@ -550,12 +585,12 @@ export default function ConversationScreen({
       </AnimatePresence>
 
       {/* Input */}
-      <div className={`px-3 py-3 border-t ${t.border} pb-8 shrink-0 ${t.isLight ? 'bg-[#f0f2f8]' : 'bg-black'} z-30`}>
+      <div className={`px-4 py-4 border-t ${t.isLight ? 'bg-[#f8f9fc] border-black/5' : 'bg-[#0a0b10] border-white/5'} pb-8 shrink-0 z-30`}>
         <form onSubmit={handleSend} className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => { setDirectChatId(conversationId); setCurrentView('camera'); onBack(); }}
-            className={`w-11 h-11 rounded-full ${t.input} flex items-center justify-center ${t.textMuted} ${t.surfaceHover} transition-all shrink-0`}
+            className={`w-11 h-11 rounded-full ${t.input} flex items-center justify-center ${t.textMuted} hover:bg-black/5 dark:hover:bg-white/5 transition-all shrink-0`}
           >
             <CameraIcon size={22} />
           </button>
@@ -565,30 +600,30 @@ export default function ConversationScreen({
             value={newMessage}
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder="Envoyer un message..."
-            className={`flex-1 ${t.input} border ${t.border} rounded-full h-11 px-5 ${t.text} ${t.isLight ? 'placeholder-black/30 focus:border-black/20' : 'placeholder-white/30 focus:border-white/20'} focus:outline-none transition-all text-[15px]`}
+            className={`flex-1 ${t.input} border ${t.border} rounded-full h-11 px-5 ${t.text} ${t.isLight ? 'placeholder-black/30 focus:border-black/20 focus:bg-white' : 'placeholder-white/30 focus:border-white/20 focus:bg-black'} focus:outline-none transition-all text-[15px] font-semibold`}
           />
 
           {newMessage.trim() ? (
             <button
               type="submit"
               disabled={sendMessageMutation.isPending}
-              className="w-11 h-11 rounded-full bg-snap-yellow flex items-center justify-center shrink-0 active:scale-90 transition-all shadow-snap-sm"
+              className="w-11 h-11 rounded-full bg-[#00b2ff] flex items-center justify-center shrink-0 active:scale-90 hover:scale-105 transition-all shadow-[0_2px_8px_rgba(0,178,255,0.35)]"
             >
-              <Send size={18} className="text-black ml-0.5" />
+              <Send size={18} className="text-white ml-0.5" />
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-all ${
-                showEmojiPicker ? 'bg-snap-yellow text-black' : `${t.input} ${t.textMuted} ${t.surfaceHover}`
+                showEmojiPicker ? 'bg-[#00b2ff] text-white shadow-[0_2px_8px_rgba(0,178,255,0.2)]' : `${t.input} ${t.textMuted} hover:bg-black/5 dark:hover:bg-white/5`
               }`}
             >
               <span className="text-lg">😊</span>
             </button>
           )}
         </form>
-        <p className={`text-center text-[10px] mt-2 ${t.textFaint}`}>Appui long pour enregistrer</p>
+        <p className={`text-center text-[10px] mt-2 ${t.textFaint}`}>Appui long sur un message pour l'enregistrer</p>
       </div>
     </div>
   );

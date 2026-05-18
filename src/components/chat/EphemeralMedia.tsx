@@ -136,7 +136,7 @@ export default function EphemeralMedia({
             onDragEnd={(_e, info) => {
               if (info.offset.y > 150) handleExpire();
             }}
-            className={`absolute inset-0 z-[100] flex flex-col items-center justify-center cursor-grab active:cursor-grabbing ${t.isLight ? 'bg-[#e8eaf2]' : 'bg-black'}`}
+            className={`fixed inset-0 z-[100] flex flex-col items-center justify-center cursor-grab active:cursor-grabbing ${t.isLight ? 'bg-[#e8eaf2]' : 'bg-black'}`}
           >
             {/* Controls */}
             <div className="absolute top-12 right-4 z-10 flex items-center gap-3">

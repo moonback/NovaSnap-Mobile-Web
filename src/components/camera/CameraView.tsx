@@ -486,6 +486,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
         content: '',
       });
       if (error) throw error;
+      toast('Snap envoyé avec succès !', 'success');
       discardMedia();
     } catch (err) {
       const parsedError = err instanceof Error ? err : new Error('Envoi échoué');

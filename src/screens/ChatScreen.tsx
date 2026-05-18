@@ -26,6 +26,92 @@ function timeAgo(dateStr: string): string {
 const SWIPE_THRESHOLD = -72; // px to reveal delete action
 const DELETE_THRESHOLD = -200; // px to auto-confirm delete
 
+const getStatusIcon = (lastMsg: any, userId: string | undefined, hasNew: boolean) => {
+  if (!lastMsg) return null;
+  const isMe = lastMsg.sender_id === userId;
+  const isImage = lastMsg.message_type === 'IMAGE';
+  const isVideo = lastMsg.message_type === 'VIDEO';
+
+  const color = isImage ? '#ff004f' : isVideo ? '#9b51e0' : '#00b2ff';
+  const shadowColor = isImage ? 'rgba(255,0,79,0.4)' : isVideo ? 'rgba(155,81,224,0.4)' : 'rgba(0,178,255,0.4)';
+
+  if (!isMe) {
+    if (hasNew) {
+      if (isImage || isVideo) {
+        return (
+          <div 
+            className="w-3.5 h-3.5 rounded-[4px] shrink-0 animate-pulse" 
+            style={{ backgroundColor: color, boxShadow: `0 0 8px ${shadowColor}` }} 
+          />
+        );
+      } else {
+        return (
+          <div 
+            className="w-3.5 h-3.5 rounded-full shrink-0" 
+            style={{ backgroundColor: color, boxShadow: `0 0 8px ${shadowColor}` }} 
+          />
+        );
+      }
+    } else {
+      if (isImage || isVideo) {
+        return <div className="w-3.5 h-3.5 border-2 rounded-[4px] shrink-0" style={{ borderColor: color }} />;
+      } else {
+        return <div className="w-3.5 h-3.5 border-2 rounded-full shrink-0" style={{ borderColor: color }} />;
+      }
+    }
+  } else {
+    const isOpened = lastMsg.opened_by && lastMsg.opened_by.length > 0;
+    if (isOpened) {
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      );
+    } else {
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={color} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" style={{ filter: `drop-shadow(0 0 4px ${shadowColor})` }}>
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+      );
+    }
+  }
+};
+
+const getStatusText = (lastMsg: any, userId: string | undefined, hasNew: boolean, t: any) => {
+  if (!lastMsg) return <span className={t.textFaint}>Aucun message</span>;
+  const isMe = lastMsg.sender_id === userId;
+  const isImage = lastMsg.message_type === 'IMAGE';
+  const isVideo = lastMsg.message_type === 'VIDEO';
+
+  const colorClass = isImage ? 'text-[#ff004f]' : isVideo ? 'text-[#9b51e0]' : 'text-[#00b2ff]';
+
+  if (!isMe) {
+    if (hasNew) {
+      return (
+        <span className={`font-black ${colorClass} text-[13.5px] tracking-tight`}>
+          {isImage ? 'Nouveau Snap 📷' : isVideo ? 'Nouveau Snap 🎥' : 'Nouveau Message 💬'}
+        </span>
+      );
+    } else {
+      return (
+        <span className={`text-[13px] leading-normal ${t.textMuted} truncate block max-w-[200px]`}>
+          {isImage ? '📷 Snap photo reçu' : isVideo ? '🎥 Snap vidéo reçu' : lastMsg.content}
+        </span>
+      );
+    }
+  } else {
+    const isOpened = lastMsg.opened_by && lastMsg.opened_by.length > 0;
+    return (
+      <span className={`text-[13.5px] leading-normal ${t.textMuted} font-semibold`}>
+        {isImage || isVideo
+          ? isOpened ? 'Ouvert' : 'Envoyé' 
+          : isOpened ? 'Lu' : 'Distribué'
+        }
+      </span>
+    );
+  }
+};
+
 interface SwipeableConvRowProps {
   conv: NonNullable<ConversationRow['conversations']>;
   userId: string | undefined;
@@ -98,13 +184,21 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
   };
 
   const lastMsg = conv.messages?.[0];
-  const hasNew = !!(lastMsg && lastMsg.sender_id !== userId);
+  const hasNew = !!(lastMsg && lastMsg.sender_id !== userId && (!lastMsg.opened_by || !lastMsg.opened_by.includes(userId || '')));
   const otherMember = conv.conversation_members?.find((m) => m.user_id !== userId);
   const otherAvatar = otherMember?.users?.avatar_url;
   const initials = conv.title?.substring(0, 2).toUpperCase() || 'CH';
 
+  const ringColor = hasNew 
+    ? lastMsg?.message_type === 'IMAGE' 
+      ? 'ring-[#ff004f]' 
+      : lastMsg?.message_type === 'VIDEO' 
+        ? 'ring-[#9b51e0]' 
+        : 'ring-[#00b2ff]' 
+    : '';
+
   return (
-    <div className="relative overflow-hidden rounded-2xl mb-0.5">
+    <div className="relative overflow-hidden rounded-2xl mb-1.5 border-b border-black/5 dark:border-white/5 pb-1">
       {/* Delete background */}
       <motion.div
         className="absolute inset-0 flex items-center justify-end pr-5 rounded-2xl"
@@ -122,33 +216,38 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
       {/* Row content */}
       <motion.div
         style={{ x }}
-        className={`relative flex items-center gap-3 px-2 py-3 rounded-2xl cursor-pointer select-none touch-pan-y ${t.bg} ${isDeleting ? 'pointer-events-none' : ''}`}
+        className={`relative flex items-center gap-3 px-3 py-3.5 rounded-2xl cursor-pointer select-none touch-pan-y ${t.bg} hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${isDeleting ? 'pointer-events-none' : ''}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onClick={handleClick}
       >
         <div className="relative shrink-0">
-          <div className={`w-14 h-14 rounded-full overflow-hidden ${hasNew ? `ring-2 ring-snap-yellow ring-offset-2 ${t.isLight ? 'ring-offset-[#f0f2f8]' : 'ring-offset-black'}` : ''}`}>
+          <div className={`w-14 h-14 rounded-full overflow-hidden transition-all duration-300 ${hasNew ? `ring-2 ${ringColor} ring-offset-2 ${t.isLight ? 'ring-offset-[#f0f2f8]' : 'ring-offset-black'}` : ''}`}>
             {otherAvatar
               ? <img src={otherAvatar} alt="Avatar" className="w-full h-full object-cover" />
               : <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">{initials}</div>
             }
           </div>
-          {hasNew && <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-snap-yellow border-2 ${t.isLight ? 'border-[#f0f2f8]' : 'border-black'}`} />}
+          {hasNew && (
+            <div 
+              className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 ${t.isLight ? 'border-[#f0f2f8]' : 'border-black'}`}
+              style={{ backgroundColor: lastMsg?.message_type === 'IMAGE' ? '#ff004f' : lastMsg?.message_type === 'VIDEO' ? '#9b51e0' : '#00b2ff' }}
+            />
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-0.5">
-            <span className={`font-bold text-[15px] truncate ${t.text}`}>{conv.title}</span>
-            {lastMsg && <span className={`text-xs shrink-0 ml-2 ${t.textFaint}`}>{timeAgo(lastMsg.created_at)}</span>}
+            <span className={`font-black text-[15.5px] tracking-tight truncate ${t.text}`}>{conv.title}</span>
+            {lastMsg && <span className={`text-[11px] shrink-0 ml-2 ${t.textFaint}`}>{timeAgo(lastMsg.created_at)}</span>}
           </div>
-          {lastMsg
-            ? <p className={`text-sm truncate ${hasNew ? 'text-snap-yellow font-semibold' : t.textMuted}`}>
-                {lastMsg.message_type !== 'TEXT' ? '📷 Snap' : lastMsg.content}
-              </p>
-            : <p className={`text-sm ${t.textFaint}`}>Aucun message</p>
-          }
+          <div className="flex items-center gap-2 mt-0.5">
+            {getStatusIcon(lastMsg, userId, hasNew)}
+            <div className="truncate flex-1">
+              {getStatusText(lastMsg, userId, hasNew, t)}
+            </div>
+          </div>
         </div>
 
         {hasNew && <ChevronRight size={16} className="text-snap-yellow shrink-0" />}
