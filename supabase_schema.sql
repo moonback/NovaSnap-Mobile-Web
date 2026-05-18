@@ -250,17 +250,17 @@ VALUES
 ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 
 -- Politiques : lecture et écriture uniquement pour utilisateurs authentifiés
-CREATE POLICY "User scoped read avatars"   ON storage.objects FOR SELECT USING (bucket_id = 'avatars'         AND auth.role() = 'authenticated' AND split_part(name, '/', 1) = auth.uid()::text);
+CREATE POLICY "Authenticated read avatars"   ON storage.objects FOR SELECT USING (bucket_id = 'avatars'         AND auth.role() = 'authenticated');
 CREATE POLICY "User scoped insert avatars" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars'    AND auth.role() = 'authenticated' AND split_part(name, '/', 1) = auth.uid()::text);
 
-CREATE POLICY "User scoped read chats"     ON storage.objects FOR SELECT USING (bucket_id = 'chats'           AND auth.role() = 'authenticated' AND split_part(name, '/', 1) = auth.uid()::text);
-CREATE POLICY "User scoped insert chats"   ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'chats'      AND auth.role() = 'authenticated' AND split_part(name, '/', 1) = auth.uid()::text);
+CREATE POLICY "Conversation member read chats"     ON storage.objects FOR SELECT USING (bucket_id = 'chats'           AND auth.role() = 'authenticated' AND EXISTS (SELECT 1 FROM public.conversation_members cm WHERE cm.conversation_id::text = split_part(name, '/', 1) AND cm.user_id = auth.uid()));
+CREATE POLICY "Conversation member insert chats"   ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'chats'      AND auth.role() = 'authenticated' AND split_part(name, '/', 2) = auth.uid()::text AND EXISTS (SELECT 1 FROM public.conversation_members cm WHERE cm.conversation_id::text = split_part(name, '/', 1) AND cm.user_id = auth.uid()));
 
-CREATE POLICY "User scoped read stories"   ON storage.objects FOR SELECT USING (bucket_id = 'stories'         AND auth.role() = 'authenticated' AND split_part(name, '/', 1) = auth.uid()::text);
+CREATE POLICY "Authenticated read stories"   ON storage.objects FOR SELECT USING (bucket_id = 'stories'         AND auth.role() = 'authenticated');
 CREATE POLICY "User scoped insert stories" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'stories'    AND auth.role() = 'authenticated' AND split_part(name, '/', 1) = auth.uid()::text);
 
-CREATE POLICY "User scoped read snaps"     ON storage.objects FOR SELECT USING (bucket_id = 'temporary_snaps' AND auth.role() = 'authenticated' AND split_part(name, '/', 1) = auth.uid()::text);
-CREATE POLICY "User scoped insert snaps"   ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'temporary_snaps' AND auth.role() = 'authenticated' AND split_part(name, '/', 1) = auth.uid()::text);
+CREATE POLICY "Conversation member read snaps"     ON storage.objects FOR SELECT USING (bucket_id = 'temporary_snaps' AND auth.role() = 'authenticated' AND EXISTS (SELECT 1 FROM public.conversation_members cm WHERE cm.conversation_id::text = split_part(name, '/', 1) AND cm.user_id = auth.uid()));
+CREATE POLICY "Conversation member insert snaps"   ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'temporary_snaps' AND auth.role() = 'authenticated' AND split_part(name, '/', 2) = auth.uid()::text AND EXISTS (SELECT 1 FROM public.conversation_members cm WHERE cm.conversation_id::text = split_part(name, '/', 1) AND cm.user_id = auth.uid()));
 
 
 -- ========== INDEXES DE PERFORMANCE (FIX #12) ==========
