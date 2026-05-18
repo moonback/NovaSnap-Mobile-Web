@@ -7,6 +7,22 @@ type RawStoryRow = Omit<StoryRow, 'users'> & {
   users: { username: string | null; avatar_url: string | null }[] | null;
 };
 
+const storyUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+const getCachedStoryUrl = async (path: string) => {
+  const now = Date.now();
+  const cached = storyUrlCache.get(path);
+  // Cache for 55 minutes
+  if (cached && cached.expiresAt > now) {
+    return cached.url;
+  }
+  const url = await getValidMediaUrl('stories', path);
+  if (url) {
+    storyUrlCache.set(path, { url, expiresAt: now + 55 * 60 * 1000 });
+  }
+  return url;
+};
+
 export const useStories = () => {
   const { user } = useAppStore();
 
@@ -36,7 +52,7 @@ export const useStories = () => {
         return {
           ...story,
           users: userObj,
-          media_url: await getValidMediaUrl('stories', story.media_url),
+          media_url: await getCachedStoryUrl(story.media_url),
         };
       }));
     },

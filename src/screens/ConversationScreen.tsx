@@ -21,6 +21,23 @@ type RawMessage = Omit<Message, 'users'> & {
   users?: { username: string }[] | { username: string };
 };
 
+const mediaUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+const getCachedMediaUrl = async (bucket: 'chats', path: string) => {
+  const now = Date.now();
+  const cacheKey = `${bucket}:${path}`;
+  const cached = mediaUrlCache.get(cacheKey);
+  // Cache for 55 minutes
+  if (cached && cached.expiresAt > now) {
+    return cached.url;
+  }
+  const url = await getValidMediaUrl(bucket, path);
+  if (url) {
+    mediaUrlCache.set(cacheKey, { url, expiresAt: now + 55 * 60 * 1000 });
+  }
+  return url;
+};
+
 interface Message {
   id: string;
   content: string;
@@ -110,7 +127,7 @@ export default function ConversationScreen({
             const normalizedUser = Array.isArray(rawMsg.users) ? rawMsg.users[0] : rawMsg.users;
             const msg: Message = { ...rawMsg, users: normalizedUser };
             if (msg.media_url && (msg.message_type === 'IMAGE' || msg.message_type === 'VIDEO')) {
-              const signedUrl = await getValidMediaUrl('chats', msg.media_url);
+              const signedUrl = await getCachedMediaUrl('chats', msg.media_url);
               return { ...msg, media_url: signedUrl };
             }
             return msg;
@@ -135,7 +152,7 @@ export default function ConversationScreen({
           let newMsg = payload.new as Message;
           console.log('[NovaChat:Realtime] INSERT reçu !', newMsg);
           if (newMsg.media_url && (newMsg.message_type === 'IMAGE' || newMsg.message_type === 'VIDEO')) {
-            const signedUrl = await getValidMediaUrl('chats', newMsg.media_url);
+            const signedUrl = await getCachedMediaUrl('chats', newMsg.media_url);
             newMsg = { ...newMsg, media_url: signedUrl };
           }
           queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) => {
