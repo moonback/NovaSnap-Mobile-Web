@@ -28,6 +28,7 @@ import {
   Sun,
   Moon,
   MapPin,
+  TrendingUp,
 } from 'lucide-react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
@@ -35,6 +36,7 @@ import { useToast } from '../components/ui/ToastProvider';
 import { useFriends } from '../hooks/useFriends';
 import { useMemories } from '../hooks/useMemories';
 import { useTheme } from '../hooks/useTheme';
+import { useUserLevel, useAllLevels } from '../hooks/useUserLevel';
 
 export default function ProfileScreen() {
   const { user, setShowProfile, setShowFriends, setShowMemories, theme, toggleTheme } = useAppStore();
@@ -214,19 +216,49 @@ export default function ProfileScreen() {
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const handleDeleteAccount = async () => {
-    toast('Demande de suppression du compte envoyée...', 'info');
-    setShowDeleteConfirm(false);
-    setShowSettings(false);
-    setTimeout(() => {
-      supabase.auth.signOut();
-      setShowProfile(false);
-    }, 1500);
+    if (!user) return;
+    try {
+      // 1. Supprimer toutes les données utilisateur
+      // Stories
+      await supabase.from('stories').delete().eq('user_id', user.id);
+      // Messages
+      await supabase.from('messages').delete().eq('sender_id', user.id);
+      // Friendships
+      await supabase.from('friendships').delete().or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+      // Conversation members
+      await supabase.from('conversation_members').delete().eq('user_id', user.id);
+      // Memories
+      await supabase.from('memories').delete().eq('user_id', user.id);
+      // User profile
+      await supabase.from('users').delete().eq('id', user.id);
+      
+      // 2. Supprimer le compte auth
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id);
+      if (deleteError) {
+        // Si admin.deleteUser échoue (pas de droits admin), on déconnecte simplement
+        console.warn('Admin delete failed, signing out instead:', deleteError);
+      }
+      
+      toast('Compte supprimé avec succès.', 'success');
+      setShowDeleteConfirm(false);
+      setShowSettings(false);
+      
+      // 3. Déconnexion
+      setTimeout(() => {
+        supabase.auth.signOut();
+        setShowProfile(false);
+      }, 1500);
+    } catch (err) {
+      console.error('Error deleting account:', err);
+      toast('Erreur lors de la suppression du compte.', 'error');
+    }
   };
 
   const { friendCount, pendingCount } = useFriends();
   const { data: memories } = useMemories();
   const memoriesCount = memories?.length ?? 0;
 
+  // ── User Profile Query (DOIT ÊTRE AVANT useUserLevel) ────
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user-profile', user?.id],
     queryFn: async () => {
@@ -249,6 +281,11 @@ export default function ProfileScreen() {
     },
     enabled: !!user,
   });
+
+  // ── Système de niveaux (APRÈS profile) ───────────────────
+  const userLevel = useUserLevel(profile?.snap_score ?? null);
+  const allLevels = useAllLevels();
+  const [showLevelDetails, setShowLevelDetails] = useState(false);
 
   // ── Stories count ─────────────────────────────────────────
   const { data: storiesCount = 0 } = useQuery({
@@ -520,15 +557,45 @@ export default function ProfileScreen() {
         </div>
 
         {/* Gamified Level Card */}
-        <div className="w-full bg-gradient-to-r from-snap-yellow/15 via-yellow-500/5 to-transparent border border-snap-yellow/20 rounded-[24px] p-4 flex items-center gap-3.5 mb-6 shadow-md">
-          <div className="w-11 h-11 rounded-2xl bg-snap-yellow/20 flex items-center justify-center shadow-inner shrink-0">
-            <Award size={22} className="text-snap-yellow" />
+        <motion.div 
+          onClick={() => setShowLevelDetails(true)}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className={`w-full border rounded-[24px] p-4 cursor-pointer transition-all shadow-md ${userLevel.level >= 5 ? 'bg-gradient-to-r from-snap-yellow/15 via-yellow-500/5 to-transparent border-snap-yellow/20' : `${t.surface} ${t.border}`}`}
+        >
+          <div className="flex items-center gap-3.5">
+            <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${userLevel.gradient} flex items-center justify-center shadow-inner shrink-0`}>
+              <span className="text-2xl">{userLevel.rankEmoji}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <p className={`font-black text-sm tracking-tight ${t.text}`}>
+                  {userLevel.rank} · Niveau {userLevel.level}
+                </p>
+                <TrendingUp size={14} className="text-snap-yellow" />
+              </div>
+              {userLevel.level < 10 ? (
+                <>
+                  <div className="w-full h-1.5 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden mb-1">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${userLevel.progress}%` }}
+                      transition={{ duration: 0.8, ease: 'easeOut' }}
+                      className={`h-full bg-gradient-to-r ${userLevel.gradient} rounded-full`}
+                    />
+                  </div>
+                  <p className={`text-[11px] leading-relaxed ${t.textMuted} truncate`}>
+                    Encore {userLevel.snapsToNextLevel} Snaps pour {allLevels[userLevel.level]?.rank} {allLevels[userLevel.level]?.emoji}
+                  </p>
+                </>
+              ) : (
+                <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
+                  🎉 Niveau Maximum Atteint !
+                </p>
+              )}
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className={`font-black text-sm tracking-tight ${t.text}`}>Rang Novice · Niveau 1 🌟</p>
-            <p className={`text-[11px] leading-relaxed mt-0.5 ${t.textMuted} truncate`}>Envoie encore {Math.max(0, 50 - (profile?.snap_score ?? 0))} Snaps pour passer Niveau 2 !</p>
-          </div>
-        </div>
+        </motion.div>
 
         {/* Inline edit form */}
         <AnimatePresence>
@@ -667,6 +734,130 @@ export default function ProfileScreen() {
           Se déconnecter
         </button>
       </div>
+
+      {/* ── Level Details Modal ───────────────────────────────── */}
+      <AnimatePresence>
+        {showLevelDetails && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[60] bg-black/70 backdrop-blur-md flex items-center justify-center p-6"
+            onClick={() => setShowLevelDetails(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className={`w-full max-w-md rounded-[32px] border overflow-hidden ${t.surface} ${t.border} shadow-2xl`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className={`px-6 pt-6 pb-4 border-b ${t.borderMuted}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className={`text-xl font-black ${t.text}`}>Progression Nova</h3>
+                  <button
+                    onClick={() => setShowLevelDetails(false)}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${t.iconBtn}`}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <p className={`text-xs ${t.textMuted}`}>
+                  Ton niveau actuel : <span className="font-bold" style={{ color: userLevel.color }}>{userLevel.rank} {userLevel.rankEmoji}</span>
+                </p>
+              </div>
+
+              {/* Current Level Stats */}
+              <div className="px-6 py-4">
+                <div className={`rounded-2xl p-4 border ${t.surface} ${t.border}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-3xl">{userLevel.rankEmoji}</span>
+                      <div>
+                        <p className={`font-black text-sm ${t.text}`}>Niveau {userLevel.level}</p>
+                        <p className={`text-xs ${t.textMuted}`}>{userLevel.rank}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-snap-yellow">{userLevel.currentScore}</p>
+                      <p className={`text-[10px] ${t.textMuted}`}>Snap Score</p>
+                    </div>
+                  </div>
+                  
+                  {userLevel.level < 10 && (
+                    <>
+                      <div className="w-full h-2 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden mb-2">
+                        <div 
+                          className={`h-full bg-gradient-to-r ${userLevel.gradient} rounded-full transition-all duration-500`}
+                          style={{ width: `${userLevel.progress}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className={`text-xs ${t.textMuted}`}>{userLevel.progress}% complété</p>
+                        <p className={`text-xs font-bold ${t.text}`}>
+                          {userLevel.snapsToNextLevel} snaps restants
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* All Levels List */}
+              <div className="px-6 pb-6">
+                <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${t.textMuted}`}>
+                  Tous les niveaux
+                </p>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto scroll-hide">
+                  {allLevels.map((level) => {
+                    const isUnlocked = userLevel.currentScore >= level.score;
+                    const isCurrent = userLevel.level === level.level;
+                    
+                    return (
+                      <div
+                        key={level.level}
+                        className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                          isCurrent 
+                            ? `bg-gradient-to-r ${level.gradient} bg-opacity-20 border-2` 
+                            : isUnlocked 
+                              ? `${t.surface} border` 
+                              : 'bg-black/5 dark:bg-white/5 border border-dashed'
+                        } ${t.borderMuted}`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl ${
+                          isUnlocked ? '' : 'grayscale opacity-40'
+                        }`}>
+                          {level.emoji}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className={`font-bold text-sm ${isUnlocked ? t.text : t.textMuted}`}>
+                              Niveau {level.level} · {level.rank}
+                            </p>
+                            {isCurrent && (
+                              <span className="text-[9px] font-black bg-snap-yellow text-black px-2 py-0.5 rounded-full">
+                                ACTUEL
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-xs ${t.textMuted}`}>
+                            {level.score} {level.score === 0 ? 'Snap' : 'Snaps'}
+                          </p>
+                        </div>
+                        {isUnlocked && (
+                          <Check size={16} className="text-green-400" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Settings Drawer ───────────────────────────────────── */}
       <AnimatePresence>

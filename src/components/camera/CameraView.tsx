@@ -486,6 +486,27 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
         content: '',
       });
       if (error) throw error;
+      
+      // Auto-save to memories if enabled
+      const autoSaveEnabled = localStorage.getItem('novasnap_settings_auto_save') === 'true';
+      if (autoSaveEnabled) {
+        try {
+          let finalMediaUrl = capturedMedia.url;
+          if (capturedMedia.type === 'image') {
+            finalMediaUrl = await flattenImage();
+          }
+          const response = await fetch(finalMediaUrl);
+          const fileBlob = await response.blob();
+          await saveMemory.mutateAsync({
+            mediaBlob: fileBlob,
+            mediaType: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
+            source: 'chat',
+          });
+        } catch (err) {
+          console.error('[AutoSave] Failed to save to memories:', err);
+        }
+      }
+      
       toast('Snap envoyé avec succès !', 'success');
       discardMedia();
     } catch (err) {
@@ -513,6 +534,27 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
         console.error('Supabase Insert Error:', error);
         throw error;
       }
+      
+      // Auto-save to memories if enabled
+      const autoSaveEnabled = localStorage.getItem('novasnap_settings_auto_save') === 'true';
+      if (autoSaveEnabled) {
+        try {
+          let finalMediaUrl = capturedMedia.url;
+          if (capturedMedia.type === 'image') {
+            finalMediaUrl = await flattenImage();
+          }
+          const response = await fetch(finalMediaUrl);
+          const fileBlob = await response.blob();
+          await saveMemory.mutateAsync({
+            mediaBlob: fileBlob,
+            mediaType: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
+            source: 'story',
+          });
+        } catch (err) {
+          console.error('[AutoSave] Failed to save to memories:', err);
+        }
+      }
+      
       toast('Story publiée !', 'success');
       discardMedia();
     } catch (err) {

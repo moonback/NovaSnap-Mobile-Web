@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStories } from '../hooks/useStories';
-import { X, Plus, Zap, Trash2, Loader2 } from 'lucide-react';
+import { X, Plus, Zap, Trash2, Loader2, Eye } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/ui/ToastProvider';
@@ -18,6 +18,8 @@ export default function StoriesScreen() {
   const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
   const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
   const [showAI, setShowAI] = useState(false);
+  const [showViewers, setShowViewers] = useState(false);
+  const [currentStoryViewers, setCurrentStoryViewers] = useState<any[]>([]);
 
   const queryClient = useQueryClient();
   const { user } = useAppStore();
@@ -106,9 +108,51 @@ export default function StoriesScreen() {
     }
   };
 
+  const loadStoryViewers = async (storyId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('story_views')
+        .select(`
+          viewer_id,
+          viewed_at,
+          users:viewer_id (
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `)
+        .eq('story_id', storyId)
+        .order('viewed_at', { ascending: false });
+
+      if (error) throw error;
+      setCurrentStoryViewers(data || []);
+      setShowViewers(true);
+    } catch (err) {
+      console.error('[StoryViewers] Error loading viewers:', err);
+      toast('Impossible de charger les vues', 'error');
+    }
+  };
+
   useEffect(() => {
     if (activeGroupIndex !== null && groupedStories[activeGroupIndex]) {
       const group = groupedStories[activeGroupIndex];
+      const currentStory = group.stories[activeStoryIndex];
+      
+      // Enregistrer la vue si ce n'est pas notre propre story
+      if (currentStory && user && currentStory.user_id !== user.id) {
+        supabase
+          .from('story_views')
+          .upsert({
+            story_id: currentStory.id,
+            viewer_id: user.id,
+            viewed_at: new Date().toISOString(),
+          }, { onConflict: 'story_id,viewer_id' })
+          .then(({ error }) => {
+            if (error) console.error('[StoryView] Error recording view:', error);
+          });
+      }
+      
       const timer = setTimeout(() => {
         if (activeStoryIndex < group.stories.length - 1) {
           setActiveStoryIndex(activeStoryIndex + 1);
@@ -122,7 +166,7 @@ export default function StoriesScreen() {
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [activeGroupIndex, activeStoryIndex, groupedStories]);
+  }, [activeGroupIndex, activeStoryIndex, groupedStories, user]);
 
   return (
     <div className={`relative w-full h-full flex flex-col overflow-hidden ${t.bg} ${t.text}`}>
@@ -342,13 +386,22 @@ export default function StoriesScreen() {
               </div>
               <div className="flex items-center gap-2 pointer-events-auto">
                 {currentStory.user_id === user?.id && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(currentStory.id); }}
-                    className="w-9 h-9 rounded-full bg-red-500/20 hover:bg-red-500/35 border border-red-500/30 flex items-center justify-center text-red-400 active:scale-90 transition-all pointer-events-auto"
-                    title="Supprimer ma story"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); loadStoryViewers(currentStory.id); }}
+                      className="w-9 h-9 rounded-full bg-snap-yellow/20 hover:bg-snap-yellow/35 border border-snap-yellow/30 flex items-center justify-center text-snap-yellow active:scale-90 transition-all pointer-events-auto"
+                      title="Voir les vues"
+                    >
+                      <Eye size={15} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setStoryToDeleteId(currentStory.id); }}
+                      className="w-9 h-9 rounded-full bg-red-500/20 hover:bg-red-500/35 border border-red-500/30 flex items-center justify-center text-red-400 active:scale-90 transition-all pointer-events-auto"
+                      title="Supprimer ma story"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </>
                 )}
                 <button 
                   onClick={(e) => { e.stopPropagation(); setActiveGroupIndex(null); }} 
@@ -460,9 +513,104 @@ export default function StoriesScreen() {
                 </div>
               )}
             </AnimatePresence>
+
+            {/* Story Viewers Modal */}
+            <AnimatePresence>
+              {showViewers && (
+                <div 
+                  className={`absolute inset-0 z-50 backdrop-blur-md flex items-end pointer-events-auto ${t.isLight ? 'bg-black/50' : 'bg-black/70'}`}
+                  onClick={(e) => { e.stopPropagation(); setShowViewers(false); }}
+                >
+                  <motion.div
+                    initial={{ y: '100%' }}
+                    animate={{ y: 0 }}
+                    exit={{ y: '100%' }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                    className={`w-full max-h-[70vh] rounded-t-[32px] border-t overflow-hidden pointer-events-auto ${t.surface} ${t.border}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b" style={{ borderColor: t.isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)' }}>
+                      <div className="flex items-center gap-2">
+                        <Eye size={18} className="text-snap-yellow" />
+                        <h3 className={`font-black text-base ${t.text}`}>Vues de la story</h3>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowViewers(false); }}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 ${t.surfaceHover}`}
+                      >
+                        <X size={16} className={t.textMuted} />
+                      </button>
+                    </div>
+
+                    {/* Viewers List */}
+                    <div className="overflow-y-auto scroll-hide max-h-[calc(70vh-80px)] px-5 py-3">
+                      {currentStoryViewers.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 gap-3">
+                          <div className={`w-16 h-16 rounded-full flex items-center justify-center ${t.isLight ? 'bg-black/5' : 'bg-white/5'}`}>
+                            <Eye size={24} className={t.textFaint} />
+                          </div>
+                          <p className={`text-sm font-bold ${t.textMuted}`}>Aucune vue pour le moment</p>
+                          <p className={`text-xs ${t.textFaint} text-center max-w-[240px]`}>
+                            Les personnes qui verront ta story apparaîtront ici
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {currentStoryViewers.map((view: any) => {
+                            const viewer = view.users;
+                            const timeAgo = getTimeAgo(view.viewed_at);
+                            return (
+                              <div
+                                key={view.viewer_id}
+                                className={`flex items-center gap-3 p-3 rounded-2xl transition-colors ${t.surfaceHover}`}
+                              >
+                                <div className="w-11 h-11 rounded-full overflow-hidden ring-2 ring-snap-yellow/30 shrink-0">
+                                  {viewer?.avatar_url ? (
+                                    <img src={viewer.avatar_url} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
+                                      {(viewer?.username || 'U').substring(0, 1).toUpperCase()}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`font-bold text-sm truncate ${t.text}`}>
+                                    {viewer?.display_name || viewer?.username || 'Utilisateur'}
+                                  </p>
+                                  <p className={`text-xs ${t.textMuted}`}>@{viewer?.username || 'user'}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className={`text-[10px] font-bold ${t.textFaint}`}>{timeAgo}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
           </div>
         );
       })()}
     </div>
   );
+}
+
+// Helper function pour formater le temps écoulé
+function getTimeAgo(timestamp: string): string {
+  const now = new Date().getTime();
+  const then = new Date(timestamp).getTime();
+  const diffMs = now - then;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "À l'instant";
+  if (diffMins < 60) return `Il y a ${diffMins}min`;
+  if (diffHours < 24) return `Il y a ${diffHours}h`;
+  return `Il y a ${diffDays}j`;
 }
