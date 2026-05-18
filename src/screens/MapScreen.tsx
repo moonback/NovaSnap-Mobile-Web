@@ -38,6 +38,10 @@ export default function MapScreen() {
   const [activeStory, setActiveStory] = useState<StoryRow | null>(null);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [placeResults, setPlaceResults] = useState<any[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  
   const [showSettings, setShowSettings] = useState(false);
   const [userCoords, setUserCoords] = useState<[number, number]>([48.8566, 2.3522]); // Default: Paris Center
   const { data: friendLocations = [] } = useFriendLocations(
@@ -83,6 +87,44 @@ export default function MapScreen() {
   const friendMarkersRef = useRef<any[]>([]);
   const landmarkMarkersRef = useRef<any[]>([]);
   const heatmapLayerRef = useRef<any[]>([]);
+
+  // Search Logic
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!debouncedSearchQuery || debouncedSearchQuery.length < 2) {
+      setPlaceResults([]);
+      return;
+    }
+    
+    let isActive = true;
+    const fetchPlaces = async () => {
+      setIsSearchingPlaces(true);
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(debouncedSearchQuery)}&limit=5`);
+        const data = await res.json();
+        if (isActive) setPlaceResults(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (isActive) setIsSearchingPlaces(false);
+      }
+    };
+    fetchPlaces();
+    return () => { isActive = false; };
+  }, [debouncedSearchQuery]);
+
+  const filteredFriends = useMemo(() => {
+    if (!searchQuery) return [];
+    return friendLocations.filter(f => 
+      f.username?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery, friendLocations]);
 
   // 1. Dynamic GPS User Coordinates
   useEffect(() => {
@@ -426,29 +468,94 @@ export default function MapScreen() {
       </div>
 
       {/* 2. Top bar search & buttons */}
-      <div className="absolute top-14 inset-x-0 px-4 flex items-center gap-2.5 z-10 pointer-events-none">
-        <div className="flex-1 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-4 py-2.5 border border-white/8 pointer-events-auto shadow-lg">
-          <Search size={16} className="text-white/40" />
-          <input
-            type="text"
-            placeholder="Rechercher des amis, des lieux..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder-white/35 font-semibold"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')}>
-              <X size={14} className="text-white/40" />
-            </button>
-          )}
+      <div className="absolute top-14 inset-x-4 flex flex-col gap-2 z-40 pointer-events-none">
+        <div className="flex items-center gap-2.5">
+          <div className="flex-1 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-4 py-2.5 border border-white/8 pointer-events-auto shadow-lg">
+            <Search size={16} className="text-white/40" />
+            <input
+              type="text"
+              placeholder="Rechercher des amis, des lieux..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder-white/35 font-semibold"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')}>
+                <X size={14} className="text-white/40" />
+              </button>
+            )}
+          </div>
+          
+          <button
+            onClick={() => setShowSettings(true)}
+            className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/8 flex items-center justify-center text-white active:scale-95 transition-all pointer-events-auto shadow-lg flex-shrink-0"
+          >
+            <Settings size={18} />
+          </button>
         </div>
-        
-        <button
-          onClick={() => setShowSettings(true)}
-          className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/8 flex items-center justify-center text-white active:scale-95 transition-all pointer-events-auto shadow-lg"
-        >
-          <Settings size={18} />
-        </button>
+
+        {/* Search Results Dropdown */}
+        {searchQuery && (
+          <div className="w-full max-w-[calc(100%-3rem)] bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl flex flex-col gap-1 pointer-events-auto max-h-[40vh] overflow-y-auto">
+            {filteredFriends.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest px-2 pt-1 pb-0.5">Amis</p>
+                {filteredFriends.map(friend => (
+                  <button 
+                    key={friend.user_id}
+                    onClick={() => {
+                      handleCenterOnFriend(friend.user_id, friend.username || 'Ami');
+                      setSearchQuery('');
+                    }}
+                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-snap-yellow flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {friend.avatar_url ? (
+                        <img src={friend.avatar_url} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-black font-black text-xs">{(friend.username||'U').substring(0,1).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <span className="text-sm font-bold text-white truncate">{friend.username}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {debouncedSearchQuery.length >= 2 && (
+              <div className="flex flex-col gap-1 mt-1">
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest px-2 pt-1 pb-0.5 flex items-center justify-between">
+                  Lieux
+                  {isSearchingPlaces && <Loader2 size={10} className="animate-spin text-white/40" />}
+                </p>
+                {placeResults.map((place, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => {
+                      if (mapInstanceRef.current) {
+                        mapInstanceRef.current.setView([parseFloat(place.lat), parseFloat(place.lon)], 15, { animate: true, duration: 1.5 });
+                        toast(`Lieu trouvé: ${place.name || place.display_name.split(',')[0]}`, 'success');
+                        setSearchQuery('');
+                      }
+                    }}
+                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex flex-shrink-0 items-center justify-center">
+                      <Navigation size={14} />
+                    </div>
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="text-sm font-bold text-white truncate">{place.name || place.display_name.split(',')[0]}</span>
+                      <span className="text-[10px] text-white/50 truncate">{place.display_name}</span>
+                    </div>
+                  </button>
+                ))}
+                {!isSearchingPlaces && placeResults.length === 0 && (
+                  <p className="text-xs text-white/40 italic px-2 py-2">Aucun lieu trouvé.</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 3. Floating Quick controls */}
