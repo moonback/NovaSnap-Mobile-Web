@@ -48,8 +48,8 @@
 - [x] Statut en ligne / dernière connexion (optionnel, privacy-first)
 
 ### 1.4 Groupes de chat
-- [ ] Création de groupe (nom + membres)
-- [ ] Avatar de groupe personnalisable
+- [x] Création de groupe (nom + membres)
+- [x] Avatar de groupe personnalisable
 - [ ] Mentions `@username` dans les groupes
 - [ ] Réactions emoji sur les messages (long-press)
 - [ ] Rôles admin/membre dans les groupes

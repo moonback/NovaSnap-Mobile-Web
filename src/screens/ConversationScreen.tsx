@@ -76,6 +76,12 @@ export default function ConversationScreen({
   title?: string;
   avatarUrl?: string;
 }) {
+  const isGroup = title.includes('::') || (avatarUrl === 'group');
+  const titleParts = title.split('::');
+  const displayTitle = titleParts[0];
+  const avatarPreset = titleParts[1] || 'sunset';
+  const initials = displayTitle.substring(0, 2).toUpperCase();
+
   const { user, setCurrentView, setDirectChatId } = useAppStore();
   const t = useTheme();
   const [newMessage, setNewMessage] = useState('');
@@ -93,6 +99,74 @@ export default function ConversationScreen({
 
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  const [editedTitle, setEditedTitle] = useState(displayTitle);
+  const [selectedPreset, setSelectedPreset] = useState(avatarPreset);
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
+
+  useEffect(() => {
+    setEditedTitle(displayTitle);
+    setSelectedPreset(avatarPreset);
+  }, [title, displayTitle, avatarPreset]);
+
+  const handleSaveGroupDetails = async () => {
+    if (!user || !editedTitle.trim()) return;
+    setIsSavingDetails(true);
+    try {
+      const newFullTitle = `${editedTitle.trim()}::${selectedPreset}`;
+      
+      const { error } = await supabase
+        .from('conversations')
+        .update({ title: newFullTitle })
+        .eq('id', conversationId);
+
+      if (error) throw error;
+
+      const displayName = user.user_metadata?.display_name || user.user_metadata?.username || user.email?.split('@')[0] || 'Un membre';
+      let systemContent = `📢 ${displayName} a mis à jour les détails du groupe`;
+      if (editedTitle.trim() !== displayTitle && selectedPreset !== avatarPreset) {
+        systemContent = `📢 ${displayName} a renommé le groupe en "${editedTitle.trim()}" et changé l'avatar`;
+      } else if (editedTitle.trim() !== displayTitle) {
+        systemContent = `📢 ${displayName} a renommé le groupe en "${editedTitle.trim()}"`;
+      } else if (selectedPreset !== avatarPreset) {
+        systemContent = `📢 ${displayName} a mis à jour l'avatar du groupe`;
+      }
+
+      await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        content: systemContent,
+        message_type: 'TEXT',
+        sender_id: user.id,
+        is_ephemeral: false,
+        is_saved: true,
+        opened_by: [],
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ['conversations', user.id] });
+      await queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+      
+      queryClient.setQueryData(['conversations', user.id], (old: any) => {
+        return old?.map((row: any) => {
+          if (row.conversations?.id === conversationId) {
+            return {
+              ...row,
+              conversations: {
+                ...row.conversations,
+                title: newFullTitle
+              }
+            };
+          }
+          return row;
+        }) ?? [];
+      });
+
+      setIsSavingDetails(false);
+      setShowGroupDetails(false);
+    } catch (err) {
+      console.error('Erreur lors de la mise à jour des détails du groupe:', err);
+      setIsSavingDetails(false);
+    }
+  };
 
   // ── Fetch Conversation Members (useful for showing who has seen messages and for group actions) ──
   const { data: members = [] } = useQuery({
@@ -513,11 +587,7 @@ export default function ConversationScreen({
     }
   };
 
-  const isGroup = title.includes('::') || (avatarUrl === 'group');
-  const titleParts = title.split('::');
-  const displayTitle = titleParts[0];
-  const avatarPreset = titleParts[1] || 'sunset';
-  const initials = displayTitle.substring(0, 2).toUpperCase();
+
 
   return (
     <div className={`relative w-full h-full z-50 flex flex-col ${t.bg} ${t.text}`}>
@@ -854,11 +924,53 @@ export default function ConversationScreen({
               
               {/* Header */}
               <div className="text-center mb-6 shrink-0">
-                <div className={`w-16 h-16 rounded-full mx-auto mb-3 shadow-md bg-gradient-to-br ${getGroupGradient(avatarPreset)} flex items-center justify-center font-black text-white text-xl`}>
-                  {initials}
+                <div className={`w-16 h-16 rounded-full mx-auto mb-3 shadow-md bg-gradient-to-br ${getGroupGradient(selectedPreset)} flex items-center justify-center font-black text-white text-xl transition-all duration-300`}>
+                  {editedTitle.substring(0, 2).toUpperCase() || 'GR'}
                 </div>
-                <h3 className={`text-xl font-black ${t.text}`}>{displayTitle}</h3>
+                <h3 className={`text-xl font-black ${t.text}`}>{editedTitle || 'Sans nom'}</h3>
                 <p className={`text-xs mt-1 font-bold ${t.textMuted}`}>{members.length} membres · Groupe NovaSnap</p>
+              </div>
+
+              {/* Edit Group Info Form */}
+              <div className="space-y-4 mb-6 border-b border-black/5 dark:border-white/5 pb-6 shrink-0">
+                <div className="flex justify-center gap-3 mb-2">
+                  {['sunset', 'emerald', 'cyan', 'gold'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setSelectedPreset(preset)}
+                      className={`w-11 h-11 rounded-full bg-gradient-to-br ${getGroupGradient(preset)} flex items-center justify-center font-black text-white text-[10px] relative transition-all active:scale-90 ${selectedPreset === preset ? 'ring-4 ring-snap-yellow scale-105 shadow-md' : 'opacity-50 hover:opacity-80'}`}
+                    >
+                      {initials}
+                      {selectedPreset === preset && (
+                        <span className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-snap-yellow text-black flex items-center justify-center font-bold text-[9px] shadow-sm">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-black uppercase tracking-wider ${t.textMuted}`}>Avatar & Nom du groupe</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={editedTitle}
+                      onChange={(e) => setEditedTitle(e.target.value)}
+                      className={`flex-1 ${t.input} border ${t.border} rounded-xl h-11 px-4 ${t.text} focus:outline-none focus:border-cyan-500 transition-all font-bold text-sm`}
+                      placeholder="Nom du groupe"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveGroupDetails}
+                      disabled={isSavingDetails || (!editedTitle.trim()) || (editedTitle.trim() === displayTitle && selectedPreset === avatarPreset)}
+                      className="h-11 px-4 rounded-xl bg-snap-yellow disabled:bg-snap-yellow/30 disabled:text-black/40 text-black font-black text-xs tracking-wider uppercase transition-all flex items-center justify-center min-w-[100px]"
+                    >
+                      {isSavingDetails ? <Loader2 size={16} className="animate-spin text-black" /> : 'Modifier'}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Members List */}
