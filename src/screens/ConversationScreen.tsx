@@ -16,7 +16,9 @@ import {
   AlertCircle,
   Trash2,
   Copy,
-  Smile
+  Smile,
+  Crown,
+  UserMinus
 } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -272,6 +274,7 @@ export default function ConversationScreen({
         .select(`
           user_id,
           joined_at,
+          role,
           users:users!user_id (id, username, display_name, avatar_url)
         `)
         .eq('conversation_id', conversationId);
@@ -286,6 +289,7 @@ export default function ConversationScreen({
         return {
           user_id: m.user_id,
           joined_at: m.joined_at,
+          role: m.role || 'MEMBER',
           username: u?.username || 'Ami',
           display_name: u?.display_name || u?.username || 'Ami',
           avatar_url: u?.avatar_url || null,
@@ -294,6 +298,76 @@ export default function ConversationScreen({
     },
     enabled: !!conversationId,
   });
+
+  const currentUserMember = members.find((m) => m.user_id === user?.id);
+  const isCurrentUserAdmin = currentUserMember?.role === 'ADMIN';
+
+  const handlePromoteMember = async (memberId: string, currentRole: string) => {
+    if (!user) return;
+    const newRole = currentRole === 'ADMIN' ? 'MEMBER' : 'ADMIN';
+    
+    queryClient.setQueryData<any[]>(['conversation-members', conversationId], (old) =>
+      old?.map((m) => (m.user_id === memberId ? { ...m, role: newRole } : m)) ?? []
+    );
+
+    try {
+      const { error } = await supabase
+        .from('conversation_members')
+        .update({ role: newRole })
+        .eq('conversation_id', conversationId)
+        .eq('user_id', memberId);
+
+      if (error) throw error;
+
+      const targetMember = members.find((m) => m.user_id === memberId);
+      const targetName = targetMember ? targetMember.display_name : 'Un membre';
+      const systemContent = `📢 ${targetName} a été ${newRole === 'ADMIN' ? 'promu Admin' : 'rétrogradé Membre'}`;
+      await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        message_type: 'TEXT',
+        content: systemContent,
+        is_ephemeral: false,
+        is_saved: true,
+        opened_by: [],
+      });
+    } catch (err) {
+      console.error('[AdminActions] Error updating member role:', err);
+    }
+  };
+
+  const handleKickMember = async (memberId: string) => {
+    if (!user) return;
+
+    queryClient.setQueryData<any[]>(['conversation-members', conversationId], (old) =>
+      old?.filter((m) => m.user_id !== memberId) ?? []
+    );
+
+    try {
+      const { error } = await supabase
+        .from('conversation_members')
+        .delete()
+        .eq('conversation_id', conversationId)
+        .eq('user_id', memberId);
+
+      if (error) throw error;
+
+      const targetMember = members.find((m) => m.user_id === memberId);
+      const targetName = targetMember ? targetMember.display_name : 'Un membre';
+      const systemContent = `📢 ${targetName} a été retiré du groupe`;
+      await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        message_type: 'TEXT',
+        content: systemContent,
+        is_ephemeral: false,
+        is_saved: true,
+        opened_by: [],
+      });
+    } catch (err) {
+      console.error('[AdminActions] Error kicking member:', err);
+    }
+  };
 
   const handleLeaveGroup = async () => {
     if (!user) return;
@@ -1111,23 +1185,31 @@ export default function ConversationScreen({
 
               {/* Edit Group Info Form */}
               <div className="space-y-4 mb-6 border-b border-black/5 dark:border-white/5 pb-6 shrink-0">
-                <div className="flex justify-center gap-3 mb-2">
-                  {['sunset', 'emerald', 'cyan', 'gold'].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setSelectedPreset(preset)}
-                      className={`w-11 h-11 rounded-full bg-gradient-to-br ${getGroupGradient(preset)} flex items-center justify-center font-black text-white text-[10px] relative transition-all active:scale-90 ${selectedPreset === preset ? 'ring-4 ring-snap-yellow scale-105 shadow-md' : 'opacity-50 hover:opacity-80'}`}
-                    >
-                      {initials}
-                      {selectedPreset === preset && (
-                        <span className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-snap-yellow text-black flex items-center justify-center font-bold text-[9px] shadow-sm">
-                          ✓
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                {isCurrentUserAdmin ? (
+                  <div className="flex justify-center gap-3 mb-2">
+                    {['sunset', 'emerald', 'cyan', 'gold'].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setSelectedPreset(preset)}
+                        className={`w-11 h-11 rounded-full bg-gradient-to-br ${getGroupGradient(preset)} flex items-center justify-center font-black text-white text-[10px] relative transition-all active:scale-90 ${selectedPreset === preset ? 'ring-4 ring-snap-yellow scale-105 shadow-md' : 'opacity-50 hover:opacity-80'}`}
+                      >
+                        {initials}
+                        {selectedPreset === preset && (
+                          <span className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-snap-yellow text-black flex items-center justify-center font-bold text-[9px] shadow-sm">
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex justify-center gap-2 mb-2">
+                    <span className={`text-[10px] font-bold ${t.textMuted} bg-black/5 dark:bg-white/5 px-3 py-1 rounded-full border ${t.borderMuted} select-none`}>
+                      🔒 Modifications réservées aux Admins
+                    </span>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <label className={`text-[10px] font-black uppercase tracking-wider ${t.textMuted}`}>Avatar & Nom du groupe</label>
@@ -1136,17 +1218,20 @@ export default function ConversationScreen({
                       type="text"
                       value={editedTitle}
                       onChange={(e) => setEditedTitle(e.target.value)}
-                      className={`flex-1 ${t.input} border ${t.border} rounded-xl h-11 px-4 ${t.text} focus:outline-none focus:border-cyan-500 transition-all font-bold text-sm`}
-                      placeholder="Nom du groupe"
+                      disabled={!isCurrentUserAdmin}
+                      className={`flex-1 ${t.input} border ${t.border} rounded-xl h-11 px-4 ${t.text} focus:outline-none focus:border-cyan-500 transition-all font-bold text-sm disabled:opacity-60`}
+                      placeholder={isCurrentUserAdmin ? "Nom du groupe" : "Nom du groupe (Admin uniquement)"}
                     />
-                    <button
-                      type="button"
-                      onClick={handleSaveGroupDetails}
-                      disabled={isSavingDetails || (!editedTitle.trim()) || (editedTitle.trim() === displayTitle && selectedPreset === avatarPreset)}
-                      className="h-11 px-4 rounded-xl bg-snap-yellow disabled:bg-snap-yellow/30 disabled:text-black/40 text-black font-black text-xs tracking-wider uppercase transition-all flex items-center justify-center min-w-[100px]"
-                    >
-                      {isSavingDetails ? <Loader2 size={16} className="animate-spin text-black" /> : 'Modifier'}
-                    </button>
+                    {isCurrentUserAdmin && (
+                      <button
+                        type="button"
+                        onClick={handleSaveGroupDetails}
+                        disabled={isSavingDetails || (!editedTitle.trim()) || (editedTitle.trim() === displayTitle && selectedPreset === avatarPreset)}
+                        className="h-11 px-4 rounded-xl bg-snap-yellow disabled:bg-snap-yellow/30 disabled:text-black/40 text-black font-black text-xs tracking-wider uppercase transition-all flex items-center justify-center min-w-[100px]"
+                      >
+                        {isSavingDetails ? <Loader2 size={16} className="animate-spin text-black" /> : 'Modifier'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1164,13 +1249,45 @@ export default function ConversationScreen({
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold truncate ${t.text}`}>{member.display_name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className={`text-sm font-bold truncate ${t.text}`}>{member.display_name}</p>
+                        {member.role === 'ADMIN' && (
+                          <span className="text-[8px] font-black text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-1 py-0.5 rounded uppercase tracking-wider select-none shrink-0 flex items-center gap-0.5">
+                            <Crown size={8} /> Admin
+                          </span>
+                        )}
+                      </div>
                       <p className={`text-[10px] ${t.textMuted}`}>@{member.username}</p>
                     </div>
                     {member.user_id === user?.id && (
                       <span className="text-[10px] font-black text-snap-yellow bg-snap-yellow/10 border border-snap-yellow/30 px-2 py-0.5 rounded-full">
                         Toi
                       </span>
+                    )}
+
+                    {/* Admin Actions */}
+                    {isCurrentUserAdmin && member.user_id !== user?.id && (
+                      <div className="flex items-center gap-1 shrink-0 ml-1">
+                        {/* Promote/Demote Toggle */}
+                        <button
+                          type="button"
+                          onClick={() => handlePromoteMember(member.user_id, member.role)}
+                          title={member.role === 'ADMIN' ? 'Rétrograder en membre simple' : 'Promouvoir Admin'}
+                          className={`p-1.5 rounded-lg border transition-all active:scale-90 ${member.role === 'ADMIN' ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20' : 'bg-black/5 dark:bg-white/5 border-transparent text-zinc-500 hover:text-cyan-400 hover:bg-cyan-400/10'}`}
+                        >
+                          <Crown size={12} />
+                        </button>
+
+                        {/* Kick out */}
+                        <button
+                          type="button"
+                          onClick={() => handleKickMember(member.user_id)}
+                          title="Retirer du groupe"
+                          className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/25 text-red-500 hover:bg-red-500/20 active:scale-90 transition-all"
+                        >
+                          <UserMinus size={12} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}

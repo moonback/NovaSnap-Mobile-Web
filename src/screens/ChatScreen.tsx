@@ -300,9 +300,14 @@ export default function ChatScreen() {
   const [selectedPreset, setSelectedPreset] = useState<'sunset' | 'emerald' | 'cyan' | 'gold'>('sunset');
 
   const toggleFriendSelection = (friendId: string) => {
-    setSelectedFriends((prev) =>
-      prev.includes(friendId) ? prev.filter((id) => id !== friendId) : [...prev, friendId]
-    );
+    setSelectedFriends((prev) => {
+      const exists = prev.includes(friendId);
+      if (!exists && prev.length >= 99) {
+        toast('La limite est de 100 membres par groupe !', 'warning');
+        return prev;
+      }
+      return exists ? prev.filter((id) => id !== friendId) : [...prev, friendId];
+    });
   };
 
   const handleStartGroup = async () => {
@@ -321,13 +326,14 @@ export default function ChatScreen() {
       // 2. Add current user first (essential for RLS conversation memberships insertion)
       const { error: selfMemberError } = await supabase
         .from('conversation_members')
-        .insert({ conversation_id: newConvId, user_id: user.id });
+        .insert({ conversation_id: newConvId, user_id: user.id, role: 'ADMIN' });
       if (selfMemberError) throw selfMemberError;
 
       // 3. Add other members in batch insert
       const membersToInsert = selectedFriends.map((friendId) => ({
         conversation_id: newConvId,
         user_id: friendId,
+        role: 'MEMBER'
       }));
       const { error: membersError } = await supabase
         .from('conversation_members')

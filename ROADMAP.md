@@ -52,8 +52,8 @@
 - [x] Avatar de groupe personnalisable
 - [x] Mentions `@username` dans les groupes
 - [x] Réactions emoji sur les messages (long-press)
-- [ ] Rôles admin/membre dans les groupes
-- [ ] Limite de 100 membres par groupe
+- [x] Rôles admin/membre dans les groupes
+- [x] Limite de 100 membres par groupe
 
 ---
 
