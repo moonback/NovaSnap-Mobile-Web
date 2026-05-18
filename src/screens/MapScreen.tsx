@@ -44,7 +44,7 @@ export default function MapScreen() {
     userCoords[0], userCoords[1],
   );
   const [coordsLoading, setCoordsLoading] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [mapStyle, setMapStyle] = useState<'dark' | 'satellite'>('dark');
   const [showFriendsOnMap, setShowFriendsOnMap] = useState(true);
 
@@ -482,6 +482,19 @@ export default function MapScreen() {
           <Flame size={20} className={showHeatmap ? 'animate-pulse' : ''} />
         </button>
 
+        {/* Autour de moi Toggle Button */}
+        <button
+          onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${
+            isDrawerOpen 
+              ? 'bg-blue-500/90 border-blue-400 text-white shadow-blue-500/20' 
+              : 'bg-black/60 backdrop-blur-md border-white/10 text-white/80 hover:text-white'
+          }`}
+          title="Autour de moi"
+        >
+          <Users size={20} className={isDrawerOpen ? 'scale-110' : ''} />
+        </button>
+
         {/* Recenter GPS Position Button */}
         <button
           onClick={handleCenterUser}
@@ -506,33 +519,33 @@ export default function MapScreen() {
           </div>
         )}
 
-        <motion.div layout className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[32px] p-4 pointer-events-auto shadow-2xl flex flex-col overflow-hidden">
-          {/* Handle / Toggle */}
-          <div 
-            className="w-full flex items-center justify-center pt-1 pb-3 cursor-pointer"
-            onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-          >
-            <div className="w-12 h-1.5 bg-white/30 rounded-full" />
-          </div>
+        <AnimatePresence>
+          {isDrawerOpen && (
+            <motion.div 
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[32px] p-4 pointer-events-auto shadow-2xl flex flex-col overflow-hidden"
+            >
+              {/* Header with close button */}
+              <div className="flex items-center justify-between pb-3">
+                <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Autour de moi</p>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-snap-yellow font-black">
+                    {friendLocations.length} ami{friendLocations.length > 1 ? 's' : ''} visible{friendLocations.length > 1 ? 's' : ''}
+                  </span>
+                  <button 
+                    onClick={() => setIsDrawerOpen(false)}
+                    className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
 
-          <AnimatePresence initial={false}>
-            {isDrawerOpen && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                className="flex flex-col gap-3.5"
-              >
-                {/* Friends title */}
-                <div className="flex items-center justify-between">
-            <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Autour de moi</p>
-            <span className="text-[10px] text-snap-yellow font-black">
-              {friendLocations.length} ami{friendLocations.length > 1 ? 's' : ''} visible{friendLocations.length > 1 ? 's' : ''}
-            </span>
-          </div>
-
-          {/* Friends horizontal list */}
+              <div className="flex flex-col gap-3.5">
+                {/* Friends horizontal list */}
           <div className="flex gap-4 overflow-x-auto scroll-hide pb-0.5">
             {friendsLoading && (
               <div className="flex items-center justify-center w-full py-2">
@@ -618,10 +631,10 @@ export default function MapScreen() {
               })}
             </div>
           )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* 5. Global Settings Modal */}
