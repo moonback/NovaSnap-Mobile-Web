@@ -323,17 +323,13 @@ export default function App() {
             initial={{ scale: 0.5, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-            className="w-24 h-24 rounded-[32px] bg-gradient-to-br from-[#FFFC00] to-[#eab308] flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(255,252,0,0.4)]"
+            className="w-32 h-32 rounded-[32px] bg-gradient-to-br from-[#FFFC00] to-[#eab308] flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(255,252,0,0.4)] p-4"
           >
-            <svg viewBox="0 0 100 100" className="w-14 h-14" fill="none">
-              <path
-                d="M50 10C28 10 10 28 10 50c0 8 2.5 15.5 6.8 21.6L10 90l18.4-6.8C34.5 87.5 42 90 50 90c22 0 40-18 40-40S72 10 50 10z"
-                fill="black"
-              />
-              <circle cx="35" cy="50" r="5" fill="white" />
-              <circle cx="50" cy="50" r="5" fill="white" />
-              <circle cx="65" cy="50" r="5" fill="white" />
-            </svg>
+            <img 
+              src="/logo.png" 
+              alt="NovaSnap Logo" 
+              className="w-full h-full object-contain"
+            />
           </motion.div>
 
           <motion.h1
@@ -380,12 +376,14 @@ export default function App() {
           <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[120px]" />
           <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[120px]" />
 
-          {/* Logo en arrière-plan */}
-          <div className="absolute top-10 left-12 flex items-center gap-3 opacity-20 select-none">
-            <div className="w-10 h-10 rounded-[12px] bg-snap-yellow flex items-center justify-center shadow-snap">
-              <svg viewBox="0 0 100 100" className="w-6 h-6" fill="none">
-                <path d="M50 10C28 10 10 28 10 50c0 8 2.5 15.5 6.8 21.6L10 90l18.4-6.8C34.5 87.5 42 90 50 90c22 0 40-18 40-40S72 10 50 10z" fill="black" />
-              </svg>
+          {/* Logo en arrière-plan avec logo.png */}
+          <div className="absolute top-10 left-12 flex items-center gap-3 opacity-30 select-none hover:opacity-50 transition-opacity duration-300">
+            <div className="w-12 h-12 rounded-[14px] bg-gradient-to-br from-snap-yellow to-yellow-500 flex items-center justify-center shadow-snap p-2">
+              <img 
+                src="/logo.png" 
+                alt="NovaSnap" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <span className="text-white font-black tracking-wider text-xl">NovaSnap</span>
           </div>
