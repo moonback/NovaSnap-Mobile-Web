@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, BellOff, Check, MessageCircle, UserPlus, Play, Eye, Camera, CheckCheck } from 'lucide-react';
+import { Bell, BellOff, Check, MessageCircle, UserPlus, Play, Eye, Camera, CheckCheck, Trash2 } from 'lucide-react';
 import { useNotifications, useNotificationCount, usePushNotifications, updateAppBadge } from '../../hooks/usePushNotifications';
 import { useAppStore } from '../../store/useAppStore';
 import type { NotificationType } from '../../hooks/usePushNotifications';
@@ -31,7 +31,7 @@ function timeAgo(dateStr: string): string {
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const { data: count = 0 } = useNotificationCount();
-  const { data: notifications = [], markAllRead } = useNotifications();
+  const { data: notifications = [], markAllRead, clearRead } = useNotifications();
   const { subscribe } = usePushNotifications();
   const { setCurrentView, setDirectChatId, setShowFriends } = useAppStore();
 
@@ -113,7 +113,16 @@ export default function NotificationBell() {
               {/* Header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-white/[0.02]">
                 <span className="font-extrabold text-white text-lg tracking-tight">Notifications</span>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  {notifications.some(n => n.is_read) && (
+                    <button
+                      onClick={() => clearRead()}
+                      className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white transition-colors font-medium px-2 py-1 rounded-full hover:bg-white/5"
+                      title="Effacer les lues"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                   {count > 0 && (
                     <button
                       onClick={() => { markAllRead(); updateAppBadge(0); }}

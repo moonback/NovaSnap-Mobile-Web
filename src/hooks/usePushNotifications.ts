@@ -246,7 +246,23 @@ export const useNotifications = (limit = 30) => {
     },
   });
 
-  return { ...query, markAllRead: markAllRead.mutate };
+  // Effacer les notifications lues
+  const clearRead = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Non connecté');
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('is_read', true);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+    },
+  });
+
+  return { ...query, markAllRead: markAllRead.mutate, clearRead: clearRead.mutate };
 };
 
 // ── Mettre à jour le badge de l'app via le SW ────────────────
