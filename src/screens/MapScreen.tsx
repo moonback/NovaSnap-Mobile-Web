@@ -1,79 +1,41 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Ghost, 
-  Compass, 
   Flame, 
   Settings, 
   X, 
   Search, 
   Navigation, 
-  Play, 
-  MapPin, 
+  Play,
   Loader2,
   Layers,
-  Users
+  Users,
+  ImageOff,
 } from 'lucide-react';
 import { useFriends } from '../hooks/useFriends';
 import { useFriendLocations } from '../hooks/useFriendLocations';
+import { useStories } from '../hooks/useStories';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
+import type { StoryRow } from '../lib/types';
 
 // Leaflet CDN links
 const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 
-interface Landmark {
-  id: string;
-  name: string;
-  coords: [number, number]; // [lat, lng]
-  emoji: string;
-  description: string;
-  storyImage: string;
-  views: number;
-}
-
-const LANDMARKS: Landmark[] = [
-  {
-    id: 'eiffel',
-    name: 'Tour Eiffel',
-    coords: [48.8584, 2.2945],
-    emoji: '🗼',
-    description: 'La dame de fer brille de mille feux à Paris.',
-    storyImage: '/eiffel_snap.png',
-    views: 1240,
-  },
-  {
-    id: 'louvre',
-    name: 'Musée du Louvre',
-    coords: [48.8606, 2.3376],
-    emoji: '🎨',
-    description: 'La pyramide de verre et ses trésors artistiques.',
-    storyImage: '/louvre_snap.png',
-    views: 890,
-  },
-  {
-    id: 'notredame',
-    name: 'Cathédrale Notre-Dame',
-    coords: [48.8530, 2.3499],
-    emoji: '⛪',
-    description: 'Un chef-d\'œuvre d\'architecture historique gothique.',
-    storyImage: '/notredame_snap.png',
-    views: 520,
-  },
-];
-
 export default function MapScreen() {
   const { friends, isLoading: friendsLoading } = useFriends();
   const { user } = useAppStore();
   const { toast } = useToast();
+  const { data: allStories = [], isLoading: storiesLoading } = useStories();
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isGhostMode, setIsGhostMode] = useState(() => {
     return localStorage.getItem('novasnap_settings_ghost_mode') === 'true';
   });
   const [showHeatmap, setShowHeatmap] = useState(true);
-  const [activeStory, setActiveStory] = useState<Landmark | null>(null);
+  const [activeStory, setActiveStory] = useState<StoryRow | null>(null);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -85,6 +47,35 @@ export default function MapScreen() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [mapStyle, setMapStyle] = useState<'dark' | 'satellite'>('dark');
   const [showFriendsOnMap, setShowFriendsOnMap] = useState(true);
+
+  // Stories grouped by author (one entry per user, most recent story first)
+  const storyAuthors = useMemo(() => {
+    const map = new Map<string, StoryRow>();
+    for (const story of allStories) {
+      if (!map.has(story.user_id)) {
+        map.set(story.user_id, story);
+      }
+    }
+    return Array.from(map.values());
+  }, [allStories]);
+
+  // Stories for the active author (for sequential playback)
+  const [activeAuthorId, setActiveAuthorId] = useState<string | null>(null);
+  const [activeStoryIndex, setActiveStoryIndex] = useState(0);
+
+  const authorStories = useMemo(() => {
+    if (!activeAuthorId) return [];
+    return allStories.filter(s => s.user_id === activeAuthorId);
+  }, [allStories, activeAuthorId]);
+
+  const openAuthorStories = (authorId: string) => {
+    const stories = allStories.filter(s => s.user_id === authorId);
+    if (stories.length === 0) return;
+    setActiveAuthorId(authorId);
+    setActiveStoryIndex(0);
+    setActiveStory(stories[0]);
+    setCurrentProgress(0);
+  };
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -273,26 +264,18 @@ export default function MapScreen() {
 
     userMarkerRef.current = L.marker(userCoords, { icon: userIcon }).addTo(map);
 
-    // --- Active Heatmap Zones ---
+    // --- Active Heatmap Zones (based on real friend positions) ---
     heatmapLayerRef.current.forEach((layer) => map.removeLayer(layer));
     heatmapLayerRef.current = [];
 
-    if (showHeatmap) {
-      // Add pulsing heatmap overlay circles around hotspots
-      const hotCoords = [
-        [48.8584, 2.2945], // Eiffel Tower
-        [48.8606, 2.3376], // Louvre
-        [48.8530, 2.3499], // Notre Dame
-        [48.8566, 2.3522], // Center
-      ];
-
-      hotCoords.forEach((coords) => {
+    if (showHeatmap && friendLocations.length > 0) {
+      friendLocations.forEach((friend) => {
         const heatmapIcon = L.divIcon({
           className: 'heatmap-activity-zone',
           iconSize: [80, 80],
           iconAnchor: [40, 40],
         });
-        const layer = L.marker(coords, { icon: heatmapIcon }).addTo(map);
+        const layer = L.marker([friend.lat, friend.lng], { icon: heatmapIcon }).addTo(map);
         heatmapLayerRef.current.push(layer);
       });
     }
@@ -330,31 +313,46 @@ export default function MapScreen() {
       });
     }
 
-    // --- Public geolocated Stories (Landmarks) ---
+    // --- Stories markers (one per author, positioned near user for now) ---
+    // Note: stories table has no lat/lng columns yet — markers are placed
+    // near the user's position with a small offset per author index.
     landmarkMarkersRef.current.forEach((m) => map.removeLayer(m));
     landmarkMarkersRef.current = [];
 
-    LANDMARKS.forEach((landmark) => {
-      const landmarkIcon = L.divIcon({
+    storyAuthors.forEach((story, index) => {
+      const username = story.users?.username || 'User';
+      const avatarUrl = story.users?.avatar_url;
+
+      // Spread markers in a small circle around the user position
+      const angle = (index / Math.max(storyAuthors.length, 1)) * 2 * Math.PI;
+      const offsetLat = 0.003 * Math.cos(angle);
+      const offsetLng = 0.003 * Math.sin(angle);
+      const markerCoords: [number, number] = [
+        userCoords[0] + offsetLat,
+        userCoords[1] + offsetLng,
+      ];
+
+      const html = avatarUrl
+        ? `<img src="${avatarUrl}" style="width:28px;height:28px;border-radius:50%;border:2px solid #fffc00;" />`
+        : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#eab308,#f97316);display:flex;align-items:center;justify-content:center;font-weight:900;color:black;font-size:11px;border:2px solid #fffc00;">${username.substring(0,1).toUpperCase()}</div>`;
+
+      const storyIcon = L.divIcon({
         className: 'landmark-glowing-ring',
-        html: `<span>${landmark.emoji}</span>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        html,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       });
 
-      const marker = L.marker(landmark.coords, { icon: landmarkIcon }).addTo(map);
-      
+      const marker = L.marker(markerCoords, { icon: storyIcon }).addTo(map);
       marker.on('click', () => {
-        setActiveStory(landmark);
-        setCurrentProgress(0);
+        openAuthorStories(story.user_id);
       });
-
       landmarkMarkersRef.current.push(marker);
     });
 
-  }, [mapLoaded, userCoords, isGhostMode, showHeatmap, friendLocations, showFriendsOnMap]);
+  }, [mapLoaded, userCoords, isGhostMode, showHeatmap, friendLocations, showFriendsOnMap, storyAuthors]);
 
-  // 5. Autoplay & Progress Bars for City Public Stories
+  // 5. Autoplay & Progress Bars for Stories
   useEffect(() => {
     if (!activeStory) return;
 
@@ -363,7 +361,16 @@ export default function MapScreen() {
       setCurrentProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
-          setActiveStory(null);
+          // Advance to next story of same author, or close
+          const nextIndex = activeStoryIndex + 1;
+          if (nextIndex < authorStories.length) {
+            setActiveStoryIndex(nextIndex);
+            setActiveStory(authorStories[nextIndex]);
+          } else {
+            setActiveStory(null);
+            setActiveAuthorId(null);
+            setActiveStoryIndex(0);
+          }
           return 0;
         }
         return prev + 2; // Auto advances in 5 seconds
@@ -403,13 +410,6 @@ export default function MapScreen() {
 
     map.setView([location.lat, location.lng], 15, { animate: true, duration: 1.5 });
     toast(`Zoom sur ${friendName} 📍`, 'success');
-  };
-
-  const handleCenterOnLandmark = (landmark: Landmark) => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-    map.setView(landmark.coords, 15, { animate: true, duration: 1.5 });
-    toast(`Zoom sur ${landmark.name} 🎪`, 'success');
   };
 
   return (
@@ -528,7 +528,7 @@ export default function MapScreen() {
                 <div className="flex items-center justify-between">
             <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Autour de moi</p>
             <span className="text-[10px] text-snap-yellow font-black">
-              {friends.length} ami{friends.length > 1 ? 's' : ''} actif{friends.length > 1 ? 's' : ''}
+              {friendLocations.length} ami{friendLocations.length > 1 ? 's' : ''} visible{friendLocations.length > 1 ? 's' : ''}
             </span>
           </div>
 
@@ -571,29 +571,53 @@ export default function MapScreen() {
 
           <div className="h-[1px] bg-white/5" />
 
-          {/* Landmarks popular list */}
+          {/* Real Stories list */}
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Stories géolocalisées</p>
-            <span className="text-[10px] text-white/40 font-bold">Populaires</span>
+            <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Stories actives</p>
+            <span className="text-[10px] text-white/40 font-bold">{storyAuthors.length} en ligne</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            {LANDMARKS.map((landmark) => (
-              <button
-                key={landmark.id}
-                onClick={() => handleCenterOnLandmark(landmark)}
-                className="bg-white/4 hover:bg-white/8 border border-white/5 rounded-2xl p-2.5 flex flex-col items-center gap-1.5 text-center transition-all active:scale-95"
-              >
-                <span className="text-xl">{landmark.emoji}</span>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-black text-white truncate max-w-[80px]">{landmark.name}</span>
-                  <span className="text-[8px] font-bold text-snap-yellow flex items-center gap-0.5 justify-center">
-                    <Play size={7} fill="currentColor" /> {landmark.views} v.
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
+          {storiesLoading && (
+            <div className="flex items-center justify-center py-3">
+              <Loader2 className="animate-spin text-white/20" size={16} />
+            </div>
+          )}
+
+          {!storiesLoading && storyAuthors.length === 0 && (
+            <p className="text-[11px] text-white/30 font-medium text-center py-2">
+              Aucune story active pour le moment.
+            </p>
+          )}
+
+          {!storiesLoading && storyAuthors.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {storyAuthors.map((story) => {
+                const username = story.users?.username || 'User';
+                const avatarUrl = story.users?.avatar_url;
+                return (
+                  <button
+                    key={story.user_id}
+                    onClick={() => openAuthorStories(story.user_id)}
+                    className="bg-white/4 hover:bg-white/8 border border-white/5 rounded-2xl p-2.5 flex flex-col items-center gap-1.5 text-center transition-all active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-full ring-2 ring-snap-yellow overflow-hidden bg-black flex-shrink-0">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} className="w-full h-full object-cover" alt={username} />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
+                          {username.substring(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-black text-white truncate max-w-[80px]">{username}</span>
+                    <span className="text-[8px] font-bold text-snap-yellow flex items-center gap-0.5 justify-center">
+                      <Play size={7} fill="currentColor" /> Story
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -728,64 +752,112 @@ export default function MapScreen() {
         )}
       </AnimatePresence>
 
-      {/* 6. Fully Integrated Segmented Map Story Player */}
+      {/* 6. Story Player */}
       <AnimatePresence>
         {activeStory && (
           <div className="absolute inset-0 z-50 bg-black flex flex-col">
-            {/* Progress Bar */}
+            {/* Progress Bars (one per story of this author) */}
             <div className="absolute top-0 inset-x-0 pt-12 px-3 flex gap-1 z-10">
-              <div className="h-[3px] flex-1 bg-white/25 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-white rounded-full transition-all duration-100 ease-linear"
-                  style={{ width: `${currentProgress}%` }}
-                />
-              </div>
+              {authorStories.map((s, i) => (
+                <div key={s.id} className="h-[3px] flex-1 bg-white/25 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-white rounded-full transition-all duration-100 ease-linear"
+                    style={{
+                      width: i < activeStoryIndex ? '100%' : i === activeStoryIndex ? `${currentProgress}%` : '0%',
+                    }}
+                  />
+                </div>
+              ))}
             </div>
 
             {/* Story Header */}
             <div className="absolute top-16 inset-x-0 px-4 flex items-center justify-between z-30">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-snap-yellow flex items-center justify-center font-black text-black text-lg">
-                  {activeStory.emoji}
+                <div className="w-9 h-9 rounded-full overflow-hidden bg-snap-yellow flex items-center justify-center">
+                  {activeStory.users?.avatar_url ? (
+                    <img src={activeStory.users.avatar_url} className="w-full h-full object-cover" alt="" />
+                  ) : (
+                    <span className="font-black text-black text-sm">
+                      {(activeStory.users?.username || 'U').substring(0, 1).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <p className="text-white font-black text-sm leading-tight">{activeStory.name} Snap</p>
-                  <p className="text-white/50 text-[10px] font-bold">Story Publique Géolocalisée</p>
+                  <p className="text-white font-black text-sm leading-tight">
+                    {activeStory.users?.username || 'Utilisateur'}
+                  </p>
+                  <p className="text-white/50 text-[10px] font-bold">
+                    Story · {activeStoryIndex + 1}/{authorStories.length}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setActiveStory(null)}
+                onClick={() => {
+                  setActiveStory(null);
+                  setActiveAuthorId(null);
+                  setActiveStoryIndex(0);
+                }}
                 className="w-9 h-9 rounded-full glass-dark flex items-center justify-center text-white active:scale-90 transition-transform"
               >
                 <X size={20} />
               </button>
             </div>
 
-            {/* Image content */}
-            <div className="flex-1 w-full h-full flex items-center justify-center bg-zinc-950/20 relative">
-              <img
-                src={activeStory.storyImage}
-                alt={activeStory.name}
-                className="w-full h-full object-cover"
-              />
-              
-              {/* Landmark description label */}
-              <div className="absolute bottom-16 inset-x-6 p-4 glass-dark border border-white/10 rounded-3xl flex flex-col gap-1">
-                <span className="text-[10px] text-snap-yellow font-black uppercase tracking-widest">
-                  {activeStory.emoji} Infos Lieu
-                </span>
-                <p className="text-white text-xs font-bold leading-normal">{activeStory.description}</p>
-                <span className="text-[9px] text-white/40 mt-1 font-semibold flex items-center gap-1">
-                  <Play size={8} fill="currentColor" /> {activeStory.views} vues en direct
-                </span>
-              </div>
+            {/* Media content */}
+            <div className="flex-1 w-full h-full flex items-center justify-center bg-zinc-950 relative">
+              {activeStory.media_type === 'VIDEO' ? (
+                <video
+                  key={activeStory.id}
+                  src={activeStory.media_url}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : activeStory.media_url ? (
+                <img
+                  src={activeStory.media_url}
+                  alt="Story"
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-3 text-white/30">
+                  <ImageOff size={40} />
+                  <p className="text-xs font-bold">Média indisponible</p>
+                </div>
+              )}
             </div>
 
-            {/* Tap zones for manual dismiss */}
-            <div 
-              className="absolute inset-0 cursor-pointer"
-              onClick={() => setActiveStory(null)}
-            />
+            {/* Tap zones for prev/next */}
+            <div className="absolute inset-0 flex">
+              <div
+                className="flex-1 cursor-pointer"
+                onClick={() => {
+                  if (activeStoryIndex > 0) {
+                    const prev = activeStoryIndex - 1;
+                    setActiveStoryIndex(prev);
+                    setActiveStory(authorStories[prev]);
+                    setCurrentProgress(0);
+                  }
+                }}
+              />
+              <div
+                className="flex-1 cursor-pointer"
+                onClick={() => {
+                  const next = activeStoryIndex + 1;
+                  if (next < authorStories.length) {
+                    setActiveStoryIndex(next);
+                    setActiveStory(authorStories[next]);
+                    setCurrentProgress(0);
+                  } else {
+                    setActiveStory(null);
+                    setActiveAuthorId(null);
+                    setActiveStoryIndex(0);
+                  }
+                }}
+              />
+            </div>
           </div>
         )}
       </AnimatePresence>
