@@ -84,7 +84,7 @@ export default function ChatScreen() {
       const { data: newConv, error: createError } = await supabase
         .from('conversations')
         .insert({ is_group: false, title: targetUser.display_name || targetUser.username })
-        .select()
+        .select('id, is_group, title, updated_at')
         .single();
       if (createError) throw createError;
       const { error: memberError } = await supabase.from('conversation_members').insert([
