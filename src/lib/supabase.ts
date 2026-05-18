@@ -46,29 +46,29 @@ export async function getValidMediaUrl(bucketName: string, urlOrPath: string): P
     }
   }
 
-  const PUBLIC_BUCKETS = new Set(['avatars', 'stories']);
+  // All buckets are private — always use signed URLs.
+  // PUBLIC_BUCKETS is intentionally empty; kept as a hook for future public buckets.
+  const PUBLIC_BUCKETS = new Set<string>();
 
   if (PUBLIC_BUCKETS.has(bucketName)) {
-    // Public bucket: return the canonical public URL directly.
-    if (urlOrPath.startsWith('http')) {
-      // Strip any expired token query params from old signed URLs
-      return urlOrPath.split('?')[0];
-    }
-    // Input was a bare path — build the public URL
+    if (urlOrPath.startsWith('http')) return urlOrPath.split('?')[0];
     const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
     return data.publicUrl;
   }
 
-  // Private buckets (chats, temporary_snaps): generate a fresh signed URL.
+  // Private buckets (avatars, stories, chats, temporary_snaps): signed URLs.
   //
-  // Path format detection:
+  // Path format detection for chats / temporary_snaps:
   //   Legacy (pre-security-migration): <sender_uid>/<timestamp>.<ext>   — 2 segments
   //   New:                             <conv_id>/<sender_uid>/<file>     — 3+ segments
   //
-  // Legacy paths can only be signed by the original sender (RLS fallback).
+  // Legacy paths can only be signed by the original sender.
   // Recipients cannot sign them — skip silently to avoid 400 spam.
+  // Legacy path guard only applies to chats and temporary_snaps.
+  // avatars and stories always use <uid>/<file> format and are owner-signed.
+  const CHAT_BUCKETS = new Set(['chats', 'temporary_snaps']);
   const segments = filePath.split('/').filter(Boolean);
-  const isLegacyPath = segments.length === 2;
+  const isLegacyPath = CHAT_BUCKETS.has(bucketName) && segments.length === 2;
 
   if (isLegacyPath) {
     // Check if the current user is the sender (first segment = their uid)

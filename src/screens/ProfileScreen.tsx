@@ -277,12 +277,11 @@ export default function ProfileScreen() {
         .from('avatars')
         .upload(filePath, file, { upsert: true });
       if (uploadError) throw uploadError;
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      // Store the bare file path — getValidMediaUrl will sign it on read.
+      // Never store a public URL: the avatars bucket is private.
       const { error: updateError } = await supabase
         .from('users')
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: filePath })
         .eq('id', user.id);
       if (updateError) throw updateError;
       await queryClient.invalidateQueries({ queryKey: ['user-profile', user.id] });
