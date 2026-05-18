@@ -120,7 +120,7 @@ export default function TabBar() {
         {/* ── Stories ── */}
         <button
           onClick={() => setCurrentView('stories')}
-          aria-label="Stories"
+          aria-label="Histoires"
           className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
         >
           <Play
@@ -136,7 +136,7 @@ export default function TabBar() {
               currentView === 'stories' ? t.tabActive : t.tabInactive
             }`}
           >
-            Stories
+            Histoires
           </span>
           {currentView === 'stories' && (
             <motion.span
@@ -149,7 +149,7 @@ export default function TabBar() {
         {/* ── Memories ── */}
         <button
           onClick={() => setShowMemories(true)}
-          aria-label="Memories"
+          aria-label="Souvenirs"
           className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
         >
           <Images
@@ -165,7 +165,7 @@ export default function TabBar() {
               showMemories ? t.tabActive : t.tabInactive
             }`}
           >
-            Memories
+            Souvenirs
           </span>
           {showMemories && (
             <motion.span
