@@ -568,9 +568,20 @@ export default function ConversationScreen({
         }
       )
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => {
-          const updated = payload.new as Message;
+        async (payload) => {
+          let updated = payload.new as Message;
           console.log('[NovaChat:Realtime] UPDATE reçu !', updated);
+          
+          if (updated.media_url && (updated.message_type === 'IMAGE' || updated.message_type === 'VIDEO')) {
+            const oldData = queryClient.getQueryData<Message[]>(['messages', conversationId]);
+            const existingMsg = oldData?.find(m => m.id === updated.id);
+            if (existingMsg && existingMsg.media_url?.startsWith('http')) {
+               updated.media_url = existingMsg.media_url;
+            } else {
+               updated.media_url = await getCachedMediaUrl('chats', updated.media_url);
+            }
+          }
+
           queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) =>
             oldData ? oldData.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)) : oldData
           );
