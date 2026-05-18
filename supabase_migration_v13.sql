@@ -12,17 +12,17 @@ DECLARE
   v_edge_url  TEXT;
   v_anon_key  TEXT;
 BEGIN
-  -- Ces valeurs sont injectées via les secrets Supabase (Vault)
-  -- ou configurées directement ici pour les projets auto-hébergés
-  v_edge_url := current_setting('app.edge_function_url', true);
-  
+  -- Remplacement des variables de configuration par les valeurs en dur 
+  -- pour contourner les erreurs de permissions (ERROR 42501) sur Supabase Cloud
+  v_edge_url := 'https://ivaevasbinqcswgwdipa.supabase.co/functions/v1';
+  v_anon_key := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2YWV2YXNiaW5xY3N3Z3dkaXBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMTQxMDAsImV4cCI6MjA5NDU5MDEwMH0.LBXUMrDZra2zOnthuZOVRfd68D0fYRw9AQNwSzmJd2A';
+
   -- Prevent crash if edge function URL is not set
   IF v_edge_url IS NULL OR v_edge_url = '' THEN
     RETURN NEW;
   END IF;
 
   v_edge_url := v_edge_url || '/send-push-notification';
-  v_anon_key := current_setting('app.supabase_anon_key', true);
 
   -- Appel HTTP asynchrone vers l'Edge Function
   PERFORM net.http_post(
