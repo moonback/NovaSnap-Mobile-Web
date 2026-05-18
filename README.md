@@ -38,6 +38,12 @@ Sur desktop, l'app s'affiche dans un **mockup iPhone** centré (430×932px) avec
 - Capture photo (tap) et vidéo (appui long) avec basculement avant/arrière
 - **Mode Boomerang** : enregistrement 2s + lecture aller-retour en boucle infinie
 - Flash toggle
+- **Filtres & Lenses en temps réel** (MediaPipe FaceLandmarker — 468 points de visage) :
+  - **Carrousel de filtres** : bouton ✨ Filtres ouvre une barre horizontale scrollable avec 9 filtres
+  - **Filtre Beauté** : halo radial lumineux + particules scintillantes animées sur le contour du visage
+  - **Filtres couleur** : Noir & Blanc (grayscale), Vintage (sépia chaud), Néon (saturation extrême) — via CSS filter dynamique
+  - **Overlays AR animés** : 🐶 oreilles + truffe de chien, 🕶️ lunettes aviateur avec reflets, 👑 couronne dorée avec gemmes pulsantes, 💕 cœurs flottants en orbite
+  - Détection multi-visages (jusqu'à 2), chargement WASM depuis CDN, singleton GPU→CPU fallback
 - **SnapEditor** complet avec :
   - Outil **Texte** : polices multiples (Bold, Serif, Mono, Thin), couleurs, taille ajustable
   - Outil **Dessin** : tracé libre, palette de couleurs, épaisseur de pinceau, undo

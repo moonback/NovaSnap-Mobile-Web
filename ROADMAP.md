@@ -62,10 +62,10 @@
 > **Priorité : HAUTE** — C'est le cœur différenciateur de l'app.
 
 ### 2.1 Filtres & Lenses en temps réel
-- [ ] Intégration **TensorFlow.js** ou **MediaPipe** pour la détection de visage
-- [ ] Filtre beauté (lissage peau, yeux agrandis)
-- [ ] Filtres couleur (noir & blanc, vintage, néon)
-- [ ] Overlays animés (chapeaux, lunettes, oreilles)
+- [x] Intégration **MediaPipe FaceLandmarker** pour la détection de visage *(468 landmarks, WASM CDN, singleton, RAF loop, GPU fallback CPU)*
+- [x] Filtre beauté (glow radial + sparkles animés sur contour du visage)
+- [x] Filtres couleur (noir & blanc, vintage sépia, néon saturé) *(CSS filter dynamique sur \<video\>)*
+- [x] Overlays animés (🐶 oreilles de chien + truffe, 🕶️ lunettes aviateur, 👑 couronne dorée avec gemmes pulsantes, 💕 cœurs flottants)
 - [ ] **Lens IA générative** : prompt texte → filtre appliqué en temps réel (via Gemini Vision)
 - [ ] Galerie de lenses communautaires (les utilisateurs créent et partagent leurs lenses)
 
