@@ -1411,9 +1411,10 @@ export default function ConversationScreen({
                   <div className={`mt-2 pt-2 border-t flex flex-wrap gap-1.5 ${t.isLight ? 'border-black/8' : 'border-white/8'}`}>
                     {Object.entries(
                       Object.entries(selectedMessageForMenu.reactions).reduce((acc, [uid, emoji]) => {
-                        if (!acc[emoji]) acc[emoji] = [];
+                        const emojiStr = emoji as string;
+                        if (!acc[emojiStr]) acc[emojiStr] = [];
                         const m = members.find(mem => mem.user_id === uid);
-                        acc[emoji].push(m ? (m.display_name || m.username) : 'Quelqu\'un');
+                        acc[emojiStr].push(m ? (m.display_name || m.username) : 'Quelqu\'un');
                         return acc;
                       }, {} as Record<string, string[]>)
                     ).map(([emoji, names]) => (

@@ -15,12 +15,6 @@ if ('serviceWorker' in navigator) {
         console.log('ServiceWorker désenregistré en mode dev.');
       }
     });
-  } else {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch((err) => {
-        console.log('ServiceWorker registration failed: ', err);
-      });
-    });
   }
 }
 
