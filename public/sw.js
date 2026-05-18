@@ -1,11 +1,43 @@
 // ============================================================
-// NovaSnap Service Worker — Cache + Web Push Notifications
+// NovaSnap Service Worker v4 — Production-Grade PWA
+// ============================================================
+// Features:
+//  ✅ Precache + versioned cache busting
+//  ✅ Network-First for navigations (with offline fallback)
+//  ✅ Stale-While-Revalidate for static assets
+//  ✅ Network-First for API calls (with timeout)
+//  ✅ Cache-First for images
+//  ✅ Web Push Notifications with rich actions
+//  ✅ App Badge API
+//  ✅ Background Sync for failed messages
+//  ✅ Update lifecycle management (SKIP_WAITING)
 // ============================================================
 
-const CACHE_NAME = 'novasnap-cache-v3';
-const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
+const CACHE_VERSION = 'v4';
+const STATIC_CACHE  = `novasnap-static-${CACHE_VERSION}`;
+const RUNTIME_CACHE = `novasnap-runtime-${CACHE_VERSION}`;
+const IMAGE_CACHE   = `novasnap-images-${CACHE_VERSION}`;
 
-// ── Icônes par type de notification ─────────────────────────
+// Core shell assets that MUST be available offline
+const PRECACHE_URLS = [
+  '/',
+  '/index.html',
+  '/offline.html',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/badge-72.png',
+  '/logo.png',
+];
+
+// Max entries per cache to prevent storage bloat
+const MAX_RUNTIME_ENTRIES = 60;
+const MAX_IMAGE_ENTRIES   = 80;
+
+// Network timeout before falling back to cache (ms)
+const NETWORK_TIMEOUT_MS = 4000;
+
+// ── Icons par type de notification ──────────────────────────
 const NOTIFICATION_ICONS = {
   NEW_MESSAGE:     '/icons/icon-192.png',
   SNAP_OPENED:     '/icons/icon-192.png',
@@ -16,7 +48,7 @@ const NOTIFICATION_ICONS = {
   DEFAULT:         '/icons/icon-192.png',
 };
 
-// ── Couleurs badge par type ──────────────────────────────────
+// ── Couleurs badge par type ─────────────────────────────────
 const NOTIFICATION_COLORS = {
   NEW_MESSAGE:     '#FFFC00',
   SNAP_OPENED:     '#22c55e',
@@ -27,54 +59,93 @@ const NOTIFICATION_COLORS = {
   DEFAULT:         '#FFFC00',
 };
 
-// ── Install ──────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// INSTALL — Precache critical assets
+// ═══════════════════════════════════════════════════════════
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(STATIC_CACHE)
+      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-// ── Activate ─────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// ACTIVATE — Clean old caches, claim clients
+// ═══════════════════════════════════════════════════════════
 self.addEventListener('activate', (event) => {
+  const currentCaches = [STATIC_CACHE, RUNTIME_CACHE, IMAGE_CACHE];
+
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+    caches.keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((name) => !currentCaches.includes(name))
+            .map((name) => caches.delete(name))
+        )
       )
-    )
+      .then(() => self.clients.claim())
+      .then(() => {
+        // Notify all clients that a new version is active
+        return self.clients.matchAll({ type: 'window' }).then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: 'SW_ACTIVATED', version: CACHE_VERSION });
+          });
+        });
+      })
   );
-  self.clients.claim();
 });
 
-// ── Fetch (Network-First pour navigations, Cache-First sinon) ────────────
+// ═══════════════════════════════════════════════════════════
+// FETCH — Intelligent routing
+// ═══════════════════════════════════════════════════════════
 self.addEventListener('fetch', (event) => {
-  // Ne pas intercepter les requêtes API Supabase
-  if (event.request.url.includes('supabase.co')) return;
+  const { request } = event;
+  const url = new URL(request.url);
 
-  // Stratégie Network-First pour les navigations (HTML)
-  // Évite de servir un index.html de production obsolète en mode développement
-  if (event.request.mode === 'navigate') {
+  // Skip non-GET requests (POST, PUT, etc.)
+  if (request.method !== 'GET') return;
+
+  // Skip Supabase API calls (real-time, auth, storage signed URLs)
+  if (url.hostname.includes('supabase.co') || url.hostname.includes('supabase.in')) return;
+
+  // Skip WebSocket connections
+  if (url.protocol === 'ws:' || url.protocol === 'wss:') return;
+
+  // Skip browser extensions and chrome-extension:// URLs
+  if (url.protocol === 'chrome-extension:') return;
+
+  // ─── Navigation requests → Network-First with offline fallback ───
+  if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/index.html');
-      })
+      networkFirstWithTimeout(request, STATIC_CACHE, NETWORK_TIMEOUT_MS)
+        .catch(() => caches.match('/offline.html'))
     );
     return;
   }
 
-  // Stratégie Cache-First pour le reste
+  // ─── Images → Cache-First with network fallback ───
+  if (request.destination === 'image' || isImageUrl(url)) {
+    event.respondWith(cacheFirstWithRefresh(request, IMAGE_CACHE, MAX_IMAGE_ENTRIES));
+    return;
+  }
+
+  // ─── JS/CSS bundles → Stale-While-Revalidate ───
+  if (isStaticAsset(url)) {
+    event.respondWith(staleWhileRevalidate(request, RUNTIME_CACHE, MAX_RUNTIME_ENTRIES));
+    return;
+  }
+
+  // ─── Everything else → Network-First ───
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request);
-    })
+    networkFirstWithTimeout(request, RUNTIME_CACHE, NETWORK_TIMEOUT_MS)
   );
 });
 
-// ── Push notification reçue ───────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// PUSH — Rich notifications
+// ═══════════════════════════════════════════════════════════
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
@@ -108,26 +179,26 @@ self.addEventListener('push', (event) => {
       type,
       url: buildNotificationUrl(type, data),
       badgeColor,
+      timestamp: Date.now(),
     },
     actions: buildNotificationActions(type),
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options).then(() => {
-      // Mettre à jour le badge de l'app (API Badge)
-      return updateAppBadge();
-    })
+    self.registration.showNotification(title, options).then(() => updateAppBadge())
   );
 });
 
-// ── Clic sur une notification ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// NOTIFICATION CLICK — Deep-link routing
+// ═══════════════════════════════════════════════════════════
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const { type, url, conversation_id, requester_id } = event.notification.data || {};
   const action = event.action;
 
-  // Actions rapides
+  // Quick actions
   if (action === 'reply' && conversation_id) {
     event.waitUntil(openOrFocusApp(`/?view=chat&conversation=${conversation_id}`));
     return;
@@ -141,33 +212,172 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  // Clic principal
+  // Main click
   event.waitUntil(openOrFocusApp(url || '/'));
 });
 
-// ── Fermeture d'une notification ──────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// NOTIFICATION CLOSE
+// ═══════════════════════════════════════════════════════════
 self.addEventListener('notificationclose', () => {
-  // Optionnel : analytics
+  // Optional: analytics tracking
 });
 
-// ── Message depuis le client (badge update, etc.) ────────────
+// ═══════════════════════════════════════════════════════════
+// MESSAGE — Client → SW communication
+// ═══════════════════════════════════════════════════════════
 self.addEventListener('message', (event) => {
   if (!event.data) return;
 
   switch (event.data.type) {
+    case 'SKIP_WAITING':
+      self.skipWaiting();
+      break;
     case 'UPDATE_BADGE':
       updateAppBadge(event.data.count);
       break;
     case 'CLEAR_BADGE':
       clearAppBadge();
       break;
-    case 'SKIP_WAITING':
-      self.skipWaiting();
+    case 'GET_VERSION':
+      event.source?.postMessage({ type: 'SW_VERSION', version: CACHE_VERSION });
+      break;
+    case 'CACHE_URLS':
+      // Allow the app to dynamically add URLs to cache
+      if (Array.isArray(event.data.urls)) {
+        caches.open(RUNTIME_CACHE).then((cache) => {
+          cache.addAll(event.data.urls).catch(() => {});
+        });
+      }
       break;
   }
 });
 
-// ── Helpers ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// BACKGROUND SYNC — Retry failed operations
+// ═══════════════════════════════════════════════════════════
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'send-message') {
+    event.waitUntil(retrySendMessages());
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// CACHING STRATEGIES
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Network-First with timeout — Try network, fall back to cache after timeout
+ */
+async function networkFirstWithTimeout(request, cacheName, timeout) {
+  const cache = await caches.open(cacheName);
+
+  try {
+    const networkResponse = await promiseTimeout(fetch(request), timeout);
+
+    if (networkResponse && networkResponse.ok) {
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+
+    // For navigation, return offline page
+    if (request.mode === 'navigate') {
+      return caches.match('/offline.html');
+    }
+
+    return new Response('Network error', { status: 408, statusText: 'Request Timeout' });
+  }
+}
+
+/**
+ * Cache-First — Serve from cache, update in background
+ */
+async function cacheFirstWithRefresh(request, cacheName, maxEntries) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+
+  if (cached) {
+    // Background refresh
+    fetch(request).then((response) => {
+      if (response && response.ok) {
+        cache.put(request, response);
+        trimCache(cacheName, maxEntries);
+      }
+    }).catch(() => {});
+
+    return cached;
+  }
+
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      cache.put(request, response.clone());
+      trimCache(cacheName, maxEntries);
+    }
+    return response;
+  } catch {
+    return new Response('', { status: 404 });
+  }
+}
+
+/**
+ * Stale-While-Revalidate — Serve cached, update in background
+ */
+async function staleWhileRevalidate(request, cacheName, maxEntries) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+
+  const networkFetch = fetch(request).then((response) => {
+    if (response && response.ok) {
+      cache.put(request, response.clone());
+      trimCache(cacheName, maxEntries);
+    }
+    return response;
+  }).catch(() => cached);
+
+  return cached || networkFetch;
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+
+function isImageUrl(url) {
+  return /\.(png|jpg|jpeg|gif|webp|avif|svg|ico)(\?.*)?$/i.test(url.pathname);
+}
+
+function isStaticAsset(url) {
+  return /\.(js|css|woff2?|ttf|eot)(\?.*)?$/i.test(url.pathname) ||
+         url.pathname.startsWith('/assets/');
+}
+
+/**
+ * Promise with timeout wrapper
+ */
+function promiseTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout')), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+/**
+ * Trim cache to max entries (FIFO)
+ */
+async function trimCache(cacheName, maxEntries) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  if (keys.length > maxEntries) {
+    const toDelete = keys.slice(0, keys.length - maxEntries);
+    await Promise.all(toDelete.map((key) => cache.delete(key)));
+  }
+}
 
 function buildNotificationUrl(type, data) {
   switch (type) {
@@ -190,9 +400,7 @@ function buildNotificationActions(type) {
     case 'NEW_MESSAGE':
       return [{ action: 'reply', title: '💬 Répondre' }];
     case 'FRIEND_REQUEST':
-      return [
-        { action: 'accept_friend', title: '✅ Accepter' },
-      ];
+      return [{ action: 'accept_friend', title: '✅ Accepter' }];
     case 'NEW_STORY':
       return [{ action: 'view_story', title: '👀 Voir' }];
     default:
@@ -203,7 +411,7 @@ function buildNotificationActions(type) {
 async function openOrFocusApp(url) {
   const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
 
-  // Chercher une fenêtre déjà ouverte
+  // Focus existing window
   for (const client of clients) {
     if ('focus' in client) {
       await client.focus();
@@ -216,7 +424,7 @@ async function openOrFocusApp(url) {
     }
   }
 
-  // Ouvrir une nouvelle fenêtre
+  // Open new window
   if (self.clients.openWindow) {
     await self.clients.openWindow(url);
   }
@@ -228,12 +436,11 @@ async function updateAppBadge(count) {
       if (count !== undefined && count > 0) {
         await self.navigator.setAppBadge(count);
       } else {
-        // Compter les notifications non lues depuis le cache si pas de count fourni
         await self.navigator.setAppBadge();
       }
     }
   } catch {
-    // API Badge non supportée sur ce navigateur
+    // Badge API not supported
   }
 }
 
@@ -242,6 +449,22 @@ async function clearAppBadge() {
     if ('clearAppBadge' in self.navigator) {
       await self.navigator.clearAppBadge();
     }
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Retry sending messages stored in IndexedDB (Background Sync)
+ */
+async function retrySendMessages() {
+  // This is a placeholder — the app can store failed messages in IndexedDB
+  // and the SW will retry them when connectivity is restored.
+  try {
+    const clients = await self.clients.matchAll({ type: 'window' });
+    clients.forEach((client) => {
+      client.postMessage({ type: 'RETRY_FAILED_MESSAGES' });
+    });
   } catch {
     // ignore
   }

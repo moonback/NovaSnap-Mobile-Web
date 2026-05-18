@@ -5,37 +5,50 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#000000" />
-  
+
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="/logo.png">
-  <link rel="apple-touch-icon" href="/logo.png">
-  
+
   <!-- Manifest -->
   <link rel="manifest" href="/manifest.json" />
-  
+
   <!-- Primary Meta Tags -->
   <title>NovaSnap - AI-First Ephemeral Messaging</title>
   <meta name="title" content="NovaSnap - AI-First Ephemeral Messaging" />
-  <meta name="description" content="An ephemeral, AI-first messaging experience with stories, memories, and intelligent conversations." />
-  
+  <meta name="description"
+    content="An ephemeral, AI-first messaging experience with stories, memories, and intelligent conversations." />
+
+  <!-- PWA & Mobile Web App Meta Tags -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NovaSnap" />
+  <meta name="application-name" content="NovaSnap" />
+  <meta name="msapplication-TileColor" content="#0a0a0f" />
+
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://novasnap.app/" />
+  <meta property="og:url" content="https://neuro-snap.netlify.app/" />
   <meta property="og:title" content="NovaSnap - AI-First Ephemeral Messaging" />
-  <meta property="og:description" content="An ephemeral, AI-first messaging experience with stories, memories, and intelligent conversations." />
-  <meta property="og:image" content="/logo.png" />
-  
+  <meta property="og:description"
+    content="An ephemeral, AI-first messaging experience with stories, memories, and intelligent conversations." />
+  <meta property="og:image" content="https://neuro-snap.netlify.app/icons/icon-512.png" />
+
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image" />
-  <meta property="twitter:url" content="https://novasnap.app/" />
+  <meta property="twitter:url" content="https://neuro-snap.netlify.app/" />
   <meta property="twitter:title" content="NovaSnap - AI-First Ephemeral Messaging" />
-  <meta property="twitter:description" content="An ephemeral, AI-first messaging experience with stories, memories, and intelligent conversations." />
-  <meta property="twitter:image" content="/logo.png" />
+  <meta property="twitter:description"
+    content="An ephemeral, AI-first messaging experience with stories, memories, and intelligent conversations." />
+  <meta property="twitter:image" content="https://neuro-snap.netlify.app/icons/icon-512.png" />
 </head>
 
 <body>
   <div id="root"></div>
-  
+
   <!-- Splashscreen HTML statique (avant le chargement de React) -->
   <div id="splash-screen" style="
     position: fixed;
@@ -66,13 +79,9 @@
         padding: 16px;
         animation: splash-scale 0.6s ease-out;
       ">
-        <img 
-          src="/logo.png" 
-          alt="NovaSnap Logo" 
-          style="width: 100%; height: 100%; object-fit: contain;"
-        />
+        <img src="/logo.png" alt="NovaSnap Logo" style="width: 100%; height: 100%; object-fit: contain;" />
       </div>
-      
+
       <!-- App Name -->
       <h1 style="
         font-size: 1.875rem;
@@ -87,7 +96,7 @@
       ">
         NovaSnap
       </h1>
-      
+
       <!-- Loading Spinner -->
       <div style="
         margin-top: 2rem;
@@ -104,37 +113,39 @@
       </div>
     </div>
   </div>
-  
+
   <style>
     @keyframes splash-scale {
       from {
         transform: scale(0.5);
         opacity: 0;
       }
+
       to {
         transform: scale(1);
         opacity: 1;
       }
     }
-    
+
     @keyframes splash-fade {
       from {
         opacity: 0;
         transform: translateY(10px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
       }
     }
-    
+
     @keyframes splash-spin {
       to {
         transform: rotate(360deg);
       }
     }
   </style>
-  
+
   <script>
     // Masquer le splashscreen une fois que React est chargé
     window.addEventListener('load', () => {
@@ -148,7 +159,7 @@
       }, 100);
     });
   </script>
-  
+
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

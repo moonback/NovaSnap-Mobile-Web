@@ -16,6 +16,9 @@ import ProfileScreen from './screens/ProfileScreen';
 import FriendsScreen from './screens/FriendsScreen';
 import UserProfileScreen from './screens/UserProfileScreen';
 import MemoriesScreen from './screens/MemoriesScreen';
+import UpdatePrompt from './components/pwa/UpdatePrompt';
+import InstallPrompt from './components/pwa/InstallPrompt';
+import OfflineBanner from './components/pwa/OfflineBanner';
 
 
 type ViewKey = 'chat' | 'camera' | 'stories' | 'map';
@@ -516,8 +519,13 @@ export default function App() {
         <AnimatePresence>
           {showMemories && <MemoriesScreen key="memories" />}
         </AnimatePresence>
+
+        <UpdatePrompt />
+        <InstallPrompt />
+        <OfflineBanner />
       </div>
     </div>
+
   );
 }
 
