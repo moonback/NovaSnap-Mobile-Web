@@ -47,25 +47,6 @@ export async function getValidMediaUrl(bucketName: string, urlOrPath: string): P
   }
 
   // All buckets are private — always use signed URLs.
-  // PUBLIC_BUCKETS is intentionally empty; kept as a hook for future public buckets.
-  const PUBLIC_BUCKETS = new Set<string>();
-
-  if (PUBLIC_BUCKETS.has(bucketName)) {
-    if (urlOrPath.startsWith('http')) return urlOrPath.split('?')[0];
-    const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
-    return data.publicUrl;
-  }
-
-  // Private buckets (avatars, stories, chats, temporary_snaps): signed URLs.
-  //
-  // Path format detection for chats / temporary_snaps:
-  //   Legacy (pre-security-migration): <sender_uid>/<timestamp>.<ext>   — 2 segments
-  //   New:                             <conv_id>/<sender_uid>/<file>     — 3+ segments
-  //
-  // Legacy paths can only be signed by the original sender.
-  // Recipients cannot sign them — skip silently to avoid 400 spam.
-  // Legacy path guard only applies to chats and temporary_snaps.
-  // avatars and stories always use <uid>/<file> format and are owner-signed.
   const CHAT_BUCKETS = new Set(['chats', 'temporary_snaps']);
   const segments = filePath.split('/').filter(Boolean);
   const isLegacyPath = CHAT_BUCKETS.has(bucketName) && segments.length === 2;
@@ -88,12 +69,15 @@ export async function getValidMediaUrl(bucketName: string, urlOrPath: string): P
       .createSignedUrl(filePath, 86400);
 
     if (error || !data?.signedUrl) {
-      console.warn(`Failed to create signed URL for bucket ${bucketName}, path ${filePath}:`, error);
+      // Only warn for non-chat buckets (chat legacy failures are expected and suppressed above)
+      if (!CHAT_BUCKETS.has(bucketName)) {
+        console.warn(`[getValidMediaUrl] Failed to sign ${bucketName}/${filePath}:`, error?.message ?? 'no signedUrl returned');
+      }
       return '';
     }
     return data.signedUrl;
   } catch (err) {
-    console.error(`Error in getValidMediaUrl for bucket ${bucketName}:`, err);
+    console.error(`[getValidMediaUrl] Exception signing ${bucketName}/${filePath}:`, err);
     return '';
   }
 }
