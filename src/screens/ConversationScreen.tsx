@@ -9,7 +9,7 @@ import EphemeralMedia from '../components/chat/EphemeralMedia';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const EMOJIS = [
-  '😀', '😂', '😍', '🥰', '😎', '😜', '🤔', '🙄', 
+  '😀', '😂', '😍', '🥰', '😎', '😜', '🤔', '🙄',
   '👍', '👎', '❤️', '🔥', '🎉', '✨', '👏', '🙌',
   '😮', '😢', '😡', '😱', '💩', '💯', '🚀', '👀',
   '💬', '📸', '⚡', '🌟', '🧁', '🍕', '🍻', '🎈'
@@ -116,14 +116,14 @@ export default function ConversationScreen({
           .select(`id,content,message_type,media_url,created_at,sender_id,client_message_id,is_ephemeral,is_saved,opened_by,users:users!sender_id (username)`)
           .eq('conversation_id', conversationId)
           .order('created_at', { ascending: true });
-        
+
         if (error) {
           console.error('[NovaChat:Query] Erreur Supabase lors du fetch des messages:', error);
           throw error;
         }
-        
+
         console.log(`[NovaChat:Query] ${data?.length ?? 0} messages bruts récupérés.`);
-        
+
         // Filter out already-opened ephemeral messages to prevent them from showing on refresh
         const activeData = (data ?? []).filter((msg) => {
           if (msg.message_type === 'TEXT' && msg.is_ephemeral && !msg.is_saved && msg.opened_by) {
@@ -146,7 +146,7 @@ export default function ConversationScreen({
             return msg;
           })
         );
-        
+
         console.log('[NovaChat:Query] Traitement des messages terminé.', processed);
         return processed;
       } catch (err) {
@@ -232,12 +232,12 @@ export default function ConversationScreen({
     });
 
     channelRef.current = channel;
-      
-    return () => { 
+
+    return () => {
       console.log(`[NovaChat:Realtime] Fermeture du canal realtime pour ${conversationId}`);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       channelRef.current = null;
-      supabase.removeChannel(channel); 
+      supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient, user]);
 
@@ -248,7 +248,7 @@ export default function ConversationScreen({
   const markAsOpened = useCallback(async (msg: Message) => {
     if (!user) return;
     if (msg.message_type !== 'TEXT' || !msg.is_ephemeral || msg.is_saved || msg.sender_id === user.id || msg.opened_by?.includes(user.id)) return;
-    
+
     console.log(`[NovaChat:Lifecycle] Marquage du message ${msg.id} comme lu par l'utilisateur actuel.`);
     const newOpenedBy = [...(msg.opened_by ?? []), user.id];
     queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
@@ -268,7 +268,7 @@ export default function ConversationScreen({
     return () => {
       const currentUser = user;
       if (!currentUser) return;
-      
+
       const currentMessages = messagesRef.current;
       if (!currentMessages || currentMessages.length === 0) return;
 
@@ -329,7 +329,7 @@ export default function ConversationScreen({
         conversation_id: conversationId, content, message_type: 'TEXT', sender_id: user.id,
         client_message_id: meta.clientMessageId, is_ephemeral: true, is_saved: false, opened_by: [],
       }).select();
-      
+
       if (error) {
         console.error('[NovaChat:Mutation] Erreur de Supabase lors de l\'insertion :', error);
         throw error;
@@ -347,7 +347,7 @@ export default function ConversationScreen({
         message_type: 'TEXT', is_ephemeral: true, is_saved: false, opened_by: [],
         pending: true, client_message_id: meta.clientMessageId,
       };
-      
+
       console.log('[NovaChat:Mutation] Ajout du message optimiste au cache :', optimisticMessage);
       queryClient.setQueryData<Message[]>(['messages', conversationId], [...previousMessages, optimisticMessage]);
       setNewMessage('');
@@ -387,7 +387,7 @@ export default function ConversationScreen({
   return (
     <div className={`relative w-full h-full z-50 flex flex-col ${t.bg} ${t.text}`}>
       {/* Header */}
-      <div className={`sticky top-0 z-40 backdrop-blur-xl flex items-center gap-3 px-3 pt-12 pb-3.5 border-b ${t.isLight ? 'bg-white/80 border-black/5' : 'bg-zinc-950/80 border-white/5'}`}>
+      <div className={`sticky top-0 z-40 backdrop-blur-xl flex items-center gap-3 px-3 pt-5 pb-3.5 border-b ${t.isLight ? 'bg-white/80 border-black/5' : 'bg-zinc-950/80 border-white/5'}`}>
         <button onClick={onBack} className={`w-9 h-9 rounded-full flex items-center justify-center ${t.text} hover:bg-black/5 dark:hover:bg-white/5 transition-colors`}>
           <ChevronLeft size={26} />
         </button>
@@ -410,18 +410,18 @@ export default function ConversationScreen({
         </div>
 
         <div className="relative">
-          <button 
-            onClick={() => setShowMenu(!showMenu)} 
+          <button
+            onClick={() => setShowMenu(!showMenu)}
             className={`w-9 h-9 rounded-full flex items-center justify-center ${t.textMuted} ${t.surfaceHover} transition-colors`}
           >
             <MoreVertical size={20} />
           </button>
-          
+
           <AnimatePresence>
             {showMenu && (
               <>
-                <div 
-                  className="fixed inset-0 z-40" 
+                <div
+                  className="fixed inset-0 z-40"
                   onClick={() => setShowMenu(false)}
                 />
                 <motion.div
@@ -431,7 +431,7 @@ export default function ConversationScreen({
                   transition={{ duration: 0.15 }}
                   className={`absolute right-0 top-12 w-48 rounded-2xl shadow-xl z-50 border overflow-hidden ${t.isLight ? 'bg-white border-black/10' : 'bg-zinc-900 border-white/10'}`}
                 >
-                  <button 
+                  <button
                     onClick={async () => {
                       setShowMenu(false);
                       if (!user) return;
@@ -442,7 +442,7 @@ export default function ConversationScreen({
                           .eq('conversation_id', conversationId)
                           .eq('user_id', user.id);
                         if (error) throw error;
-                        queryClient.setQueryData(['conversations', user.id], (old: any) => 
+                        queryClient.setQueryData(['conversations', user.id], (old: any) =>
                           old?.filter((row: any) => row.conversations?.id !== conversationId) ?? []
                         );
                         onBack();
@@ -561,7 +561,7 @@ export default function ConversationScreen({
           >
             <div className={`flex items-center justify-between px-4 py-2 border-b ${t.borderMuted}`}>
               <span className={`text-[10px] font-black ${t.textMuted} uppercase tracking-wider`}>Emojis</span>
-              <button 
+              <button
                 onClick={() => setShowEmojiPicker(false)}
                 className="text-[11px] font-bold text-snap-yellow hover:text-yellow-400 active:scale-95 transition-all"
               >
@@ -615,9 +615,8 @@ export default function ConversationScreen({
             <button
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-all ${
-                showEmojiPicker ? 'bg-[#00b2ff] text-white shadow-[0_2px_8px_rgba(0,178,255,0.2)]' : `${t.input} ${t.textMuted} hover:bg-black/5 dark:hover:bg-white/5`
-              }`}
+              className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-all ${showEmojiPicker ? 'bg-[#00b2ff] text-white shadow-[0_2px_8px_rgba(0,178,255,0.2)]' : `${t.input} ${t.textMuted} hover:bg-black/5 dark:hover:bg-white/5`
+                }`}
             >
               <span className="text-lg">😊</span>
             </button>

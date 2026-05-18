@@ -561,7 +561,7 @@ export default function FriendsScreen() {
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className={`fixed inset-0 z-50 ${theme.bg} ${theme.text} flex flex-col overflow-hidden`}
+      className={`absolute inset-0 z-50 ${theme.bg} ${theme.text} flex flex-col overflow-hidden`}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
