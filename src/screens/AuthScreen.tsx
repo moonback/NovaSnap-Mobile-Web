@@ -136,15 +136,12 @@ export default function AuthScreen() {
             className="w-20 h-20 rounded-[28px] bg-gradient-to-br from-[#FFFC00] to-[#eab308] flex items-center justify-center mb-5 shadow-[0_0_30px_rgba(255,252,0,0.3)] relative group"
           >
             <div className="absolute inset-0 rounded-[28px] bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
-            <svg viewBox="0 0 100 100" className="w-12 h-12" fill="none">
-              <path
-                d="M50 10C28 10 10 28 10 50c0 8 2.5 15.5 6.8 21.6L10 90l18.4-6.8C34.5 87.5 42 90 50 90c22 0 40-18 40-40S72 10 50 10z"
-                fill="black"
-              />
-              <circle cx="35" cy="50" r="5" fill="white" />
-              <circle cx="50" cy="50" r="5" fill="white" />
-              <circle cx="65" cy="50" r="5" fill="white" />
-            </svg>
+            <img
+    src="/logo.png"
+    alt="Logo"
+    className="w-12 h-12 object-contain relative z-10"
+  />
+            <div className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-[#FFFC00]/20 to-[#eab308]/20 opacity-0 group-hover:opacity-100 transition-opacity" />
           </motion.div>
           <h1 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70">
             NovaSnap
