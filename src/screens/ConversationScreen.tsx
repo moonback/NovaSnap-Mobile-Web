@@ -571,7 +571,7 @@ export default function ConversationScreen({
             {showMenu && (
               <>
                 <div
-                  className="fixed inset-0 z-40"
+                  className="absolute inset-0 z-40"
                   onClick={() => setShowMenu(false)}
                 />
                 <motion.div
@@ -839,7 +839,7 @@ export default function ConversationScreen({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowGroupDetails(false)}
-              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm pointer-events-auto"
+              className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm pointer-events-auto"
             />
             {/* Bottom Sheet */}
             <motion.div
@@ -847,7 +847,7 @@ export default function ConversationScreen({
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 rounded-t-[32px] border-t p-6 max-h-[85%] flex flex-col pointer-events-auto ${t.isLight ? 'bg-[#f0f2f8] border-black/10' : 'bg-[#0d0d0f] border-white/10'}`}
+              className={`absolute bottom-0 left-0 right-0 z-50 rounded-t-[32px] border-t p-6 max-h-[85%] flex flex-col pointer-events-auto ${t.isLight ? 'bg-[#f0f2f8] border-black/10' : 'bg-[#0d0d0f] border-white/10'}`}
             >
               {/* Handle */}
               <div className="w-12 h-1.5 rounded-full bg-zinc-700/50 mx-auto mb-6 cursor-pointer" onClick={() => setShowGroupDetails(false)} />
@@ -913,13 +913,13 @@ export default function ConversationScreen({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowLeaveConfirm(false)}
-              className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6 pointer-events-auto"
+              className="absolute inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6 pointer-events-auto"
             />
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className={`fixed inset-x-6 top-1/2 -translate-y-1/2 z-[61] max-w-sm mx-auto rounded-[32px] p-6 border shadow-2xl space-y-4 pointer-events-auto ${t.isLight ? 'bg-white border-black/10' : 'bg-[#121214] border-white/10'}`}
+              className={`absolute inset-x-6 top-1/2 -translate-y-1/2 z-[61] max-w-sm mx-auto rounded-[32px] p-6 border shadow-2xl space-y-4 pointer-events-auto ${t.isLight ? 'bg-white border-black/10' : 'bg-[#121214] border-white/10'}`}
             >
               <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center">
                 <AlertCircle size={24} />
