@@ -51,8 +51,67 @@ const MAX_CONNECTIONS_PER_IP = 3;
 const MAX_CONNECTIONS_PER_USER = 2;
 const MAX_WS_MESSAGE_BYTES = 1_000_000; // 1MB
 
-function logSecurityEvent(event: string, details: Record<string, unknown>) {
-  console.warn(`[SECURITY_EVENT] ${event}`, details);
+/**
+ * Logs a structured security event to stdout AND persists it to the
+ * `security_events` table via the service-role Supabase client.
+ * Persistence failures are non-fatal — the event is always logged to stdout.
+ */
+async function logSecurityEvent(
+  event: string,
+  details: Record<string, unknown>,
+  opts?: {
+    severity?: 'info' | 'warn' | 'error' | 'critical';
+    userId?: string;
+    ip?: string;
+    resourceType?: string;
+  },
+): Promise<void> {
+  const severity = opts?.severity ?? 'warn';
+  // Always write to stdout for log aggregators / container logs
+  console.warn(`[SECURITY_EVENT] [${severity.toUpperCase()}] ${event}`, JSON.stringify({ ...details, ...opts }));
+
+  // Persist to Supabase asynchronously — never block the caller
+  try {
+    const { error } = await supabaseAdmin.rpc('log_security_event', {
+      p_event_type:    event,
+      p_severity:      severity,
+      p_user_id:       opts?.userId   ?? null,
+      p_ip_address:    opts?.ip       ?? null,
+      p_resource_type: opts?.resourceType ?? null,
+      p_details:       details,
+    });
+    if (error) {
+      console.error('[SECURITY_EVENT] Failed to persist event to DB:', error.message);
+    }
+  } catch (e) {
+    console.error('[SECURITY_EVENT] Exception persisting event to DB:', e);
+  }
+}
+
+/**
+ * Checks the AI session daily quota for a user via the DB function.
+ * Returns true if the session is allowed, false if the quota is exceeded.
+ */
+async function checkAiSessionQuota(userId: string): Promise<boolean> {
+  try {
+    // Use a user-scoped client so auth.uid() resolves correctly inside the function.
+    // We pass the service role key but impersonate the user via the JWT stored in
+    // the connection — instead, we call the function via service role and pass the
+    // user_id explicitly through a dedicated service-role helper.
+    const { data, error } = await supabaseAdmin.rpc('check_and_increment_quota_for_user', {
+      p_user_id:       userId,
+      p_resource_type: 'ai_session',
+    });
+    if (error) {
+      console.error(`[QUOTA] check_and_increment_quota_for_user error for ${userId}:`, error.message);
+      // Fail open on DB errors to avoid blocking legitimate users
+      return true;
+    }
+    return data === true;
+  } catch (e) {
+    console.error(`[QUOTA] Exception checking AI quota for ${userId}:`, e);
+    return true; // Fail open
+  }
 }
 
 function getRawDataSize(data: unknown): number {
@@ -129,7 +188,7 @@ async function startServer() {
     // Rate limiting
     const currentCount = ipConnections.get(ip) || 0;
     if (currentCount >= MAX_CONNECTIONS_PER_IP) {
-      logSecurityEvent('ws_rate_limit_ip', { ip, currentCount, limit: MAX_CONNECTIONS_PER_IP });
+      void logSecurityEvent('ws_rate_limit_ip', { currentCount, limit: MAX_CONNECTIONS_PER_IP }, { ip, severity: 'warn' });
       clientWs.close(1008, 'Rate limit exceeded');
       return;
     }
@@ -179,7 +238,7 @@ async function startServer() {
 
         const firstMsg = JSON.parse(rawData.toString());
         if (!firstMsg.auth) {
-          logSecurityEvent('ws_missing_auth_token', { ip });
+          void logSecurityEvent('ws_missing_auth_token', {}, { ip, severity: 'warn' });
           releaseSlot();
           clientWs.close(4001, 'Missing auth token');
           return;
@@ -187,7 +246,7 @@ async function startServer() {
 
         const { data: { user }, error } = await supabaseAdmin.auth.getUser(firstMsg.auth);
         if (error || !user) {
-          logSecurityEvent('ws_invalid_auth_token', { ip });
+          void logSecurityEvent('ws_invalid_auth_token', { error: error?.message }, { ip, severity: 'warn' });
           releaseSlot();
           clientWs.close(4001, 'Invalid auth token');
           return;
@@ -198,7 +257,7 @@ async function startServer() {
         userId = user.id;
         const activeUserConnections = userConnections.get(userId) || 0;
         if (activeUserConnections >= MAX_CONNECTIONS_PER_USER) {
-          logSecurityEvent('ws_rate_limit_user', { ip, userId, activeUserConnections, limit: MAX_CONNECTIONS_PER_USER });
+          void logSecurityEvent('ws_rate_limit_user', { activeUserConnections, limit: MAX_CONNECTIONS_PER_USER }, { ip, userId, severity: 'warn' });
           releaseSlot();
           clientWs.close(1008, 'User connection limit exceeded');
           return;
@@ -206,6 +265,16 @@ async function startServer() {
         userConnections.set(userId, activeUserConnections + 1);
         trackedUserId = userId;
         console.log(`✅ Authenticated user ${userId} (${ip})`);
+
+        // ── AI session daily quota check ──
+        const quotaAllowed = await checkAiSessionQuota(userId);
+        if (!quotaAllowed) {
+          void logSecurityEvent('quota_exceeded', { daily_limit_resource: 'ai_session' }, { ip, userId, resourceType: 'ai_session', severity: 'warn' });
+          releaseSlot();
+          releaseUserSlot();
+          clientWs.close(4029, 'Daily AI session quota exceeded');
+          return;
+        }
 
         // ── Create Gemini Live session ──
         try {
