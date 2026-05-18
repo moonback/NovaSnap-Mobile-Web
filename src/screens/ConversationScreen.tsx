@@ -1121,13 +1121,21 @@ export default function ConversationScreen({
             <CameraIcon size={22} />
           </button>
 
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => handleInputChange(e.target.value)}
-            placeholder="Envoyer un message..."
-            className={`flex-1 ${t.input} border ${t.border} rounded-full h-11 px-5 ${t.text} ${t.isLight ? 'placeholder-black/30 focus:border-black/20 focus:bg-white' : 'placeholder-white/30 focus:border-white/20 focus:bg-black'} focus:outline-none transition-all text-[15px] font-semibold`}
-          />
+          <div className="flex-1 relative">
+            {/* Badge @ actif */}
+            {showMentionSuggestions && (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-black text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-1.5 py-0.5 rounded-md pointer-events-none z-10">
+                @
+              </span>
+            )}
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => handleInputChange(e.target.value)}
+              placeholder={isGroup ? "Message… (@ pour mentionner)" : "Envoyer un message..."}
+              className={`w-full ${t.input} border ${t.border} rounded-full h-11 ${showMentionSuggestions ? 'pl-10' : 'pl-5'} pr-5 ${t.text} ${t.isLight ? 'placeholder-black/30 focus:border-black/20 focus:bg-white' : 'placeholder-white/30 focus:border-white/20 focus:bg-black'} focus:outline-none transition-all text-[15px] font-semibold`}
+            />
+          </div>
 
           {newMessage.trim() ? (
             <button
@@ -1148,7 +1156,9 @@ export default function ConversationScreen({
             </button>
           )}
         </form>
-        <p className={`text-center text-[10px] mt-2 ${t.textFaint}`}>Appui long sur un message pour l'enregistrer</p>
+        <p className={`text-center text-[10px] mt-2 ${t.textFaint}`}>
+          Appui long pour réagir · {isGroup ? '@ pour mentionner' : 'Messages éphémères'}
+        </p>
       </div>
 
       {/* Group Details Bottom Sheet */}
@@ -1376,20 +1386,44 @@ export default function ConversationScreen({
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
               className="absolute left-4 right-4 bottom-8 z-[71] flex flex-col gap-3.5 pointer-events-auto"
             >
-              {/* Reactions Tray */}
-              <div className={`p-3.5 rounded-3xl border shadow-2xl flex items-center justify-around ${t.isLight ? 'bg-white border-black/10' : 'bg-[#181920] border-white/10'}`}>
-                {['❤️', '😂', '😮', '😢', '🙏', '🔥'].map((emoji) => {
-                  const alreadyReacted = selectedMessageForMenu.reactions?.[user?.id || ''] === emoji;
-                  return (
-                    <button
-                      key={emoji}
-                      onClick={() => toggleReaction(selectedMessageForMenu, emoji)}
-                      className={`text-3.5xl p-2 rounded-2xl transition-all hover:scale-125 hover:bg-black/5 dark:hover:bg-white/5 active:scale-90 ${alreadyReacted ? 'bg-snap-yellow/20 scale-110 shadow-md ring-2 ring-snap-yellow/50' : ''}`}
-                    >
-                      {emoji}
-                    </button>
-                  );
-                })}
+              {/* ── Reactions Tray ── */}
+              <div className={`p-3.5 rounded-3xl border shadow-2xl ${t.isLight ? 'bg-white border-black/10' : 'bg-[#181920] border-white/10'}`}>
+                {/* Quick reactions row */}
+                <div className="flex items-center justify-around mb-2">
+                  {['❤️', '😂', '😮', '😢', '🙏', '🔥', '👍', '✨'].map((emoji) => {
+                    const alreadyReacted = selectedMessageForMenu.reactions?.[user?.id || ''] === emoji;
+                    return (
+                      <motion.button
+                        key={emoji}
+                        whileTap={{ scale: 0.75 }}
+                        whileHover={{ scale: 1.25 }}
+                        onClick={() => toggleReaction(selectedMessageForMenu, emoji)}
+                        className={`text-2xl p-1.5 rounded-2xl transition-all ${alreadyReacted ? 'bg-snap-yellow/20 scale-110 shadow-md ring-2 ring-snap-yellow/50' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
+                      >
+                        {emoji}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                {/* Existing reactions summary — qui a réagi */}
+                {selectedMessageForMenu.reactions && Object.keys(selectedMessageForMenu.reactions).length > 0 && (
+                  <div className={`mt-2 pt-2 border-t flex flex-wrap gap-1.5 ${t.isLight ? 'border-black/8' : 'border-white/8'}`}>
+                    {Object.entries(
+                      Object.entries(selectedMessageForMenu.reactions).reduce((acc, [uid, emoji]) => {
+                        if (!acc[emoji]) acc[emoji] = [];
+                        const m = members.find(mem => mem.user_id === uid);
+                        acc[emoji].push(m ? (m.display_name || m.username) : 'Quelqu\'un');
+                        return acc;
+                      }, {} as Record<string, string[]>)
+                    ).map(([emoji, names]) => (
+                      <div key={emoji} className={`flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold ${t.isLight ? 'bg-black/5 text-zinc-700' : 'bg-white/8 text-zinc-300'}`}>
+                        <span>{emoji}</span>
+                        <span className={t.textMuted}>{names.join(', ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Message Bubble Preview */}
@@ -1404,11 +1438,11 @@ export default function ConversationScreen({
                 </div>
                 {selectedMessageForMenu.message_type === 'TEXT' ? (
                   <p className={`text-[13.5px] font-semibold leading-relaxed ${t.text}`}>
-                    {selectedMessageForMenu.content}
+                    {renderMessageContent(selectedMessageForMenu.content)}
                   </p>
                 ) : (
                   <p className={`text-[12px] font-semibold italic ${t.textMuted}`}>
-                    [Média Snapchat]
+                    📸 Média Snap
                   </p>
                 )}
               </div>

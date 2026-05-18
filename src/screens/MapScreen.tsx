@@ -319,19 +319,56 @@ export default function MapScreen() {
 
     userMarkerRef.current = L.marker(userCoords, { icon: userIcon }).addTo(map);
 
-    // --- Active Heatmap Zones (based on real friend positions) ---
+    // --- Active Heatmap Zones (based on real friend positions + story density) ---
     heatmapLayerRef.current.forEach((layer) => map.removeLayer(layer));
     heatmapLayerRef.current = [];
 
-    if (showHeatmap && friendLocations.length > 0) {
+    if (showHeatmap) {
+      // Calculer la densité : regrouper les amis proches (< 500m) pour intensifier la zone
+      const R = 6371000; // rayon Terre en mètres
+      const toRad = (d: number) => (d * Math.PI) / 180;
+      const distM = (a: [number, number], b: [number, number]) => {
+        const dLat = toRad(b[0] - a[0]);
+        const dLng = toRad(b[1] - a[1]);
+        const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLng / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+      };
+
+      // Points de chaleur = positions des amis + position user si pas ghost
+      const heatPoints: Array<{ lat: number; lng: number; weight: number }> = [];
+
       friendLocations.forEach((friend) => {
+        // Compter combien d'autres amis sont dans un rayon de 500m
+        const nearby = friendLocations.filter(
+          (f) => f.user_id !== friend.user_id && distM([friend.lat, friend.lng], [f.lat, f.lng]) < 500
+        ).length;
+        heatPoints.push({ lat: friend.lat, lng: friend.lng, weight: 1 + nearby });
+      });
+
+      // Ajouter les auteurs de stories (activité récente = chaleur supplémentaire)
+      storyAuthors.forEach((story, idx) => {
+        const angle = (idx / Math.max(storyAuthors.length, 1)) * 2 * Math.PI;
+        const lat = userCoords[0] + 0.002 * Math.cos(angle);
+        const lng = userCoords[1] + 0.002 * Math.sin(angle);
+        heatPoints.push({ lat, lng, weight: 0.6 });
+      });
+
+      // Ajouter la position de l'utilisateur lui-même (zone d'activité personnelle)
+      if (!isGhostMode) {
+        heatPoints.push({ lat: userCoords[0], lng: userCoords[1], weight: 1.5 });
+      }
+
+      heatPoints.forEach(({ lat, lng, weight }) => {
+        // Taille et opacité proportionnelles au poids
+        const size = Math.round(120 + weight * 60); // 120px → 360px
+        const opacity = Math.min(0.35 + weight * 0.15, 0.85);
         const heatmapIcon = L.divIcon({
           className: 'heatmap-core',
-          html: '<div class="heatmap-activity-zone"></div>',
-          iconSize: [180, 180],
-          iconAnchor: [90, 90],
+          html: `<div class="heatmap-activity-zone" style="opacity:${opacity};width:${size}px;height:${size}px;"></div>`,
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
         });
-        const layer = L.marker([friend.lat, friend.lng], { icon: heatmapIcon }).addTo(map);
+        const layer = L.marker([lat, lng], { icon: heatmapIcon }).addTo(map);
         heatmapLayerRef.current.push(layer);
       });
     }

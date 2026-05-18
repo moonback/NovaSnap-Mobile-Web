@@ -161,11 +161,71 @@ export default function ProfileScreen() {
     toast(`Qualité d'envoi réglée sur : ${val.toUpperCase()}`, 'success');
   };
 
-  const handleClearCache = () => {
-    toast('Nettoyage du cache...', 'info');
-    setTimeout(() => {
-      toast('Cache nettoyé avec succès ! (14.2 Mo libérés)', 'success');
-    }, 1000);
+  const [cacheSize, setCacheSize] = useState<string | null>(null);
+  const [isClearingCache, setIsClearingCache] = useState(false);
+
+  // Calcule la taille réelle du cache au montage
+  React.useEffect(() => {
+    const estimateCache = async () => {
+      try {
+        let totalBytes = 0;
+        // 1. localStorage
+        for (const key of Object.keys(localStorage)) {
+          totalBytes += (localStorage.getItem(key) ?? '').length * 2;
+        }
+        // 2. Cache API (service worker caches)
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          for (const name of cacheNames) {
+            const cache = await caches.open(name);
+            const requests = await cache.keys();
+            for (const req of requests) {
+              const res = await cache.match(req);
+              if (res) {
+                const buf = await res.clone().arrayBuffer();
+                totalBytes += buf.byteLength;
+              }
+            }
+          }
+        }
+        // 3. navigator.storage.estimate (quota utilisé)
+        if (navigator.storage?.estimate) {
+          const est = await navigator.storage.estimate();
+          if (est.usage && est.usage > totalBytes) totalBytes = est.usage;
+        }
+        const mb = totalBytes / (1024 * 1024);
+        setCacheSize(mb < 0.1 ? '< 0.1 Mo' : `${mb.toFixed(1)} Mo`);
+      } catch {
+        setCacheSize(null);
+      }
+    };
+    estimateCache();
+  }, []);
+
+  const handleClearCache = async () => {
+    setIsClearingCache(true);
+    toast('Nettoyage du cache en cours...', 'info');
+    try {
+      // 1. Vider les clés non-essentielles de localStorage (garder les settings)
+      const keepKeys = new Set(Object.keys(localStorage).filter(k => k.startsWith('novasnap_settings_')));
+      for (const key of Object.keys(localStorage)) {
+        if (!keepKeys.has(key)) localStorage.removeItem(key);
+      }
+      // 2. Vider les caches du service worker
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      // 3. Vider le cache React Query
+      queryClient.clear();
+      setCacheSize('0 Mo');
+      toast('Cache nettoyé avec succès !', 'success');
+    } catch (err) {
+      console.error('[Cache] Erreur nettoyage:', err);
+      toast('Erreur lors du nettoyage du cache.', 'error');
+    } finally {
+      setIsClearingCache(false);
+    }
   };
 
   // ── Change password state ─────────────────────────────────
@@ -1145,15 +1205,19 @@ export default function ProfileScreen() {
               <div>
                 <p className={`text-[10px] font-black uppercase tracking-wider mb-2.5 ml-2 ${t.textMuted}`}>Actions Système</p>
                 <div className={`border rounded-2xl overflow-hidden ${t.surface} ${t.border} divide-y ${t.divider}`}>
-                  <button onClick={handleClearCache} className={`w-full flex items-center justify-between p-4 transition-colors text-left ${t.surfaceHover}`}>
+                  <button onClick={handleClearCache} disabled={isClearingCache} className={`w-full flex items-center justify-between p-4 transition-colors text-left ${t.surfaceHover} disabled:opacity-60`}>
                     <div className="flex items-center gap-3">
-                      <Trash2 size={18} className="text-red-400" />
+                      {isClearingCache ? <Loader2 size={18} className="text-red-400 animate-spin" /> : <Trash2 size={18} className="text-red-400" />}
                       <div>
                         <span className="text-sm font-bold">Vider le cache</span>
-                        <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>Libère de l'espace de stockage</p>
+                        <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>
+                          {isClearingCache ? 'Nettoyage en cours...' : 'Libère de l\'espace de stockage'}
+                        </p>
                       </div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-md font-bold ${t.surface} ${t.textMuted}`}>14.2 Mo</span>
+                    <span className={`text-xs px-2 py-1 rounded-md font-bold ${t.surface} ${t.textMuted}`}>
+                      {cacheSize ?? '…'}
+                    </span>
                   </button>
                   <button onClick={() => setShowDeleteConfirm(true)} className="w-full flex items-center justify-between p-4 hover:bg-red-500/5 transition-colors text-left">
                     <div className="flex items-center gap-3">

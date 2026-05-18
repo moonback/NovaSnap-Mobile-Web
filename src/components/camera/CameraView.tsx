@@ -85,15 +85,15 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera API non disponible.');
       const isLowPower = navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4;
-      // On demande du 1920x1080 (paysage) même sur mobile.
-      // Les navigateurs mobiles (iOS/Android) utilisent les résolutions standards du capteur (qui sont en paysage) 
-      // et les retournent automatiquement (rotate) en portrait. 
-      // Si on demande du 1080x1920, beaucoup tombent en erreur et renvoient un ratio 4:3 basique, ce qui cause le zoom abusif.
+      // Résolution selon la qualité configurée
+      const mediaQuality = localStorage.getItem('novasnap_settings_media_quality') || 'standard';
+      const idealWidth  = mediaQuality === 'high' ? 1920 : mediaQuality === 'eco' || mediaQuality === 'low' ? 640  : 1280;
+      const idealHeight = mediaQuality === 'high' ? 1080 : mediaQuality === 'eco' || mediaQuality === 'low' ? 480  : 720;
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode, 
-          width: { ideal: 1920 }, 
-          height: { ideal: 1080 }
+          width:  { ideal: idealWidth }, 
+          height: { ideal: idealHeight },
         },
         audio: true,
       });
@@ -122,7 +122,12 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     if (ctx) {
       if (facingMode === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      setCapturedMedia({ type: 'image', url: canvas.toDataURL('image/jpeg', 0.85) });
+      
+      // Utiliser la qualité configurée dans les paramètres
+      const mediaQuality = localStorage.getItem('novasnap_settings_media_quality') || 'standard';
+      const quality = mediaQuality === 'high' ? 0.95 : mediaQuality === 'eco' || mediaQuality === 'low' ? 0.65 : 0.85;
+      
+      setCapturedMedia({ type: 'image', url: canvas.toDataURL('image/jpeg', quality) });
       stopStream();
     }
   };
@@ -378,7 +383,9 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
           ctx.shadowOffsetY = 0;
         }
 
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
+        const mediaQuality = localStorage.getItem('novasnap_settings_media_quality') || 'standard';
+        const quality = mediaQuality === 'high' ? 0.95 : mediaQuality === 'eco' || mediaQuality === 'low' ? 0.65 : 0.85;
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
 
       img.onerror = () => {
