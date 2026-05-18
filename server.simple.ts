@@ -19,7 +19,7 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number.parseInt(process.env.PORT || "3000", 10);
 
   // Health check endpoint
   app.get("/api/health", (_req, res) => {
