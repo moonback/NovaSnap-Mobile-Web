@@ -1,23 +1,20 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, BellOff, Check, MessageCircle, UserPlus, Play, Eye, Camera } from 'lucide-react';
+import { Bell, BellOff, Check, MessageCircle, UserPlus, Play, Eye, Camera, CheckCheck } from 'lucide-react';
 import { useNotifications, useNotificationCount, usePushNotifications, updateAppBadge } from '../../hooks/usePushNotifications';
 import { useAppStore } from '../../store/useAppStore';
 import type { NotificationType } from '../../hooks/usePushNotifications';
 
-// ── Icône par type ────────────────────────────────────────────
-function NotifIcon({ type }: { type: NotificationType }) {
-  const cls = 'shrink-0';
-  switch (type) {
-    case 'NEW_MESSAGE':    return <MessageCircle size={16} className={`text-snap-yellow ${cls}`} />;
-    case 'SNAP_OPENED':    return <Eye size={16} className={`text-green-400 ${cls}`} />;
-    case 'FRIEND_REQUEST': return <UserPlus size={16} className={`text-blue-400 ${cls}`} />;
-    case 'FRIEND_ACCEPTED':return <Check size={16} className={`text-green-400 ${cls}`} />;
-    case 'NEW_STORY':      return <Play size={16} className={`text-purple-400 ${cls}`} />;
-    case 'SNAP_SCREENSHOT':return <Camera size={16} className={`text-red-400 ${cls}`} />;
-    default:               return <Bell size={16} className={`text-white/50 ${cls}`} />;
-  }
-}
+// ── Configuration des types de notifications ───────────────────
+const NOTIF_CONFIG: Record<NotificationType | 'DEFAULT', { icon: React.ElementType, color: string, bg: string }> = {
+  NEW_MESSAGE:     { icon: MessageCircle, color: 'text-white',      bg: 'bg-white/10' },
+  SNAP_OPENED:     { icon: Eye,           color: 'text-snap-yellow',bg: 'bg-snap-yellow/10' },
+  FRIEND_REQUEST:  { icon: UserPlus,      color: 'text-blue-400',   bg: 'bg-blue-400/10' },
+  FRIEND_ACCEPTED: { icon: Check,         color: 'text-green-400',  bg: 'bg-green-400/10' },
+  NEW_STORY:       { icon: Play,          color: 'text-purple-400', bg: 'bg-purple-400/10' },
+  SNAP_SCREENSHOT: { icon: Camera,        color: 'text-red-400',    bg: 'bg-red-400/10' },
+  DEFAULT:         { icon: Bell,          color: 'text-white/50',   bg: 'bg-white/5' },
+};
 
 // ── Formater la date relative ─────────────────────────────────
 function timeAgo(dateStr: string): string {
@@ -68,19 +65,19 @@ export default function NotificationBell() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative z-50">
       {/* Bouton cloche */}
       <button
         onClick={handleOpen}
-        className="relative w-10 h-10 rounded-full glass-dark flex items-center justify-center active:scale-90 transition-transform"
+        className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${open ? 'bg-white/10 scale-105' : 'glass-dark hover:bg-white/10 active:scale-95'}`}
         aria-label="Notifications"
       >
-        <Bell size={18} className={count > 0 ? 'text-snap-yellow' : 'text-white/60'} />
+        <Bell size={20} strokeWidth={2.5} className={count > 0 ? 'text-snap-yellow' : 'text-white/80'} />
         {count > 0 && (
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center px-1 border border-black"
+            className="absolute top-0 right-0 min-w-[20px] h-[20px] rounded-full bg-snap-yellow text-black text-[11px] font-black flex items-center justify-center px-1 border-2 border-black shadow-sm"
           >
             {count > 99 ? '99+' : count}
           </motion.span>
@@ -92,36 +89,46 @@ export default function NotificationBell() {
         {open && (
           <>
             {/* Overlay */}
-            <div
-              className="fixed inset-0 z-40"
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
               onClick={() => setOpen(false)}
             />
 
             <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.95 }}
-              transition={{ duration: 0.18 }}
-              className="absolute top-full right-0 mt-2 w-80 max-h-[70vh] glass-dark rounded-2xl border border-white/10 overflow-hidden z-50 flex flex-col"
+              initial={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(10px)' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="absolute top-full right-0 mt-3 w-[90vw] max-w-[360px] max-h-[75vh] rounded-3xl border border-white/10 shadow-2xl overflow-hidden z-50 flex flex-col"
+              style={{
+                background: 'rgba(25, 25, 25, 0.65)',
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+              }}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
-                <span className="font-black text-white text-sm">Notifications</span>
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-white/[0.02]">
+                <span className="font-extrabold text-white text-lg tracking-tight">Notifications</span>
+                <div className="flex items-center gap-3">
                   {count > 0 && (
                     <button
                       onClick={() => { markAllRead(); updateAppBadge(0); }}
-                      className="text-[11px] text-white/40 hover:text-white/70 transition-colors font-medium"
+                      className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white transition-colors font-medium px-2 py-1 rounded-full hover:bg-white/5"
                     >
+                      <CheckCheck size={14} />
                       Tout lire
                     </button>
                   )}
                   <button
                     onClick={subscribe}
-                    className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center hover:bg-white/15 transition-colors"
+                    className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
                     title="Activer les notifications push"
                   >
-                    <BellOff size={13} className="text-white/50" />
+                    <BellOff size={15} className="text-white/70" />
                   </button>
                 </div>
               </div>
@@ -129,39 +136,59 @@ export default function NotificationBell() {
               {/* Liste */}
               <div className="overflow-y-auto scroll-hide flex-1">
                 {notifications.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 gap-3">
-                    <Bell size={28} className="text-white/15" />
-                    <p className="text-white/30 text-sm">Aucune notification</p>
-                  </div>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center justify-center py-16 gap-4"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                      <Bell size={32} className="text-white/20" />
+                    </div>
+                    <p className="text-white/40 text-sm font-medium">Vous êtes à jour !</p>
+                  </motion.div>
                 ) : (
-                  notifications.map((notif) => (
-                    <button
-                      key={notif.id}
-                      onClick={() => handleNotifClick(notif)}
-                      className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0 ${
-                        !notif.is_read ? 'bg-white/[0.03]' : ''
-                      }`}
-                    >
-                      {/* Icône */}
-                      <div className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center shrink-0 mt-0.5">
-                        <NotifIcon type={notif.type} />
-                      </div>
+                  <div className="flex flex-col">
+                    {notifications.map((notif, index) => {
+                      const config = NOTIF_CONFIG[notif.type as NotificationType] || NOTIF_CONFIG.DEFAULT;
+                      const Icon = config.icon;
+                      
+                      return (
+                        <motion.button
+                          key={notif.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          onClick={() => handleNotifClick(notif)}
+                          className={`group relative w-full flex items-start gap-4 px-5 py-4 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0 ${
+                            !notif.is_read ? 'bg-white/[0.04]' : ''
+                          }`}
+                        >
+                          {/* Icône */}
+                          <div className={`w-11 h-11 rounded-full ${config.bg} flex items-center justify-center shrink-0 mt-0.5 border border-white/5`}>
+                            <Icon size={20} className={config.color} strokeWidth={2.5} />
+                          </div>
 
-                      {/* Contenu */}
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm leading-snug ${notif.is_read ? 'text-white/60' : 'text-white font-semibold'}`}>
-                          {notif.title}
-                        </p>
-                        <p className="text-xs text-white/35 mt-0.5 truncate">{notif.body}</p>
-                        <p className="text-[10px] text-white/25 mt-1">{timeAgo(notif.created_at)}</p>
-                      </div>
+                          {/* Contenu */}
+                          <div className="flex-1 min-w-0 pt-0.5 pr-2">
+                            <p className={`text-[15px] leading-tight ${notif.is_read ? 'text-white/80' : 'text-white font-bold'}`}>
+                              {notif.title}
+                            </p>
+                            <p className={`text-[13px] mt-1 line-clamp-2 ${notif.is_read ? 'text-white/40' : 'text-white/60'}`}>
+                              {notif.body}
+                            </p>
+                            <p className="text-[11px] font-medium text-white/30 mt-1.5 uppercase tracking-wider">
+                              {timeAgo(notif.created_at)}
+                            </p>
+                          </div>
 
-                      {/* Point non-lu */}
-                      {!notif.is_read && (
-                        <div className="w-2 h-2 rounded-full bg-snap-yellow shrink-0 mt-1.5" />
-                      )}
-                    </button>
-                  ))
+                          {/* Point non-lu */}
+                          {!notif.is_read && (
+                            <div className="absolute right-5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-snap-yellow shadow-[0_0_8px_rgba(255,252,0,0.4)] shrink-0" />
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </motion.div>
