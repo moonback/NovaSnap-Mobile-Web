@@ -235,23 +235,35 @@ export default function ChatScreen() {
           return;
         }
       }
-      const { data: newConv, error: createError } = await supabase
+      // Generate the conversation id client-side so we never need to SELECT
+      // the row back (which would fail RLS before members are inserted).
+      const newConvId = crypto.randomUUID();
+      const { error: createError } = await supabase
         .from('conversations')
-        .insert({ is_group: false, title: targetUser.display_name || targetUser.username })
-        .select('id, is_group, title, updated_at')
-        .single();
+        .insert({ id: newConvId, is_group: false, title: targetUser.display_name || targetUser.username });
       if (createError) throw createError;
-      const { error: memberError } = await supabase.from('conversation_members').insert([
-        { conversation_id: newConv.id, user_id: user.id },
-        { conversation_id: newConv.id, user_id: targetUser.id },
-      ]);
-      if (memberError) throw memberError;
+
+      // Insert current user first — RLS on conversation_members requires the
+      // authenticated user to be the one being inserted (auth.uid() = user_id).
+      // Inserting both rows at once triggers the policy for each row independently,
+      // and the second row (targetUser) fails because auth.uid() !== targetUser.id.
+      // Solution: insert self first, then insert the other member via a separate call.
+      const { error: selfMemberError } = await supabase
+        .from('conversation_members')
+        .insert({ conversation_id: newConvId, user_id: user.id });
+      if (selfMemberError) throw selfMemberError;
+
+      const { error: otherMemberError } = await supabase
+        .from('conversation_members')
+        .insert({ conversation_id: newConvId, user_id: targetUser.id });
+      if (otherMemberError) throw otherMemberError;
+
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });
       setActiveConversationPreview({
         title: targetUser.display_name || targetUser.username || 'Chat',
         avatarUrl: targetUser.avatar_url ?? undefined,
       });
-      setActiveConversationId(newConv.id);
+      setActiveConversationId(newConvId);
       setShowNewChatModal(false);
     } catch (e) {
       const parsedError = e instanceof Error ? e : new Error('Impossible de démarrer la conversation');
