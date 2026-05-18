@@ -104,98 +104,146 @@ export default function FaceFilterOverlay({
 
       switch (filter) {
         case 'beauty': {
-          // Soft radial glow around face
           const cx = (leftCheekX + rightCheekX) / 2;
           const cy = (foreheadY + chinY) / 2;
-          const r = Math.max(faceWidth, faceHeight) * 0.7;
-          const grad = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r);
-          grad.addColorStop(0, 'rgba(255, 220, 240, 0.12)');
-          grad.addColorStop(0.5, 'rgba(255, 200, 220, 0.06)');
-          grad.addColorStop(1, 'rgba(255, 180, 200, 0)');
-          ctx.fillStyle = grad;
+          const r = Math.max(faceWidth, faceHeight) * 0.75;
+          const t = Date.now() / 1000;
+
+          // Warm golden aura
+          const aura = ctx.createRadialGradient(cx, cy, r * 0.15, cx, cy, r);
+          aura.addColorStop(0, 'rgba(255, 230, 200, 0.18)');
+          aura.addColorStop(0.35, 'rgba(255, 200, 230, 0.10)');
+          aura.addColorStop(0.7, 'rgba(200, 180, 255, 0.05)');
+          aura.addColorStop(1, 'rgba(180, 160, 255, 0)');
+          ctx.fillStyle = aura;
           ctx.fillRect(0, 0, width, height);
 
-          // Sparkle dots along face contour
-          const sparklePoints = [10, 67, 297, 103, 332, 54, 284];
+          // Cheek blush
+          for (const cheekIdx of [50, 280]) {
+            if (cheekIdx >= face.length) continue;
+            const bx = toX(cheekIdx), by = toY(cheekIdx);
+            const br = faceWidth * 0.13;
+            const blush = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+            blush.addColorStop(0, 'rgba(255, 130, 150, 0.22)');
+            blush.addColorStop(1, 'rgba(255, 130, 150, 0)');
+            ctx.fillStyle = blush;
+            ctx.beginPath();
+            ctx.arc(bx, by, br, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Animated sparkles along face contour and forehead
+          const sparklePoints = [10, 67, 297, 103, 332, 54, 284, 21, 251, 139, 368];
           for (const idx of sparklePoints) {
             if (idx >= face.length) continue;
-            const sx = toX(idx);
-            const sy = toY(idx);
-            const sparkleSize = faceWidth * 0.015 + Math.sin(Date.now() / 300 + idx) * 2;
-            ctx.beginPath();
-            ctx.arc(sx, sy, Math.max(1, sparkleSize), 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255, 255, 255, ${0.4 + Math.sin(Date.now() / 200 + idx * 0.5) * 0.3})`;
-            ctx.fill();
+            const sx = toX(idx), sy = toY(idx);
+            const phase = t * 3 + idx * 0.7;
+            const size = faceWidth * 0.012 + Math.sin(phase) * faceWidth * 0.008;
+            const alpha = 0.3 + Math.sin(phase * 1.3) * 0.35;
+            if (alpha < 0.1) continue;
+            // Star shape
+            ctx.save();
+            ctx.translate(sx, sy);
+            ctx.rotate(phase * 0.5);
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#fff';
+            for (let s = 0; s < 4; s++) {
+              ctx.beginPath();
+              ctx.ellipse(0, 0, size, size * 0.2, (s * Math.PI) / 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            ctx.restore();
           }
           break;
         }
 
         case 'dog': {
-          // --- Dog nose ---
-          const noseX = toX(NOSE_TIP);
-          const noseY = toY(NOSE_TIP);
-          const noseR = faceWidth * 0.12;
-
-          // Black nose
-          ctx.beginPath();
-          ctx.ellipse(noseX, noseY, noseR, noseR * 0.75, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#1a1a1a';
-          ctx.fill();
-          // Nose shine
-          ctx.beginPath();
-          ctx.ellipse(noseX - noseR * 0.25, noseY - noseR * 0.2, noseR * 0.3, noseR * 0.2, -0.4, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(255,255,255,0.35)';
-          ctx.fill();
-
-          // --- Dog ears ---
-          const earSize = faceWidth * 0.5;
+          const noseX = toX(NOSE_TIP), noseY = toY(NOSE_TIP);
+          const noseR = faceWidth * 0.14;
+          const earSize = faceWidth * 0.55;
           const leftEarX = toX(LEFT_EAR_TOP < face.length ? LEFT_EAR_TOP : 0);
           const leftEarY = toY(LEFT_EAR_TOP < face.length ? LEFT_EAR_TOP : 0);
           const rightEarX = toX(RIGHT_EAR_TOP < face.length ? RIGHT_EAR_TOP : 0);
           const rightEarY = toY(RIGHT_EAR_TOP < face.length ? RIGHT_EAR_TOP : 0);
 
-          // Left ear
-          ctx.save();
-          ctx.translate(leftEarX - earSize * 0.15, leftEarY - earSize * 0.6);
-          ctx.rotate(-0.3);
-          ctx.beginPath();
-          ctx.ellipse(0, 0, earSize * 0.3, earSize * 0.55, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#8B6914';
-          ctx.fill();
-          ctx.beginPath();
-          ctx.ellipse(0, earSize * 0.05, earSize * 0.18, earSize * 0.38, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#D4A44C';
-          ctx.fill();
-          ctx.restore();
+          // Helper: draw a floppy ear
+          const drawEar = (ex: number, ey: number, flipX: number) => {
+            ctx.save();
+            ctx.translate(ex + flipX * earSize * 0.05, ey - earSize * 0.45);
+            ctx.rotate(flipX * -0.35);
+            // Outer ear
+            const outerGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, earSize * 0.6);
+            outerGrad.addColorStop(0, '#A0763C');
+            outerGrad.addColorStop(1, '#6B4E1F');
+            ctx.fillStyle = outerGrad;
+            ctx.beginPath();
+            ctx.ellipse(0, earSize * 0.1, earSize * 0.32, earSize * 0.62, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Inner ear
+            const innerGrad = ctx.createRadialGradient(0, earSize * 0.05, 0, 0, earSize * 0.05, earSize * 0.4);
+            innerGrad.addColorStop(0, '#E8C88A');
+            innerGrad.addColorStop(1, '#C4983A');
+            ctx.fillStyle = innerGrad;
+            ctx.beginPath();
+            ctx.ellipse(0, earSize * 0.1, earSize * 0.2, earSize * 0.42, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          };
+          drawEar(leftEarX, leftEarY, 1);
+          drawEar(rightEarX, rightEarY, -1);
 
-          // Right ear
-          ctx.save();
-          ctx.translate(rightEarX + earSize * 0.15, rightEarY - earSize * 0.6);
-          ctx.rotate(0.3);
+          // Big black nose with highlight
           ctx.beginPath();
-          ctx.ellipse(0, 0, earSize * 0.3, earSize * 0.55, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#8B6914';
+          ctx.ellipse(noseX, noseY, noseR, noseR * 0.78, 0, 0, Math.PI * 2);
+          ctx.fillStyle = '#111';
           ctx.fill();
           ctx.beginPath();
-          ctx.ellipse(0, earSize * 0.05, earSize * 0.18, earSize * 0.38, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#D4A44C';
+          ctx.ellipse(noseX - noseR * 0.22, noseY - noseR * 0.22, noseR * 0.35, noseR * 0.22, -0.4, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
           ctx.fill();
-          ctx.restore();
+          // Nostrils
+          for (const nx of [-1, 1]) {
+            ctx.beginPath();
+            ctx.ellipse(noseX + nx * noseR * 0.35, noseY + noseR * 0.15, noseR * 0.12, noseR * 0.18, 0, 0, Math.PI * 2);
+            ctx.fillStyle = '#000';
+            ctx.fill();
+          }
 
-          // --- Tongue ---
-          const mouthY = toY(14); // Lower lip center
-          const mouthX = toX(14);
-          ctx.save();
-          ctx.translate(mouthX, mouthY + faceWidth * 0.08);
-          ctx.beginPath();
-          ctx.ellipse(0, faceWidth * 0.06, faceWidth * 0.08, faceWidth * 0.12, 0, 0, Math.PI);
-          ctx.fillStyle = '#FF6B8A';
-          ctx.fill();
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(0, faceWidth * 0.14);
-          ctx.strokeStyle = '#E85577';
+          // Whiskers (3 per side)
+          ctx.strokeStyle = 'rgba(80,60,30,0.5)';
           ctx.lineWidth = 1.5;
+          for (const side of [-1, 1]) {
+            for (let w = 0; w < 3; w++) {
+              const wy = noseY + (w - 1) * faceWidth * 0.04;
+              ctx.beginPath();
+              ctx.moveTo(noseX + side * noseR * 0.8, wy);
+              ctx.quadraticCurveTo(
+                noseX + side * faceWidth * 0.3, wy + (w - 1) * faceWidth * 0.03,
+                noseX + side * faceWidth * 0.45, wy + (w - 1) * faceWidth * 0.06
+              );
+              ctx.stroke();
+            }
+          }
+
+          // Tongue
+          const mouthX = toX(14), mouthY = toY(14);
+          const tongueW = faceWidth * 0.09, tongueH = faceWidth * 0.14;
+          const bounce = Math.sin(Date.now() / 300) * tongueH * 0.08;
+          ctx.save();
+          ctx.translate(mouthX, mouthY + faceWidth * 0.06);
+          ctx.beginPath();
+          ctx.ellipse(0, tongueH * 0.4 + bounce, tongueW, tongueH, 0, 0, Math.PI);
+          const tongueGrad = ctx.createLinearGradient(0, 0, 0, tongueH);
+          tongueGrad.addColorStop(0, '#FF8FAA');
+          tongueGrad.addColorStop(1, '#E8507A');
+          ctx.fillStyle = tongueGrad;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(0, tongueH * 0.15 + bounce);
+          ctx.lineTo(0, tongueH * 0.7 + bounce);
+          ctx.strokeStyle = '#D44070';
+          ctx.lineWidth = 1.2;
           ctx.stroke();
           ctx.restore();
           break;
