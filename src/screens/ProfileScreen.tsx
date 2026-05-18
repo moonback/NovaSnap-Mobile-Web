@@ -37,6 +37,7 @@ import { useFriends } from '../hooks/useFriends';
 import { useMemories } from '../hooks/useMemories';
 import { useTheme } from '../hooks/useTheme';
 import { useUserLevel, useAllLevels } from '../hooks/useUserLevel';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 export default function ProfileScreen() {
   const { user, setShowProfile, setShowFriends, setShowMemories, theme, toggleTheme } = useAppStore();
@@ -108,14 +109,26 @@ export default function ProfileScreen() {
     );
   };
 
-  const toggleNotifications = () => {
+  const { subscribe, unsubscribe } = usePushNotifications();
+
+  const toggleNotifications = async () => {
     const nextVal = !notificationsEnabled;
     setNotificationsEnabled(nextVal);
     localStorage.setItem('novasnap_settings_notifications', String(nextVal));
-    toast(
-      nextVal ? 'Notifications activées.' : 'Notifications désactivées.',
-      'info'
-    );
+    
+    if (nextVal) {
+      const success = await subscribe();
+      if (success) {
+        toast('Notifications activées.', 'info');
+      } else {
+        toast('Permission refusée ou erreur. Vérifie les paramètres du navigateur.', 'error');
+        setNotificationsEnabled(false);
+        localStorage.setItem('novasnap_settings_notifications', 'false');
+      }
+    } else {
+      await unsubscribe();
+      toast('Notifications désactivées.', 'info');
+    }
   };
 
 
@@ -289,21 +302,10 @@ export default function ProfileScreen() {
         return;
       }
 
-      const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/delete-account`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const { data, error } = await supabase.functions.invoke('delete-account');
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Échec de la suppression');
+      if (error) {
+        throw new Error(error.message || 'Échec de la suppression');
       }
 
       toast('✅ Compte supprimé avec succès (RGPD).', 'success');
