@@ -16,6 +16,7 @@ export type ConversationMessage = {
   is_ephemeral?: boolean;
   is_saved?: boolean;
   opened_by?: string[];
+  reactions?: Record<string, string>;
 };
 
 export type ConversationMember = {

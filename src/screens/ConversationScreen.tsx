@@ -8,11 +8,15 @@ import {
   Camera as CameraIcon,
   Loader2,
   BookmarkCheck,
+  Bookmark,
   MoreVertical,
   Eye,
   LogOut,
   Users,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  Copy,
+  Smile
 } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -59,6 +63,7 @@ interface Message {
   is_ephemeral?: boolean;
   is_saved?: boolean;
   opened_by?: string[];
+  reactions?: Record<string, string>;
   users?: { username: string };
   pending?: boolean;
   client_hash?: string;
@@ -103,6 +108,96 @@ export default function ConversationScreen({
   const [editedTitle, setEditedTitle] = useState(displayTitle);
   const [selectedPreset, setSelectedPreset] = useState(avatarPreset);
   const [isSavingDetails, setIsSavingDetails] = useState(false);
+
+  const [selectedMessageForMenu, setSelectedMessageForMenu] = useState<Message | null>(null);
+  const [mentionFilter, setMentionFilter] = useState<string | null>(null);
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+
+  const renderMessageContent = (content: string) => {
+    if (!content || !content.includes('@')) {
+      return <span>{content}</span>;
+    }
+
+    const parts = content.split(/(\s+)/);
+    return (
+      <span>
+        {parts.map((part, index) => {
+          if (part.startsWith('@') && part.length > 1) {
+            const cleanUsername = part.slice(1).replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
+            const matchedMember = members.find((m) => m.username?.toLowerCase() === cleanUsername.toLowerCase());
+            if (matchedMember) {
+              const isMe = matchedMember.user_id === user?.id;
+              if (isMe) {
+                return (
+                  <span key={index} className="text-yellow-400 font-extrabold bg-yellow-400/15 px-1.5 py-0.5 rounded-md border border-yellow-400/20 shadow-[0_0_8px_rgba(250,204,21,0.15)] inline-block select-none animate-pulse">
+                    {part}
+                  </span>
+                );
+              }
+              return (
+                <span key={index} className="text-cyan-400 font-extrabold bg-cyan-400/10 px-1.5 py-0.5 rounded-md inline-block select-none">
+                  {part}
+                </span>
+              );
+            }
+          }
+          return part;
+        })}
+      </span>
+    );
+  };
+
+  const toggleReaction = async (msg: Message, emoji: string) => {
+    if (!user) return;
+    const currentReactions = msg.reactions || {};
+    const nextReactions = { ...currentReactions };
+    
+    if (nextReactions[user.id] === emoji) {
+      delete nextReactions[user.id];
+    } else {
+      nextReactions[user.id] = emoji;
+    }
+
+    queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
+      old?.map((m) => (m.id === msg.id ? { ...m, reactions: nextReactions } : m)) ?? []
+    );
+
+    setSelectedMessageForMenu(null);
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ reactions: nextReactions })
+        .eq('id', msg.id);
+
+      if (error) {
+        console.error('[Reactions] Error updating message reactions in Supabase:', error);
+      }
+    } catch (err) {
+      console.error('[Reactions] Exception in toggleReaction:', err);
+    }
+  };
+
+  const deleteMessage = async (msgId: string) => {
+    if (!user) return;
+    queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
+      old?.filter((m) => m.id !== msgId) ?? []
+    );
+    setSelectedMessageForMenu(null);
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', msgId);
+
+      if (error) {
+        console.error('[MessageOptions] Error deleting message:', error);
+      }
+    } catch (err) {
+      console.error('[MessageOptions] Exception in deleteMessage:', err);
+    }
+  };
 
   useEffect(() => {
     setEditedTitle(displayTitle);
@@ -240,6 +335,17 @@ export default function ConversationScreen({
 
   const handleInputChange = (text: string) => {
     setNewMessage(text);
+
+    // Mentions detection
+    const lastWord = text.split(/\s/).pop() || '';
+    if (lastWord.startsWith('@')) {
+      setMentionFilter(lastWord.slice(1));
+      setShowMentionSuggestions(true);
+    } else {
+      setShowMentionSuggestions(false);
+      setMentionFilter(null);
+    }
+
     if (!user || !channelRef.current) return;
 
     if (!isTypingRef.current) {
@@ -271,7 +377,7 @@ export default function ConversationScreen({
       try {
         const { data, error } = await supabase
           .from('messages')
-          .select(`id,content,message_type,media_url,created_at,sender_id,client_message_id,is_ephemeral,is_saved,opened_by,users:users!sender_id (username)`)
+          .select(`id,content,message_type,media_url,created_at,sender_id,client_message_id,is_ephemeral,is_saved,opened_by,reactions,users:users!sender_id (username)`)
           .eq('conversation_id', conversationId)
           .order('created_at', { ascending: true });
 
@@ -506,10 +612,16 @@ export default function ConversationScreen({
   }, [user, savingId, conversationId, queryClient]);
 
   const handlePressStart = (msg: Message) => {
-    longPressTimerRef.current = setTimeout(() => toggleSave(msg), 500);
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      setSelectedMessageForMenu(msg);
+    }, 500);
   };
   const handlePressEnd = () => {
-    if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
   const sendMessageMutation = useMutation({
@@ -782,7 +894,7 @@ export default function ConversationScreen({
               `}>
                 {msg.message_type === 'TEXT' && (
                   <p className={`text-[14.5px] leading-relaxed break-words font-semibold ${isMe && !isSaved ? 'text-white' : t.isLight ? 'text-[#0d0e1a]' : 'text-white'}`}>
-                    {msg.content}
+                    {renderMessageContent(msg.content)}
                   </p>
                 )}
                 {(msg.message_type === 'IMAGE' || msg.message_type === 'VIDEO') && msg.media_url && (
@@ -792,6 +904,31 @@ export default function ConversationScreen({
                   <span className={`absolute -top-2 ${isMe ? '-left-2' : '-right-2'} w-5 h-5 rounded-full ${t.isLight ? 'bg-black/12' : 'bg-white/15'} flex items-center justify-center`}>
                     {isSaving ? <Loader2 size={10} className={`animate-spin ${t.isLight ? 'text-[#0d0e1a]' : 'text-white'}`} /> : <BookmarkCheck size={10} className="text-snap-yellow" />}
                   </span>
+                )}
+
+                {/* Message Reactions Cluster */}
+                {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                  <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border shadow-sm absolute -bottom-2.5 ${isMe ? 'left-2.5' : 'right-2.5'} z-10 text-[11px] font-bold select-none ${t.isLight ? 'bg-white border-black/10 text-zinc-700' : 'bg-[#181920] border-white/10 text-zinc-300'}`}>
+                    {Object.entries(
+                      Object.entries(msg.reactions).reduce((acc, [uid, emoji]) => {
+                        acc[emoji] = (acc[emoji] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>)
+                    ).map(([emoji, count]) => (
+                      <span key={emoji} className="flex items-center gap-0.5 cursor-help" title={
+                        Object.entries(msg.reactions!)
+                          .filter(([_, e]) => e === emoji)
+                          .map(([uid]) => {
+                            const m = members.find((mem) => mem.user_id === uid);
+                            return m ? `@${m.username}` : 'Quelqu\'un';
+                          })
+                          .join(', ')
+                      }>
+                        <span>{emoji}</span>
+                        {count > 1 && <span className="text-[9px] font-black">{count}</span>}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
               <span className={`text-[10px] ${t.textFaint} mt-1 flex items-center gap-1.5 flex-wrap`}>
@@ -859,7 +996,48 @@ export default function ConversationScreen({
       </AnimatePresence>
 
       {/* Input */}
-      <div className={`px-4 py-4 border-t ${t.isLight ? 'bg-[#f8f9fc] border-black/5' : 'bg-[#0a0b10] border-white/5'} pb-8 shrink-0 z-30`}>
+      <div className={`px-4 py-4 border-t ${t.isLight ? 'bg-[#f8f9fc] border-black/5' : 'bg-[#0a0b10] border-white/5'} pb-8 shrink-0 z-30 relative`}>
+        {/* Mentions suggestions list overlay */}
+        {showMentionSuggestions && isGroup && (
+          <div className={`absolute bottom-24 left-4 right-4 z-40 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.15)] border overflow-hidden max-h-48 overflow-y-auto ${t.isLight ? 'bg-white border-black/10' : 'bg-zinc-900 border-white/10'}`}>
+            <div className={`px-4 py-2 border-b text-[10px] font-black uppercase tracking-wider ${t.textMuted} bg-black/5 dark:bg-white/5`}>
+              Membres à mentionner
+            </div>
+            {members
+              .filter((m) => m.user_id !== user?.id && (mentionFilter === '' || m.username.toLowerCase().includes(mentionFilter!.toLowerCase()) || m.display_name.toLowerCase().includes(mentionFilter!.toLowerCase())))
+              .map((member) => (
+                <button
+                  key={member.user_id}
+                  type="button"
+                  onClick={() => {
+                    const words = newMessage.split(/\s/);
+                    words.pop(); // Remove the incomplete @mention
+                    const completedText = [...words, `@${member.username} `].join(' ');
+                    setNewMessage(completedText);
+                    setShowMentionSuggestions(false);
+                    setMentionFilter(null);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold border-b last:border-b-0 transition-colors ${t.borderMuted} ${t.text} hover:bg-black/5 dark:hover:bg-white/5`}
+                >
+                  <div className="w-7 h-7 rounded-full bg-snap-yellow/10 border border-snap-yellow/20 flex items-center justify-center text-[10px] font-black shrink-0 overflow-hidden">
+                    {member.avatar_url ? (
+                      <img src={member.avatar_url} className="w-full h-full rounded-full object-cover" alt="" />
+                    ) : (
+                      member.username.substring(0, 2).toUpperCase()
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold leading-tight">{member.display_name}</div>
+                    <div className={`text-xs ${t.textMuted}`}>@{member.username}</div>
+                  </div>
+                </button>
+              ))}
+            {members.filter((m) => m.user_id !== user?.id && (mentionFilter === '' || m.username.toLowerCase().includes(mentionFilter!.toLowerCase()) || m.display_name.toLowerCase().includes(mentionFilter!.toLowerCase()))).length === 0 && (
+              <div className={`px-4 py-3 text-xs italic text-center ${t.textMuted}`}>Aucun membre trouvé</div>
+            )}
+          </div>
+        )}
+
         <form onSubmit={handleSend} className="flex items-center gap-2">
           <button
             type="button"
@@ -1056,6 +1234,121 @@ export default function ConversationScreen({
                   Quitter
                 </button>
               </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+      {/* Unified Context Menu for Messages (Reactions + Options) */}
+      <AnimatePresence>
+        {selectedMessageForMenu && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedMessageForMenu(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[70] pointer-events-auto"
+            />
+
+            {/* Drawer/Dialog container */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="absolute left-4 right-4 bottom-8 z-[71] flex flex-col gap-3.5 pointer-events-auto"
+            >
+              {/* Reactions Tray */}
+              <div className={`p-3.5 rounded-3xl border shadow-2xl flex items-center justify-around ${t.isLight ? 'bg-white border-black/10' : 'bg-[#181920] border-white/10'}`}>
+                {['❤️', '😂', '😮', '😢', '🙏', '🔥'].map((emoji) => {
+                  const alreadyReacted = selectedMessageForMenu.reactions?.[user?.id || ''] === emoji;
+                  return (
+                    <button
+                      key={emoji}
+                      onClick={() => toggleReaction(selectedMessageForMenu, emoji)}
+                      className={`text-3.5xl p-2 rounded-2xl transition-all hover:scale-125 hover:bg-black/5 dark:hover:bg-white/5 active:scale-90 ${alreadyReacted ? 'bg-snap-yellow/20 scale-110 shadow-md ring-2 ring-snap-yellow/50' : ''}`}
+                    >
+                      {emoji}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Message Bubble Preview */}
+              <div className={`p-4 rounded-3xl border max-w-[85%] self-center flex flex-col gap-1 shadow-xl ${t.isLight ? 'bg-white border-black/10' : 'bg-[#181920] border-white/10'}`}>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${t.textMuted}`}>
+                    {selectedMessageForMenu.sender_id === user?.id ? 'Moi' : selectedMessageForMenu.users?.username || 'Ami'}
+                  </span>
+                  <span className={`text-[9px] ${t.textFaint}`}>
+                    {new Date(selectedMessageForMenu.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                {selectedMessageForMenu.message_type === 'TEXT' ? (
+                  <p className={`text-[13.5px] font-semibold leading-relaxed ${t.text}`}>
+                    {selectedMessageForMenu.content}
+                  </p>
+                ) : (
+                  <p className={`text-[12px] font-semibold italic ${t.textMuted}`}>
+                    [Média Snapchat]
+                  </p>
+                )}
+              </div>
+
+              {/* Action Options List */}
+              <div className={`rounded-3xl border shadow-2xl overflow-hidden flex flex-col ${t.isLight ? 'bg-white border-black/10' : 'bg-[#181920] border-white/10'}`}>
+                {/* Toggle Save */}
+                <button
+                  onClick={() => {
+                    toggleSave(selectedMessageForMenu);
+                    setSelectedMessageForMenu(null);
+                  }}
+                  className={`w-full flex items-center justify-between px-5 py-4 text-left text-sm font-semibold transition-colors border-b ${t.borderMuted} ${t.text} hover:bg-black/5 dark:hover:bg-white/5`}
+                >
+                  <span className="flex items-center gap-3">
+                    <Bookmark size={17} className={selectedMessageForMenu.is_saved ? 'text-snap-yellow' : t.textMuted} />
+                    {selectedMessageForMenu.is_saved ? 'Désenregistrer dans le chat' : 'Enregistrer dans le chat'}
+                  </span>
+                </button>
+
+                {/* Copy Text Option (only for Text messages) */}
+                {selectedMessageForMenu.message_type === 'TEXT' && (
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedMessageForMenu.content);
+                      setSelectedMessageForMenu(null);
+                    }}
+                    className={`w-full flex items-center justify-between px-5 py-4 text-left text-sm font-semibold transition-colors border-b ${t.borderMuted} ${t.text} hover:bg-black/5 dark:hover:bg-white/5`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Copy size={17} className={t.textMuted} />
+                      Copier le texte
+                    </span>
+                  </button>
+                )}
+
+                {/* Delete Option (only if sender is logged-in user) */}
+                {selectedMessageForMenu.sender_id === user?.id && (
+                  <button
+                    onClick={() => deleteMessage(selectedMessageForMenu.id)}
+                    className={`w-full flex items-center justify-between px-5 py-4 text-left text-sm font-bold transition-colors text-red-500 hover:bg-red-500/10`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Trash2 size={17} className="text-red-500" />
+                      Supprimer le message
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {/* Cancel button */}
+              <button
+                onClick={() => setSelectedMessageForMenu(null)}
+                className={`w-full py-4 rounded-3xl font-bold text-center text-sm shadow-xl active:scale-98 transition-all ${t.isLight ? 'bg-white text-zinc-800' : 'bg-[#1c1d27] text-white border border-white/5'}`}
+              >
+                Annuler
+              </button>
             </motion.div>
           </>
         )}

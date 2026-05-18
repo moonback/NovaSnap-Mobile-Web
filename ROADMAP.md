@@ -50,8 +50,8 @@
 ### 1.4 Groupes de chat
 - [x] Création de groupe (nom + membres)
 - [x] Avatar de groupe personnalisable
-- [ ] Mentions `@username` dans les groupes
-- [ ] Réactions emoji sur les messages (long-press)
+- [x] Mentions `@username` dans les groupes
+- [x] Réactions emoji sur les messages (long-press)
 - [ ] Rôles admin/membre dans les groupes
 - [ ] Limite de 100 membres par groupe
 

@@ -123,7 +123,7 @@ export const useConversations = () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from('conversation_members')
-        .select(`joined_at,last_read_at,conversations (id,is_group,title,updated_at,messages (id,content,message_type,created_at,sender_id,opened_by,is_saved,is_ephemeral),conversation_members (user_id,users (username,avatar_url)))`)
+        .select(`joined_at,last_read_at,conversations (id,is_group,title,updated_at,messages (id,content,message_type,created_at,sender_id,opened_by,reactions,is_saved,is_ephemeral),conversation_members (user_id,users (username,avatar_url)))`)
         .eq('user_id', user.id)
         .order('created_at', { referencedTable: 'conversations.messages', ascending: false })
         .limit(1, { referencedTable: 'conversations.messages' });
