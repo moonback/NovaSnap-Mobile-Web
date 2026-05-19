@@ -5,7 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useTheme } from '../../hooks/useTheme';
 
 export default function TabBar() {
-  const { currentView, setCurrentView, showMemories, setShowMemories } = useAppStore();
+  const { currentView, setCurrentView } = useAppStore();
   const t = useTheme();
 
   return (
@@ -148,26 +148,26 @@ export default function TabBar() {
 
         {/* ── Memories ── */}
         <button
-          onClick={() => setShowMemories(true)}
+          onClick={() => setCurrentView('memories')}
           aria-label="Souvenirs"
           className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
         >
           <Images
             size={27}
-            strokeWidth={showMemories ? 2.5 : 1.8}
+            strokeWidth={currentView === 'memories' ? 2.5 : 1.8}
             className={`transition-all duration-200 ${
-              showMemories ? t.tabActive : t.tabInactive
+              currentView === 'memories' ? t.tabActive : t.tabInactive
             }`}
-            fill={showMemories ? 'rgba(255,255,255,0.12)' : 'none'}
+            fill={currentView === 'memories' ? 'rgba(255,255,255,0.12)' : 'none'}
           />
           <span
             className={`text-[10px] font-bold tracking-wide transition-all duration-200 ${
-              showMemories ? t.tabActive : t.tabInactive
+              currentView === 'memories' ? t.tabActive : t.tabInactive
             }`}
           >
             Souvenirs
           </span>
-          {showMemories && (
+          {currentView === 'memories' && (
             <motion.span
               layoutId="tab-dot"
               className={`w-1 h-1 rounded-full ${t.tabDot}`}

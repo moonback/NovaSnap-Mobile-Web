@@ -40,7 +40,7 @@ import { useUserLevel, useAllLevels } from '../hooks/useUserLevel';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 
 export default function ProfileScreen() {
-  const { user, setShowProfile, setShowFriends, setShowMemories, theme, toggleTheme } = useAppStore();
+  const { user, setShowProfile, setShowFriends, setCurrentView, theme, toggleTheme } = useAppStore();
   const t = useTheme();
   const { toast } = useToast();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -583,7 +583,7 @@ export default function ProfileScreen() {
           <motion.div
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => { setShowProfile(false); setShowMemories(true); }}
+            onClick={() => { setShowProfile(false); setCurrentView('memories'); }}
             className={`relative overflow-hidden rounded-[24px] p-4 flex flex-col justify-between border transition-all cursor-pointer ${t.surface} ${t.border} ${t.surfaceHover}`}
           >
             <div className="flex items-center justify-between mb-2">
@@ -737,7 +737,7 @@ export default function ProfileScreen() {
         <div className={`w-full border rounded-[28px] overflow-hidden backdrop-blur-xl divide-y shadow-lg mt-auto ${t.surface} ${t.border} ${t.divider}`}>
           {/* Action 1: Souvenirs */}
           <button
-            onClick={() => { setShowProfile(false); setShowMemories(true); }}
+            onClick={() => { setShowProfile(false); setCurrentView('memories'); }}
             className={`w-full flex items-center justify-between py-3.5 px-4 text-left transition-colors ${t.surfaceHover}`}
           >
             <div className="flex items-center gap-3">

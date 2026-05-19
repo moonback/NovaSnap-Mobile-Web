@@ -21,7 +21,7 @@ import InstallPrompt from './components/pwa/InstallPrompt';
 import OfflineBanner from './components/pwa/OfflineBanner';
 
 
-type ViewKey = 'chat' | 'camera' | 'stories' | 'map';
+type ViewKey = 'chat' | 'camera' | 'stories' | 'map' | 'memories';
 
 type Dimensions = {
   width: number;
@@ -30,7 +30,7 @@ type Dimensions = {
 };
 
 
-const VIEWS = ['map', 'chat', 'camera', 'stories'] as const;
+const VIEWS = ['map', 'chat', 'camera', 'stories', 'memories'] as const;
 
 const isViewKey = (value: string): value is ViewKey =>
   (VIEWS as readonly string[]).includes(value);
@@ -119,7 +119,6 @@ export default function App() {
     showProfile,
     showFriends,
     viewingProfileUserId,
-    showMemories,
     isEditingSnap,
     isInConversation,
     theme,
@@ -457,6 +456,10 @@ export default function App() {
           <div className="h-full flex-shrink-0" style={{ width: dimensions.width, background: theme === 'light' ? '#e8eaf2' : '#000' }}>
             {Math.abs(currentIndex - 3) <= 1 && <StoriesScreen />}
           </div>
+          {/* Memories */}
+          <div className="h-full flex-shrink-0" style={{ width: dimensions.width, background: theme === 'light' ? '#e8eaf2' : '#000' }}>
+            {Math.abs(currentIndex - 4) <= 1 && <MemoriesScreen />}
+          </div>
         </motion.div>
 
         {!isEditingSnap && !isInConversation && <TabBar />}
@@ -514,10 +517,6 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {showMemories && <MemoriesScreen key="memories" />}
         </AnimatePresence>
 
         <UpdatePrompt />

@@ -5,7 +5,6 @@ import {
   Image, Video, Camera, MessageCircle, Play, Loader2, BookOpen, Search, Grid3X3, LayoutList,
 } from 'lucide-react';
 import { useMemories, useDeleteMemory, useUpdateMemoryCaption } from '../hooks/useMemories';
-import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
 import Skeleton from '../components/ui/Skeleton';
 import { useTheme } from '../hooks/useTheme';
@@ -400,7 +399,6 @@ function Lightbox({
 type FilterType = 'all' | 'IMAGE' | 'VIDEO';
 
 export default function MemoriesScreen() {
-  const { setShowMemories } = useAppStore();
   const t = useTheme();
   const { data: memories, isLoading } = useMemories();
 
@@ -471,21 +469,15 @@ export default function MemoriesScreen() {
   const videoCount = memories?.filter((m) => m.media_type === 'VIDEO').length ?? 0;
 
   return (
-    <motion.div
-      initial={{ y: '100%' }}
-      animate={{ y: 0 }}
-      exit={{ y: '100%' }}
-      transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className={`absolute inset-0 z-50 flex flex-col overflow-hidden ${t.bg} ${t.text}`}
-    >
+    <div className={`relative w-full h-full flex flex-col overflow-hidden ${t.bg} ${t.text}`}>
       {/* ── Header ── */}
       <div className="flex-shrink-0 px-5 pt-5 pb-3">
         <div className="flex items-center justify-between mb-1">
-          <button onClick={() => setShowMemories(false)} className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}>
-            <X size={18} />
-          </button>
-          <div className="text-center">
-            <h1 className="text-lg font-black tracking-tight">Mes Souvenirs</h1>
+          <div>
+            <h1 className="text-xl font-black tracking-tight">Mes Souvenirs</h1>
+            <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>
+              {isLoading ? '…' : `${totalCount} souvenir${totalCount !== 1 ? 's' : ''}`}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -555,7 +547,7 @@ export default function MemoriesScreen() {
       </div>
 
       {/* ── Content ── */}
-      <div className="flex-1 overflow-y-auto scroll-hide px-5 pb-10">
+      <div className="flex-1 overflow-y-auto scroll-hide px-5 pb-28">
         {isLoading ? (
           <div className={layout === 'grid' ? 'grid grid-cols-3 gap-2' : 'flex flex-col gap-2'}>
             {[...Array(9)].map((_, i) =>
@@ -659,6 +651,6 @@ export default function MemoriesScreen() {
           <Lightbox memories={filtered} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} />
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

@@ -4,8 +4,8 @@ import { User, Session } from '@supabase/supabase-js';
 export type Theme = 'dark' | 'light';
 
 interface AppState {
-  currentView: 'chat' | 'camera' | 'stories' | 'map';
-  setCurrentView: (view: 'chat' | 'camera' | 'stories' | 'map') => void;
+  currentView: 'chat' | 'camera' | 'stories' | 'map' | 'memories';
+  setCurrentView: (view: 'chat' | 'camera' | 'stories' | 'map' | 'memories') => void;
   user: User | null;
   session: Session | null;
   setUser: (user: User | null) => void;
@@ -18,8 +18,6 @@ interface AppState {
   setShowFriends: (show: boolean) => void;
   viewingProfileUserId: string | null;
   setViewingProfileUserId: (id: string | null) => void;
-  showMemories: boolean;
-  setShowMemories: (show: boolean) => void;
   isEditingSnap: boolean;
   setIsEditingSnap: (isEditing: boolean) => void;
   isInConversation: boolean;
@@ -50,8 +48,6 @@ export const useAppStore = create<AppState>((set) => ({
   setShowFriends: (show) => set({ showFriends: show }),
   viewingProfileUserId: null,
   setViewingProfileUserId: (id) => set({ viewingProfileUserId: id }),
-  showMemories: false,
-  setShowMemories: (show) => set({ showMemories: show }),
   isEditingSnap: false,
   setIsEditingSnap: (isEditing) => set({ isEditingSnap: isEditing }),
   isInConversation: false,
