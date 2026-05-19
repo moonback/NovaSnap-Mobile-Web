@@ -131,7 +131,7 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
   // Scale the trash icon slightly as we pull further
   const deleteScale = useTransform(x, [-200, -72], [1.3, 1]);
   // Background color shifts to red when past delete threshold
-  const bgColor = useTransform(x, [-200, -72, 0], ['#ef4444', '#dc2626', '#dc2626']);
+  const bgColor = useTransform(x, [-200, -72, 0], ['#FFFF00', '#FFFF00', '#FFFF00']);
 
   const snapBack = useCallback(() => {
     animate(x, 0, { type: 'spring', stiffness: 400, damping: 30 });
