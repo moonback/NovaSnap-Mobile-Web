@@ -297,3 +297,59 @@ ALTER TABLE public.conversations
 CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_unique_hash
   ON public.conversations(unique_hash)
   WHERE unique_hash IS NOT NULL;
+
+-- ========== SNAP SCORE PROGRESSION ==========
+-- Incrémente automatiquement le snap_score des utilisateurs
+
+-- 1. Message (+1)
+CREATE OR REPLACE FUNCTION public.increment_snap_score_on_message() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.sender_id IS NOT NULL THEN
+    UPDATE public.users SET snap_score = COALESCE(snap_score, 0) + 1 WHERE id = NEW.sender_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_increment_snap_score_on_message AFTER INSERT ON public.messages
+FOR EACH ROW EXECUTE FUNCTION public.increment_snap_score_on_message();
+
+-- 2. Story (+1)
+CREATE OR REPLACE FUNCTION public.increment_snap_score_on_story() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.user_id IS NOT NULL THEN
+    UPDATE public.users SET snap_score = COALESCE(snap_score, 0) + 1 WHERE id = NEW.user_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_increment_snap_score_on_story AFTER INSERT ON public.stories
+FOR EACH ROW EXECUTE FUNCTION public.increment_snap_score_on_story();
+
+-- 3. Snap opened (+1)
+CREATE OR REPLACE FUNCTION public.increment_snap_score_on_snap_opened() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'OPENED' AND (TG_OP = 'INSERT' OR OLD.status != 'OPENED') THEN
+    UPDATE public.users SET snap_score = COALESCE(snap_score, 0) + 1 WHERE id = NEW.user_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_increment_snap_score_on_snap_opened AFTER INSERT OR UPDATE ON public.message_status
+FOR EACH ROW EXECUTE FUNCTION public.increment_snap_score_on_snap_opened();
+
+-- 4. Friendship (+5)
+CREATE OR REPLACE FUNCTION public.increment_snap_score_on_friend_accept() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'ACCEPTED' AND (TG_OP = 'INSERT' OR OLD.status != 'ACCEPTED') THEN
+    UPDATE public.users SET snap_score = COALESCE(snap_score, 0) + 5 WHERE id = NEW.user_id;
+    UPDATE public.users SET snap_score = COALESCE(snap_score, 0) + 5 WHERE id = NEW.friend_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_increment_snap_score_on_friend_accept AFTER INSERT OR UPDATE ON public.friendships
+FOR EACH ROW EXECUTE FUNCTION public.increment_snap_score_on_friend_accept();
