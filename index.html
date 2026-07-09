@@ -41,7 +41,7 @@
                 https://server.arcgisonline.com;
     media-src   'self' blob:
                 https://*.supabase.co https://*.supabase.in;
-    connect-src 'self' wss:
+    connect-src 'self' ws: wss:
                 https://*.supabase.co https://*.supabase.in
                 https://nominatim.openstreetmap.org
                 https://api.dicebear.com;
@@ -121,7 +121,7 @@
         width: 128px;
         height: 128px;
         border-radius: 32px;
-        background: linear-gradient(135deg, #FFFC00 0%, #eab308 100%);
+        background: linear-gradient(135deg, #FFC0CB 0%, #eab308 100%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -137,7 +137,7 @@
         font-size: 1.875rem;
         font-weight: 900;
         letter-spacing: -0.025em;
-        background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.7) 100%);
+        background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 192, 203.7) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -156,7 +156,7 @@
           width: 24px;
           height: 24px;
           border: 2px solid rgba(255, 252, 0, 0.2);
-          border-top-color: #FFFC00;
+          border-top-color: #FFC0CB;
           border-radius: 50%;
           animation: splash-spin 0.8s linear infinite;
         "></div>

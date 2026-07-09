@@ -15,12 +15,12 @@ export default function ResetPasswordScreen() {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (newPassword.length < 8) {
       toast('Le mot de passe doit contenir au moins 8 caractères.', 'error');
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       toast('Les mots de passe ne correspondent pas.', 'error');
       return;
@@ -36,7 +36,7 @@ export default function ResetPasswordScreen() {
 
       setSuccess(true);
       toast('Mot de passe réinitialisé avec succès !', 'success');
-      
+
       // Rediriger vers l'app après 2 secondes
       setTimeout(() => {
         window.location.href = '/';
@@ -55,11 +55,11 @@ export default function ResetPasswordScreen() {
   return (
     <div className="w-full h-full bg-[#0a0a0f] text-white flex flex-col items-center justify-center relative overflow-hidden font-sans p-6">
       {/* Animated Background Blobs */}
-      <motion.div 
+      <motion.div
         animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
         transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
         className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20 blur-[80px] pointer-events-none fixed"
-        style={{ background: 'radial-gradient(circle, #FFFC00 0%, transparent 70%)' }} 
+        style={{ background: 'radial-gradient(circle, #FFC0CB 0%, transparent 70%)' }}
       />
 
       <motion.div
@@ -70,9 +70,9 @@ export default function ResetPasswordScreen() {
       >
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <motion.div 
+          <motion.div
             whileHover={{ scale: 1.05, rotate: 5 }}
-            className="w-20 h-20 rounded-[28px] bg-gradient-to-br from-[#FFFC00] to-[#eab308] flex items-center justify-center mb-5 shadow-[0_0_30px_rgba(255,252,0,0.3)]"
+            className="w-20 h-20 rounded-[28px] bg-gradient-to-br from-[#FFC0CB] to-[#eab308] flex items-center justify-center mb-5 shadow-[0_0_30px_rgba(255,252,0,0.3)]"
           >
             <svg viewBox="0 0 100 100" className="w-12 h-12" fill="none">
               <path
@@ -148,13 +148,12 @@ export default function ResetPasswordScreen() {
                   placeholder="Confirmer le mot de passe"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`w-full bg-white/5 border rounded-2xl py-4 pl-12 pr-12 text-white placeholder-white/30 focus:outline-none focus:bg-white/10 transition-all text-[15px] shadow-inner ${
-                    confirmPassword && !passwordsMatch
+                  className={`w-full bg-white/5 border rounded-2xl py-4 pl-12 pr-12 text-white placeholder-white/30 focus:outline-none focus:bg-white/10 transition-all text-[15px] shadow-inner ${confirmPassword && !passwordsMatch
                       ? 'border-red-500/50 focus:border-red-500/70'
                       : confirmPassword && passwordsMatch
-                      ? 'border-green-500/50 focus:border-green-500/70'
-                      : 'border-white/10 focus:border-snap-yellow/50'
-                  }`}
+                        ? 'border-green-500/50 focus:border-green-500/70'
+                        : 'border-white/10 focus:border-snap-yellow/50'
+                    }`}
                   required
                   minLength={8}
                   autoComplete="new-password"
@@ -170,15 +169,13 @@ export default function ResetPasswordScreen() {
 
               {/* Password validation feedback */}
               <div className="space-y-1.5 px-1">
-                <div className={`flex items-center gap-2 text-xs transition-colors ${
-                  passwordValid ? 'text-green-400' : 'text-white/30'
-                }`}>
+                <div className={`flex items-center gap-2 text-xs transition-colors ${passwordValid ? 'text-green-400' : 'text-white/30'
+                  }`}>
                   <div className={`w-1.5 h-1.5 rounded-full ${passwordValid ? 'bg-green-400' : 'bg-white/20'}`} />
                   Au moins 8 caractères
                 </div>
-                <div className={`flex items-center gap-2 text-xs transition-colors ${
-                  passwordsMatch ? 'text-green-400' : 'text-white/30'
-                }`}>
+                <div className={`flex items-center gap-2 text-xs transition-colors ${passwordsMatch ? 'text-green-400' : 'text-white/30'
+                  }`}>
                   <div className={`w-1.5 h-1.5 rounded-full ${passwordsMatch ? 'bg-green-400' : 'bg-white/20'}`} />
                   Les mots de passe correspondent
                 </div>
@@ -189,7 +186,7 @@ export default function ResetPasswordScreen() {
                 type="submit"
                 disabled={!passwordValid || !passwordsMatch || loading}
                 whileTap={!loading && passwordValid && passwordsMatch ? { scale: 0.98 } : {}}
-                className="w-full bg-gradient-to-r from-[#FFFC00] to-[#eab308] text-black font-black py-4 rounded-2xl mt-6 flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(255,252,0,0.25)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[15px] tracking-wide relative overflow-hidden group"
+                className="w-full bg-gradient-to-r from-[#FFC0CB] to-[#eab308] text-black font-black py-4 rounded-2xl mt-6 flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(255,252,0,0.25)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[15px] tracking-wide relative overflow-hidden group"
               >
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                 {loading ? (

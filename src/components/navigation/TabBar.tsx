@@ -56,11 +56,11 @@ type Tab = {
 };
 
 const TABS: Tab[] = [
-  { id: 'map',      label: 'Carte',      icon: MapIcon },
-  { id: 'chat',     label: 'Chat',       icon: ChatIcon },
-  { id: 'camera',   label: 'Caméra',     icon: StoriesIcon }, // placeholder — camera handled separately
-  { id: 'stories',  label: 'Stories',    icon: StoriesIcon },
-  { id: 'memories', label: 'Souvenirs',  icon: MemoriesIcon },
+  { id: 'map', label: 'Carte', icon: MapIcon },
+  { id: 'chat', label: 'Chat', icon: ChatIcon },
+  { id: 'camera', label: 'Caméra', icon: StoriesIcon }, // placeholder — camera handled separately
+  { id: 'stories', label: 'Stories', icon: StoriesIcon },
+  { id: 'memories', label: 'Souvenirs', icon: MemoriesIcon },
 ];
 
 export default function TabBar() {
@@ -108,7 +108,7 @@ export default function TabBar() {
             transition={{ type: 'spring', stiffness: 500, damping: 22 }}
             className="relative w-[64px] h-[64px] rounded-full flex items-center justify-center"
             style={{
-              background: currentView === 'camera' ? '#FFFC00' : '#ffffff',
+              background: currentView === 'camera' ? '#FFC0CB' : '#ffffff',
               boxShadow: currentView === 'camera'
                 ? '0 0 0 3.5px rgba(255,252,0,0.3), 0 6px 20px rgba(255,252,0,0.4)'
                 : '0 0 0 3.5px rgba(255,255,255,0.18), 0 6px 20px rgba(0,0,0,0.55)',

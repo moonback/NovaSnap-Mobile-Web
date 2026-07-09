@@ -3,14 +3,14 @@
 :root {
   color-scheme: dark;
   --snap-bg: #07080f;
-  --snap-surface: rgba(255, 255, 255, 0.06);
-  --snap-border: rgba(255, 255, 255, 0.14);
+  --snap-surface: rgba(255, 255, 192, 203.06);
+  --snap-border: rgba(255, 255, 192, 203.14);
   --snap-text: #f7f8ff;
-  --snap-text-muted: rgba(255, 255, 255, 0.4);
-  --snap-card: rgba(255, 255, 255, 0.05);
-  --snap-card-border: rgba(255, 255, 255, 0.08);
-  --snap-input: rgba(255, 255, 255, 0.08);
-  --snap-divider: rgba(255, 255, 255, 0.05);
+  --snap-text-muted: rgba(255, 255, 192, 203.4);
+  --snap-card: rgba(255, 255, 192, 203.05);
+  --snap-card-border: rgba(255, 255, 192, 203.08);
+  --snap-input: rgba(255, 255, 192, 203.08);
+  --snap-divider: rgba(255, 255, 192, 203.05);
   --snap-overlay: rgba(0, 0, 0, 0.58);
   --snap-settings-bg: #0d0d0f;
   --snap-profile-bg: #000000;
@@ -27,12 +27,13 @@
   --snap-card-border: rgba(0, 0, 0, 0.08);
   --snap-input: rgba(0, 0, 0, 0.06);
   --snap-divider: rgba(0, 0, 0, 0.06);
-  --snap-overlay: rgba(255, 255, 255, 0.75);
+  --snap-overlay: rgba(255, 255, 192, 203.75);
   --snap-settings-bg: #e8eaf2;
   --snap-profile-bg: #f0f2f8;
 }
 
 @layer utilities {
+
   /* ── Glassmorphism ── */
   .glass {
     background: var(--snap-surface);
@@ -41,12 +42,14 @@
     border: 1px solid var(--snap-border);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
   }
+
   .glass-dark {
     background: var(--snap-overlay);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--snap-border);
   }
+
   .glass-card {
     background: var(--snap-card);
     backdrop-filter: blur(24px);
@@ -56,23 +59,59 @@
   }
 
   /* ── Snap Yellow ── */
-  .snap-yellow { color: #FFFC00; }
-  .bg-snap-yellow { background-color: #FFFC00; }
-  .border-snap-yellow { border-color: #FFFC00; }
-  .shadow-snap { box-shadow: 0 0 24px rgba(255, 252, 0, 0.35); }
-  .shadow-snap-sm { box-shadow: 0 0 12px rgba(255, 252, 0, 0.25); }
+  .snap-yellow {
+    color: #FFC0CB;
+  }
+
+  .bg-snap-yellow {
+    background-color: #FFC0CB;
+  }
+
+  .border-snap-yellow {
+    border-color: #FFC0CB;
+  }
+
+  .shadow-snap {
+    box-shadow: 0 0 24px rgba(255, 252, 0, 0.35);
+  }
+
+  .shadow-snap-sm {
+    box-shadow: 0 0 12px rgba(255, 252, 0, 0.25);
+  }
 
   /* ── Snapchat exact snap-status colors ── */
-  .snap-chat-blue   { color: #0ABDE3; }
-  .bg-snap-chat     { background-color: #0ABDE3; }
-  .snap-photo-red   { color: #FF003C; }
-  .bg-snap-photo    { background-color: #FF003C; }
-  .snap-video-purple { color: #9B59B6; }
-  .bg-snap-video    { background-color: #9B59B6; }
+  .snap-chat-blue {
+    color: #0ABDE3;
+  }
+
+  .bg-snap-chat {
+    background-color: #0ABDE3;
+  }
+
+  .snap-photo-red {
+    color: #FF003C;
+  }
+
+  .bg-snap-photo {
+    background-color: #FF003C;
+  }
+
+  .snap-video-purple {
+    color: #9B59B6;
+  }
+
+  .bg-snap-video {
+    background-color: #9B59B6;
+  }
 
   /* ── Glow effects ── */
-  .neon-glow { box-shadow: 0 0 16px rgba(255, 252, 0, 0.5); }
-  .neon-glow-white { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
+  .neon-glow {
+    box-shadow: 0 0 16px rgba(255, 252, 0, 0.5);
+  }
+
+  .neon-glow-white {
+    box-shadow: 0 0 20px rgba(255, 255, 192, 203.3);
+  }
 
   /* ── Camera ── */
   .camera-gradient {
@@ -81,35 +120,48 @@
 
   /* ── Voice orb ── */
   .voice-orb {
-    background: radial-gradient(circle at 30% 30%, #FFFC00 0%, #ff9500 50%, #ff3b30 100%);
+    background: radial-gradient(circle at 30% 30%, #FFC0CB 0%, #ff9500 50%, #ff3b30 100%);
   }
 
   /* ── Scrollbar hide ── */
-  .scroll-hide::-webkit-scrollbar { display: none; }
-  .scroll-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .scroll-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scroll-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 
   /* ── Story ring — Snapchat-style conic gradient ── */
   .story-ring {
-    background: conic-gradient(#FFFC00 0%, #ff9500 35%, #ff4757 65%, #FFFC00 100%);
+    background: conic-gradient(#FFC0CB 0%, #ff9500 35%, #ff4757 65%, #FFC0CB 100%);
     padding: 2.5px;
     border-radius: 50%;
   }
+
   .story-ring-seen {
-    background: conic-gradient(rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.15) 100%);
+    background: conic-gradient(rgba(255, 255, 192, 203.2) 0%, rgba(255, 255, 192, 203.15) 100%);
     padding: 2.5px;
     border-radius: 50%;
   }
 
   /* ── Safe area ── */
-  .safe-top { padding-top: env(safe-area-inset-top, 12px); }
-  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 16px); }
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 12px);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
 
   /* ── Tab bar ── */
   .snap-tab-bar {
-    background: linear-gradient(to top, #000000 0%, rgba(0,0,0,0.96) 60%, transparent 100%);
+    background: linear-gradient(to top, #000000 0%, rgba(0, 0, 0, 0.96) 60%, transparent 100%);
   }
+
   [data-theme="light"] .snap-tab-bar {
-    background: linear-gradient(to top, #f0f2f8 0%, rgba(240,242,248,0.96) 60%, transparent 100%);
+    background: linear-gradient(to top, #f0f2f8 0%, rgba(240, 242, 248, 0.96) 60%, transparent 100%);
   }
 
   /* ── Input Snapchat style ── */
@@ -119,49 +171,88 @@
     border: none;
     color: white;
   }
+
   [data-theme="light"] .snap-input {
-    background: rgba(0,0,0,0.07);
+    background: rgba(0, 0, 0, 0.07);
     color: #0d0e1a;
   }
 }
 
 @keyframes progress {
-  from { width: 0%; }
-  to { width: 100%; }
+  from {
+    width: 0%;
+  }
+
+  to {
+    width: 100%;
+  }
 }
 
 @keyframes snap-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.08); opacity: 0.85; }
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
 }
 
 @keyframes slide-up {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes story-ring-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Global resets */
-* { -webkit-tap-highlight-color: transparent; }
-html, body, #root {
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
   min-height: 100%;
   background: #000000;
   transition: background 0.3s ease, color 0.3s ease;
 }
+
 [data-theme="light"] html,
 [data-theme="light"] body,
 [data-theme="light"] #root {
   background: #f0f2f8;
 }
+
 body {
   overscroll-behavior: none;
   color: var(--snap-text);
@@ -170,7 +261,9 @@ body {
 }
 
 /* Smooth theme transitions on all elements */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   transition-property: background-color, border-color, color, box-shadow;
   transition-duration: 0.2s;
   transition-timing-function: ease;

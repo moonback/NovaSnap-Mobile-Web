@@ -142,8 +142,8 @@ storyAuthors.forEach((story) => {
   const avatarUrl = story.users?.avatar_url;
 
   const html = avatarUrl
-    ? `<img src="${avatarUrl}" style="width:28px;height:28px;border-radius:50%;border:2px solid #fffc00;" />`
-    : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#eab308,#f97316);display:flex;align-items:center;justify-content:center;font-weight:900;color:black;font-size:11px;border:2px solid #fffc00;">${username.substring(0,1).toUpperCase()}</div>`;
+    ? `<img src="${avatarUrl}" style="width:28px;height:28px;border-radius:50%;border:2px solid #FFC0CB;" />`
+    : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#eab308,#f97316);display:flex;align-items:center;justify-content:center;font-weight:900;color:black;font-size:11px;border:2px solid #FFC0CB;">${username.substring(0,1).toUpperCase()}</div>`;
 
   const storyIcon = L.divIcon({
     className: 'landmark-glowing-ring',

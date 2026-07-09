@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Ghost, 
-  Flame, 
-  Settings, 
-  X, 
-  Search, 
-  Navigation, 
+import {
+  Ghost,
+  Flame,
+  Settings,
+  X,
+  Search,
+  Navigation,
   Play,
   Loader2,
   Layers,
@@ -43,7 +43,7 @@ export default function MapScreen() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [placeResults, setPlaceResults] = useState<any[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
-  
+
   const [showSettings, setShowSettings] = useState(false);
   const [userCoords, setUserCoords] = useState<[number, number]>([48.8566, 2.3522]); // Default: Paris Center
   const { data: friendLocations = [] } = useFriendLocations(
@@ -107,7 +107,7 @@ export default function MapScreen() {
       setPlaceResults([]);
       return;
     }
-    
+
     let isActive = true;
     const fetchPlaces = async () => {
       setIsSearchingPlaces(true);
@@ -127,7 +127,7 @@ export default function MapScreen() {
 
   const filteredFriends = useMemo(() => {
     if (!searchQuery) return [];
-    return friendLocations.filter(f => 
+    return friendLocations.filter(f =>
       f.username?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [searchQuery, friendLocations]);
@@ -229,7 +229,7 @@ export default function MapScreen() {
         animation: pulseGhost 1.6s infinite alternate;
       }
       .friend-avatar-marker {
-        border: 2px solid #fffc00;
+        border: 2px solid #FFC0CB;
         border-radius: 50%;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         background: #000;
@@ -238,7 +238,7 @@ export default function MapScreen() {
         width: 24px;
         height: 24px;
         background: rgba(255, 252, 0, 0.15);
-        border: 2px solid #fffc00;
+        border: 2px solid #FFC0CB;
         border-radius: 50%;
         box-shadow: 0 0 0 6px rgba(255, 252, 0, 0.25), 0 0 24px rgba(255, 252, 0, 0.8);
         display: flex;
@@ -299,7 +299,7 @@ export default function MapScreen() {
       map.removeLayer(tileLayerRef.current);
     }
 
-    const url = mapStyle === 'dark' 
+    const url = mapStyle === 'dark'
       ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
       : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
@@ -395,18 +395,18 @@ export default function MapScreen() {
 `;
 
         const icon = L.divIcon({
-          className:  'friend-avatar-marker',
+          className: 'friend-avatar-marker',
           html,
-          iconSize:   [36, 36],
+          iconSize: [36, 36],
           iconAnchor: [18, 18],
         });
 
         const marker = L.marker([friend.lat, friend.lng], { icon }).addTo(map);
         marker.bindTooltip(friend.username || 'Friend', {
-          permanent:  true,
-          direction:  'bottom',
-          offset:     [0, 8],
-          className:  'glass-dark text-white text-[9px] font-black',
+          permanent: true,
+          direction: 'bottom',
+          offset: [0, 8],
+          className: 'glass-dark text-white text-[9px] font-black',
         });
         friendMarkersRef.current.push(marker);
       });
@@ -427,13 +427,13 @@ export default function MapScreen() {
       const markerCoords: [number, number] = hasRealCoords
         ? [story.latitude as number, story.longitude as number]
         : [
-            userCoords[0] + 0.003 * Math.cos((index / Math.max(storyAuthors.length, 1)) * 2 * Math.PI),
-            userCoords[1] + 0.003 * Math.sin((index / Math.max(storyAuthors.length, 1)) * 2 * Math.PI),
-          ];
+          userCoords[0] + 0.003 * Math.cos((index / Math.max(storyAuthors.length, 1)) * 2 * Math.PI),
+          userCoords[1] + 0.003 * Math.sin((index / Math.max(storyAuthors.length, 1)) * 2 * Math.PI),
+        ];
 
       const html = avatarUrl
-        ? `<img src="${avatarUrl}" style="width:28px;height:28px;border-radius:50%;border:2px solid #fffc00;" />`
-        : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#eab308,#f97316);display:flex;align-items:center;justify-content:center;font-weight:900;color:black;font-size:11px;border:2px solid #fffc00;">${username.substring(0,1).toUpperCase()}</div>`;
+        ? `<img src="${avatarUrl}" style="width:28px;height:28px;border-radius:50%;border:2px solid #FFC0CB;" />`
+        : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#eab308,#f97316);display:flex;align-items:center;justify-content:center;font-weight:900;color:black;font-size:11px;border:2px solid #FFC0CB;">${username.substring(0, 1).toUpperCase()}</div>`;
 
       const storyIcon = L.divIcon({
         className: 'landmark-glowing-ring',
@@ -490,8 +490,8 @@ export default function MapScreen() {
     setIsGhostMode(nextVal);
     localStorage.setItem('novasnap_settings_ghost_mode', String(nextVal));
     toast(
-      nextVal 
-        ? '👻 Mode Fantôme activé ! Ta position est masquée sur la carte.' 
+      nextVal
+        ? '👻 Mode Fantôme activé ! Ta position est masquée sur la carte.'
         : '🌍 Mode Fantôme désactivé ! Position partagée avec tes amis.',
       'info'
     );
@@ -551,7 +551,7 @@ export default function MapScreen() {
           <button
             onClick={() => setShowProfile(true)}
             className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center overflow-hidden active:scale-90 transition-transform pointer-events-auto shadow-lg flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #FFFC00 0%, #ff9500 100%)' }}
+            style={{ background: 'linear-gradient(135deg, #FFC0CB 0%, #ff9500 100%)' }}
           >
             {user?.user_metadata?.avatar_url ? (
               <img src={user.user_metadata.avatar_url} className="w-full h-full object-cover" />
@@ -578,7 +578,7 @@ export default function MapScreen() {
               </button>
             )}
           </div>
-          
+
           {/* Settings right */}
           <button
             onClick={() => setShowSettings(true)}
@@ -595,7 +595,7 @@ export default function MapScreen() {
               <div className="flex flex-col gap-1">
                 <p className="text-[10px] font-black text-white/40 uppercase tracking-widest px-2 pt-1 pb-0.5">Amis</p>
                 {filteredFriends.map(friend => (
-                  <button 
+                  <button
                     key={friend.user_id}
                     onClick={() => {
                       handleCenterOnFriend(friend.user_id, friend.username || 'Ami');
@@ -607,7 +607,7 @@ export default function MapScreen() {
                       {friend.avatar_url ? (
                         <img src={friend.avatar_url} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-black font-black text-xs">{(friend.username||'U').substring(0,1).toUpperCase()}</span>
+                        <span className="text-black font-black text-xs">{(friend.username || 'U').substring(0, 1).toUpperCase()}</span>
                       )}
                     </div>
                     <span className="text-sm font-bold text-white truncate">{friend.username}</span>
@@ -623,7 +623,7 @@ export default function MapScreen() {
                   {isSearchingPlaces && <Loader2 size={10} className="animate-spin text-white/40" />}
                 </p>
                 {placeResults.map((place, i) => (
-                  <button 
+                  <button
                     key={i}
                     onClick={() => {
                       if (mapInstanceRef.current) {
@@ -657,11 +657,10 @@ export default function MapScreen() {
         {/* Ghost Mode Quick Button */}
         <button
           onClick={toggleGhostMode}
-          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${
-            isGhostMode 
-              ? 'bg-purple-600/90 border-purple-400 text-white shadow-purple-500/20' 
+          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${isGhostMode
+              ? 'bg-purple-600/90 border-purple-400 text-white shadow-purple-500/20'
               : 'bg-black/60 backdrop-blur-md border-white/10 text-white/80 hover:text-white'
-          }`}
+            }`}
           title={isGhostMode ? 'Mode Fantôme actif (Position cachée)' : 'Partager ma position'}
         >
           <Ghost size={20} className={isGhostMode ? 'animate-bounce' : ''} />
@@ -670,11 +669,10 @@ export default function MapScreen() {
         {/* Heatmap Toggle Button */}
         <button
           onClick={toggleHeatmap}
-          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${
-            showHeatmap 
-              ? 'bg-orange-500/90 border-orange-400 text-white shadow-orange-500/20' 
+          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${showHeatmap
+              ? 'bg-orange-500/90 border-orange-400 text-white shadow-orange-500/20'
               : 'bg-black/60 backdrop-blur-md border-white/10 text-white/80 hover:text-white'
-          }`}
+            }`}
           title="Afficher la Heatmap d'activité"
         >
           <Flame size={20} className={showHeatmap ? 'animate-pulse' : ''} />
@@ -683,11 +681,10 @@ export default function MapScreen() {
         {/* Autour de moi Toggle Button */}
         <button
           onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${
-            isDrawerOpen 
-              ? 'bg-blue-500/90 border-blue-400 text-white shadow-blue-500/20' 
+          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${isDrawerOpen
+              ? 'bg-blue-500/90 border-blue-400 text-white shadow-blue-500/20'
               : 'bg-black/60 backdrop-blur-md border-white/10 text-white/80 hover:text-white'
-          }`}
+            }`}
           title="Autour de moi"
         >
           <Users size={20} className={isDrawerOpen ? 'scale-110' : ''} />
@@ -719,7 +716,7 @@ export default function MapScreen() {
 
         <AnimatePresence>
           {isDrawerOpen && (
-            <motion.div 
+            <motion.div
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
@@ -733,7 +730,7 @@ export default function MapScreen() {
                   <span className="text-[10px] text-snap-yellow font-black">
                     {friendLocations.length} ami{friendLocations.length > 1 ? 's' : ''} visible{friendLocations.length > 1 ? 's' : ''}
                   </span>
-                  <button 
+                  <button
                     onClick={() => setIsDrawerOpen(false)}
                     className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors"
                   >
@@ -744,91 +741,91 @@ export default function MapScreen() {
 
               <div className="flex flex-col gap-3.5">
                 {/* Friends horizontal list */}
-          <div className="flex gap-4 overflow-x-auto scroll-hide pb-0.5">
-            {friendsLoading && (
-              <div className="flex items-center justify-center w-full py-2">
-                <Loader2 className="animate-spin text-white/20" size={16} />
-              </div>
-            )}
-            
-            {!friendsLoading && friends.length === 0 && (
-              <div className="py-2 text-center w-full">
-                <p className="text-[11px] text-white/30 font-medium">Ajoute des amis pour les voir sur la carte !</p>
-              </div>
-            )}
-
-            {!friendsLoading && friends.map((friend) => (
-              <button
-                key={friend.friendship_id}
-                onClick={() => handleCenterOnFriend(friend.user.id, friend.user.username || 'Ami')}
-                className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform"
-              >
-                <div className="w-12 h-12 rounded-full p-[2px] ring-2 ring-yellow-400 bg-black relative">
-                  {friend.user.avatar_url ? (
-                    <img src={friend.user.avatar_url} className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-[10px]">
-                      {(friend.user.username || 'U').substring(0, 1).toUpperCase()}
+                <div className="flex gap-4 overflow-x-auto scroll-hide pb-0.5">
+                  {friendsLoading && (
+                    <div className="flex items-center justify-center w-full py-2">
+                      <Loader2 className="animate-spin text-white/20" size={16} />
                     </div>
                   )}
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-black rounded-full" />
-                </div>
-                <span className="text-[10px] font-bold text-white/70 truncate max-w-[56px]">
-                  {friend.user.username}
-                </span>
-              </button>
-            ))}
-          </div>
 
-          <div className="h-[1px] bg-white/5" />
-
-          {/* Real Stories list */}
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Stories actives</p>
-            <span className="text-[10px] text-white/40 font-bold">{storyAuthors.length} en ligne</span>
-          </div>
-
-          {storiesLoading && (
-            <div className="flex items-center justify-center py-3">
-              <Loader2 className="animate-spin text-white/20" size={16} />
-            </div>
-          )}
-
-          {!storiesLoading && storyAuthors.length === 0 && (
-            <p className="text-[11px] text-white/30 font-medium text-center py-2">
-              Aucune story active pour le moment.
-            </p>
-          )}
-
-          {!storiesLoading && storyAuthors.length > 0 && (
-            <div className="grid grid-cols-3 gap-2">
-              {storyAuthors.map((story) => {
-                const username = story.users?.username || 'User';
-                const avatarUrl = story.users?.avatar_url;
-                return (
-                  <button
-                    key={story.user_id}
-                    onClick={() => openAuthorStories(story.user_id)}
-                    className="bg-white/4 hover:bg-white/8 border border-white/5 rounded-2xl p-2.5 flex flex-col items-center gap-1.5 text-center transition-all active:scale-95"
-                  >
-                    <div className="w-10 h-10 rounded-full ring-2 ring-snap-yellow overflow-hidden bg-black flex-shrink-0">
-                      {avatarUrl ? (
-                        <img src={avatarUrl} className="w-full h-full object-cover" alt={username} />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
-                          {username.substring(0, 1).toUpperCase()}
-                        </div>
-                      )}
+                  {!friendsLoading && friends.length === 0 && (
+                    <div className="py-2 text-center w-full">
+                      <p className="text-[11px] text-white/30 font-medium">Ajoute des amis pour les voir sur la carte !</p>
                     </div>
-                    <span className="text-[10px] font-black text-white truncate max-w-[80px]">{username}</span>
-                    <span className="text-[8px] font-bold text-snap-yellow flex items-center gap-0.5 justify-center">
-                      <Play size={7} fill="currentColor" /> Story
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                  )}
+
+                  {!friendsLoading && friends.map((friend) => (
+                    <button
+                      key={friend.friendship_id}
+                      onClick={() => handleCenterOnFriend(friend.user.id, friend.user.username || 'Ami')}
+                      className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform"
+                    >
+                      <div className="w-12 h-12 rounded-full p-[2px] ring-2 ring-yellow-400 bg-black relative">
+                        {friend.user.avatar_url ? (
+                          <img src={friend.user.avatar_url} className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-[10px]">
+                            {(friend.user.username || 'U').substring(0, 1).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-black rounded-full" />
+                      </div>
+                      <span className="text-[10px] font-bold text-white/70 truncate max-w-[56px]">
+                        {friend.user.username}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="h-[1px] bg-white/5" />
+
+                {/* Real Stories list */}
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Stories actives</p>
+                  <span className="text-[10px] text-white/40 font-bold">{storyAuthors.length} en ligne</span>
+                </div>
+
+                {storiesLoading && (
+                  <div className="flex items-center justify-center py-3">
+                    <Loader2 className="animate-spin text-white/20" size={16} />
+                  </div>
+                )}
+
+                {!storiesLoading && storyAuthors.length === 0 && (
+                  <p className="text-[11px] text-white/30 font-medium text-center py-2">
+                    Aucune story active pour le moment.
+                  </p>
+                )}
+
+                {!storiesLoading && storyAuthors.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {storyAuthors.map((story) => {
+                      const username = story.users?.username || 'User';
+                      const avatarUrl = story.users?.avatar_url;
+                      return (
+                        <button
+                          key={story.user_id}
+                          onClick={() => openAuthorStories(story.user_id)}
+                          className="bg-white/4 hover:bg-white/8 border border-white/5 rounded-2xl p-2.5 flex flex-col items-center gap-1.5 text-center transition-all active:scale-95"
+                        >
+                          <div className="w-10 h-10 rounded-full ring-2 ring-snap-yellow overflow-hidden bg-black flex-shrink-0">
+                            {avatarUrl ? (
+                              <img src={avatarUrl} className="w-full h-full object-cover" alt={username} />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
+                                {username.substring(0, 1).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-black text-white truncate max-w-[80px]">{username}</span>
+                          <span className="text-[8px] font-bold text-snap-yellow flex items-center gap-0.5 justify-center">
+                            <Play size={7} fill="currentColor" /> Story
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -870,14 +867,12 @@ export default function MapScreen() {
                   </div>
                   <button
                     onClick={toggleGhostMode}
-                    className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${
-                      isGhostMode ? 'bg-purple-600' : 'bg-white/10'
-                    }`}
+                    className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${isGhostMode ? 'bg-purple-600' : 'bg-white/10'
+                      }`}
                   >
                     <div
-                      className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${
-                        isGhostMode ? 'translate-x-5.5' : 'translate-x-0'
-                      }`}
+                      className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${isGhostMode ? 'translate-x-5.5' : 'translate-x-0'
+                        }`}
                     />
                   </button>
                 </div>
@@ -895,14 +890,12 @@ export default function MapScreen() {
                   </div>
                   <button
                     onClick={toggleHeatmap}
-                    className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${
-                      showHeatmap ? 'bg-orange-500' : 'bg-white/10'
-                    }`}
+                    className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${showHeatmap ? 'bg-orange-500' : 'bg-white/10'
+                      }`}
                   >
                     <div
-                      className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${
-                        showHeatmap ? 'translate-x-5.5' : 'translate-x-0'
-                      }`}
+                      className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${showHeatmap ? 'translate-x-5.5' : 'translate-x-0'
+                        }`}
                     />
                   </button>
                 </div>
@@ -939,19 +932,17 @@ export default function MapScreen() {
                   </div>
                   <button
                     onClick={toggleFriendsOnMap}
-                    className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${
-                      showFriendsOnMap ? 'bg-green-500' : 'bg-white/10'
-                    }`}
+                    className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${showFriendsOnMap ? 'bg-green-500' : 'bg-white/10'
+                      }`}
                   >
                     <div
-                      className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${
-                        showFriendsOnMap ? 'translate-x-5.5' : 'translate-x-0'
-                      }`}
+                      className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${showFriendsOnMap ? 'translate-x-5.5' : 'translate-x-0'
+                        }`}
                     />
                   </button>
                 </div>
               </div>
-              
+
               <button
                 onClick={() => setShowSettings(false)}
                 className="w-full py-3.5 bg-snap-yellow text-black font-black text-xs rounded-2xl shadow-snap-sm active:scale-95 transition-all text-center mt-2"

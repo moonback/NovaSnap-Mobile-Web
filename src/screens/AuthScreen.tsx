@@ -37,7 +37,7 @@ export default function AuthScreen() {
   const isLogin = mode === 'login';
   const isForgot = mode === 'forgot';
   const normalizedUsername = useMemo(() => normalizeUsername(username), [username]);
-  
+
   const usernameError = useMemo(() => {
     if (isLogin || normalizedUsername.length === 0) return null;
     if (!USERNAME_PATTERN.test(normalizedUsername)) return '3-20 caractères : lettres, chiffres, underscore.';
@@ -109,20 +109,20 @@ export default function AuthScreen() {
   return (
     <div className="w-full h-full bg-[#0a0a0f] text-white flex flex-col items-center justify-center relative overflow-y-auto overflow-x-hidden font-sans py-8">
       {/* Animated Background Blobs */}
-      <motion.div 
+      <motion.div
         animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
         transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
         className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20 blur-[80px] pointer-events-none fixed"
-        style={{ background: 'radial-gradient(circle, #FFFC00 0%, transparent 70%)' }} 
+        style={{ background: 'radial-gradient(circle, #FFC0CB 0%, transparent 70%)' }}
       />
-      <motion.div 
+      <motion.div
         animate={{ scale: [1, 1.3, 1], rotate: [0, -90, 0] }}
         transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
         className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full opacity-[0.15] blur-[80px] pointer-events-none fixed"
-        style={{ background: 'radial-gradient(circle, #a855f7 0%, transparent 70%)' }} 
+        style={{ background: 'radial-gradient(circle, #a855f7 0%, transparent 70%)' }}
       />
 
-      <motion.div 
+      <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -130,18 +130,18 @@ export default function AuthScreen() {
       >
         {/* Logo Header */}
         <div className="flex flex-col items-center mb-6">
-          <motion.div 
+          <motion.div
             whileHover={{ scale: 1.05, rotate: 5 }}
             whileTap={{ scale: 0.95 }}
-            className="w-20 h-20 rounded-[28px] bg-gradient-to-br from-[#FFFC00] to-[#eab308] flex items-center justify-center mb-5 shadow-[0_0_30px_rgba(255,252,0,0.3)] relative group"
+            className="w-20 h-20 rounded-[28px] bg-gradient-to-br from-[#FFC0CB] to-[#eab308] flex items-center justify-center mb-5 shadow-[0_0_30px_rgba(255,252,0,0.3)] relative group"
           >
             <div className="absolute inset-0 rounded-[28px] bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
             <img
-    src="/logo.png"
-    alt="Logo"
-    className="w-12 h-12 object-contain relative z-10"
-  />
-            <div className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-[#FFFC00]/20 to-[#eab308]/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+              src="/logo.png"
+              alt="Logo"
+              className="w-12 h-12 object-contain relative z-10"
+            />
+            <div className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-[#FFC0CB]/20 to-[#eab308]/20 opacity-0 group-hover:opacity-100 transition-opacity" />
           </motion.div>
           <h1 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70">
             NovaSnap
@@ -153,33 +153,33 @@ export default function AuthScreen() {
 
         {/* Segmented Toggle — hidden in forgot mode */}
         {!isForgot && (
-        <div className="flex p-1 bg-white/5 border border-white/10 rounded-full mb-8 relative backdrop-blur-md">
-          <motion.div
-            className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white/10 rounded-full shadow-lg border border-white/5"
-            animate={{ x: isLogin ? 4 : 'calc(100% + 4px)' }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-          />
-          <button
-            type="button"
-            onClick={() => { setMode('login'); setError(null); }}
-            className={`flex-1 py-2.5 text-sm font-bold z-10 transition-colors ${isLogin ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
-          >
-            Connexion
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode('signup'); setError(null); }}
-            className={`flex-1 py-2.5 text-sm font-bold z-10 transition-colors ${!isLogin ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
-          >
-            Inscription
-          </button>
-        </div>
+          <div className="flex p-1 bg-white/5 border border-white/10 rounded-full mb-8 relative backdrop-blur-md">
+            <motion.div
+              className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white/10 rounded-full shadow-lg border border-white/5"
+              animate={{ x: isLogin ? 4 : 'calc(100% + 4px)' }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            />
+            <button
+              type="button"
+              onClick={() => { setMode('login'); setError(null); }}
+              className={`flex-1 py-2.5 text-sm font-bold z-10 transition-colors ${isLogin ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
+            >
+              Connexion
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('signup'); setError(null); }}
+              className={`flex-1 py-2.5 text-sm font-bold z-10 transition-colors ${!isLogin ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
+            >
+              Inscription
+            </button>
+          </div>
         )}
 
         {/* Error Message */}
         <AnimatePresence mode="wait">
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, height: 0, mb: 0 }}
               animate={{ opacity: 1, height: 'auto', mb: 20 }}
               exit={{ opacity: 0, height: 0, mb: 0 }}
@@ -253,7 +253,7 @@ export default function AuthScreen() {
                       type="submit"
                       disabled={!forgotEmail.trim() || loading}
                       whileTap={!loading ? { scale: 0.98 } : {}}
-                      className="w-full bg-gradient-to-r from-[#FFFC00] to-[#eab308] text-black font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(255,252,0,0.25)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[15px] tracking-wide relative overflow-hidden group"
+                      className="w-full bg-gradient-to-r from-[#FFC0CB] to-[#eab308] text-black font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(255,252,0,0.25)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[15px] tracking-wide relative overflow-hidden group"
                     >
                       <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                       {loading ? (
@@ -279,106 +279,106 @@ export default function AuthScreen() {
             ) : (
               <motion.form
                 key={mode}
-              variants={formVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              onSubmit={handleAuth} 
-              className="space-y-3.5"
-            >
-              {!isLogin && (
+                variants={formVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                onSubmit={handleAuth}
+                className="space-y-3.5"
+              >
+                {!isLogin && (
+                  <div className="relative group">
+                    <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-snap-yellow transition-colors pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Nom d'utilisateur"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
+                      required
+                      minLength={3}
+                      maxLength={20}
+                      autoCapitalize="none"
+                      autoComplete="username"
+                      aria-invalid={!!usernameError}
+                    />
+                    <AnimatePresence>
+                      {usernameError && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
+                          className="text-xs text-amber-400 mt-2 pl-2 font-medium"
+                        >
+                          {usernameError}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
                 <div className="relative group">
-                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-snap-yellow transition-colors pointer-events-none" />
+                  <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-snap-yellow transition-colors pointer-events-none" />
                   <input
-                    type="text"
-                    placeholder="Nom d'utilisateur"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    type="email"
+                    placeholder="Adresse email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
                     required
-                    minLength={3}
-                    maxLength={20}
-                    autoCapitalize="none"
-                    autoComplete="username"
-                    aria-invalid={!!usernameError}
+                    autoComplete="email"
+                    inputMode="email"
                   />
-                  <AnimatePresence>
-                    {usernameError && (
-                      <motion.p 
-                        initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
-                        className="text-xs text-amber-400 mt-2 pl-2 font-medium"
-                      >
-                        {usernameError}
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
                 </div>
-              )}
 
-              <div className="relative group">
-                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-snap-yellow transition-colors pointer-events-none" />
-                <input
-                  type="email"
-                  placeholder="Adresse email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
-                  required
-                  autoComplete="email"
-                  inputMode="email"
-                />
-              </div>
-
-              <div className="relative group">
-                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-snap-yellow transition-colors pointer-events-none" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Mot de passe"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
-                  required
-                  minLength={8}
-                  autoComplete={isLogin ? 'current-password' : 'new-password'}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors p-1"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-
-              {isLogin && (
-                <div className="flex justify-end pt-1">
+                <div className="relative group">
+                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-snap-yellow transition-colors pointer-events-none" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Mot de passe"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
+                    required
+                    minLength={8}
+                    autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  />
                   <button
                     type="button"
-                    onClick={() => { setMode('forgot'); setError(null); setForgotSent(false); setForgotEmail(email); }}
-                    className="text-xs text-white/40 hover:text-snap-yellow transition-colors font-medium"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors p-1"
                   >
-                    Mot de passe oublié ?
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
-              )}
 
-              <motion.button
-                type="submit"
-                disabled={!canSubmit}
-                whileTap={canSubmit ? { scale: 0.98 } : {}}
-                className="w-full bg-gradient-to-r from-[#FFFC00] to-[#eab308] text-black font-black py-4 rounded-2xl mt-4 flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(255,252,0,0.25)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer text-[15px] tracking-wide relative overflow-hidden group"
-              >
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                {loading ? (
-                  <Loader2 size={20} className="animate-spin" />
-                ) : (
-                  <>
-                    <span className="relative z-10">{isLogin ? 'Se connecter' : 'Créer mon compte'}</span>
-                    <ArrowRight size={18} className="relative z-10" />
-                  </>
+                {isLogin && (
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => { setMode('forgot'); setError(null); setForgotSent(false); setForgotEmail(email); }}
+                      className="text-xs text-white/40 hover:text-snap-yellow transition-colors font-medium"
+                    >
+                      Mot de passe oublié ?
+                    </button>
+                  </div>
                 )}
-              </motion.button>
-            </motion.form>
+
+                <motion.button
+                  type="submit"
+                  disabled={!canSubmit}
+                  whileTap={canSubmit ? { scale: 0.98 } : {}}
+                  className="w-full bg-gradient-to-r from-[#FFC0CB] to-[#eab308] text-black font-black py-4 rounded-2xl mt-4 flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(255,252,0,0.25)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer text-[15px] tracking-wide relative overflow-hidden group"
+                >
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  {loading ? (
+                    <Loader2 size={20} className="animate-spin" />
+                  ) : (
+                    <>
+                      <span className="relative z-10">{isLogin ? 'Se connecter' : 'Créer mon compte'}</span>
+                      <ArrowRight size={18} className="relative z-10" />
+                    </>
+                  )}
+                </motion.button>
+              </motion.form>
             )}
           </AnimatePresence>
         </div>

@@ -45,7 +45,7 @@ interface SnapEditorProps {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────
-const COLORS = ['#FFFFFF', '#000000', '#FFFC00', '#FF4B4B', '#4BFF91', '#4BBAFF', '#FF4BF1', '#FF8A00'];
+const COLORS = ['#FFFFFF', '#000000', '#FFC0CB', '#FF4B4B', '#4BFF91', '#4BBAFF', '#FF4BF1', '#FF8A00'];
 const FONTS = [
   { label: 'Bold', value: 'font-black' },
   { label: 'Serif', value: 'font-serif' },
@@ -53,9 +53,9 @@ const FONTS = [
   { label: 'Thin', value: 'font-light' },
 ];
 const STICKERS = [
-  '😂','😍','🔥','💯','✨','😎','💀','🥹','🫶','💅',
-  '🤩','😱','🎉','❤️','🫠','💫','🤑','🥶','😤','🫡',
-  '🌈','🚀','💎','🎯','🎭','🦋','🐍','🌙','⚡','🌊',
+  '😂', '😍', '🔥', '💯', '✨', '😎', '💀', '🥹', '🫶', '💅',
+  '🤩', '😱', '🎉', '❤️', '🫠', '💫', '🤑', '🥶', '😤', '🫡',
+  '🌈', '🚀', '💎', '🎯', '🎭', '🦋', '🐍', '🌙', '⚡', '🌊',
 ];
 const SPEEDS = [
   { label: '×0.5', value: 0.5 },
@@ -84,7 +84,7 @@ export default function SnapEditor({ mediaType, onStateChange, hideTools }: Snap
   // Draw state
   const drawCanvasRef = useRef<HTMLCanvasElement>(null);
   const [strokes, setStrokes] = useState<DrawStroke[]>([]);
-  const [drawColor, setDrawColor] = useState('#FFFC00');
+  const [drawColor, setDrawColor] = useState('#FFC0CB');
   const [drawWidth, setDrawWidth] = useState(5);
   const currentStrokeRef = useRef<DrawPoint[]>([]);
   const isDrawingRef = useRef(false);
@@ -222,9 +222,8 @@ export default function SnapEditor({ mediaType, onStateChange, hideTools }: Snap
       onClick={() => setActiveTool(activeTool === tool ? 'none' : tool)}
       className={`flex flex-col items-center gap-1 transition-all ${activeTool === tool ? 'opacity-100' : 'opacity-70'}`}
     >
-      <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-        activeTool === tool ? 'bg-snap-yellow text-black' : 'bg-white/15 text-white'
-      }`}>
+      <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${activeTool === tool ? 'bg-snap-yellow text-black' : 'bg-white/15 text-white'
+        }`}>
         {icon}
       </div>
       <span className="text-white text-[9px] font-bold uppercase tracking-wider">{label}</span>
@@ -311,9 +310,8 @@ export default function SnapEditor({ mediaType, onStateChange, hideTools }: Snap
                 <button
                   key={f.value}
                   onClick={() => setTextFont(f.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs transition-all ${f.value} ${
-                    textFont === f.value ? 'bg-snap-yellow text-black' : 'bg-white/10 text-white'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs transition-all ${f.value} ${textFont === f.value ? 'bg-snap-yellow text-black' : 'bg-white/10 text-white'
+                    }`}
                 >
                   {f.label}
                 </button>
@@ -547,9 +545,8 @@ export default function SnapEditor({ mediaType, onStateChange, hideTools }: Snap
               <button
                 key={s.value}
                 onClick={() => setVideoSpeed(s.value)}
-                className={`w-10 h-8 rounded-xl text-[11px] font-black transition-all ${
-                  videoSpeed === s.value ? 'bg-snap-yellow text-black' : 'text-white/60 hover:text-white'
-                }`}
+                className={`w-10 h-8 rounded-xl text-[11px] font-black transition-all ${videoSpeed === s.value ? 'bg-snap-yellow text-black' : 'text-white/60 hover:text-white'
+                  }`}
               >
                 {s.label}
               </button>
@@ -586,7 +583,7 @@ export default function SnapEditor({ mediaType, onStateChange, hideTools }: Snap
           <div className="absolute left-0 bg-black/60 border-r border-white/5" style={{ top: `${crop.y}%`, bottom: `${100 - crop.y - crop.height}%`, width: `${crop.x}%` }} />
           {/* Right mask */}
           <div className="absolute right-0 bg-black/60 border-l border-white/5" style={{ top: `${crop.y}%`, bottom: `${100 - crop.y - crop.height}%`, width: `${100 - crop.x - crop.width}%` }} />
-          
+
           {/* Target bounding box with glowing dotted lines and crop corners */}
           <div
             className="absolute border-2 border-dashed border-snap-yellow transition-all duration-100 flex items-center justify-center"
@@ -598,7 +595,7 @@ export default function SnapEditor({ mediaType, onStateChange, hideTools }: Snap
             }}
           >
             <span className="text-[10px] font-black text-snap-yellow bg-black/70 px-2.5 py-1 rounded-full uppercase tracking-wider shadow-md">Zone de rognage</span>
-            
+
             {/* Corner handles */}
             <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-4 border-l-4 border-snap-yellow" />
             <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-4 border-r-4 border-snap-yellow" />

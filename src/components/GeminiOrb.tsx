@@ -51,7 +51,7 @@ export default function GeminiOrb() {
       // Construire l'URL WebSocket
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${wsProtocol}//${window.location.host}/gemini-live`;
-      
+
       console.log('[Nova AI] Connexion au serveur WebSocket:', wsUrl);
 
       // Créer la connexion WebSocket
@@ -331,10 +331,9 @@ export default function GeminiOrb() {
       {/* Orb */}
       <button
         onClick={isActive || isConnecting ? stopVoice : startVoice}
-        className={`relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-500 overflow-hidden ${
-          isActive ? 'shadow-snap scale-105' : isConnecting ? 'animate-pulse bg-snap-yellow/20' : 'bg-white/5 border border-white/10 hover:bg-white/10'
-        }`}
-        style={isActive ? { background: 'radial-gradient(circle at 30% 30%, #FFFC00 0%, #ff9500 50%, #ff3b30 100%)' } : {}}
+        className={`relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-500 overflow-hidden ${isActive ? 'shadow-snap scale-105' : isConnecting ? 'animate-pulse bg-snap-yellow/20' : 'bg-white/5 border border-white/10 hover:bg-white/10'
+          }`}
+        style={isActive ? { background: 'radial-gradient(circle at 30% 30%, #FFC0CB 0%, #ff9500 50%, #ff3b30 100%)' } : {}}
       >
         <video
           ref={videoPreviewRef}

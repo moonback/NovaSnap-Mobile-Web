@@ -42,16 +42,16 @@ const getStatusIcon = (lastMsg: ConversationMessage | null, userId: string | und
     if (hasNew) {
       if (isImage || isVideo) {
         return (
-          <div 
-            className="w-3.5 h-3.5 rounded-[4px] shrink-0 animate-pulse" 
-            style={{ backgroundColor: color, boxShadow: `0 0 8px ${shadowColor}` }} 
+          <div
+            className="w-3.5 h-3.5 rounded-[4px] shrink-0 animate-pulse"
+            style={{ backgroundColor: color, boxShadow: `0 0 8px ${shadowColor}` }}
           />
         );
       } else {
         return (
-          <div 
-            className="w-3.5 h-3.5 rounded-full shrink-0" 
-            style={{ backgroundColor: color, boxShadow: `0 0 8px ${shadowColor}` }} 
+          <div
+            className="w-3.5 h-3.5 rounded-full shrink-0"
+            style={{ backgroundColor: color, boxShadow: `0 0 8px ${shadowColor}` }}
           />
         );
       }
@@ -107,7 +107,7 @@ const getStatusText = (lastMsg: ConversationMessage | null, userId: string | und
     return (
       <span className={`text-[13.5px] leading-normal ${t.textMuted} font-semibold`}>
         {isImage || isVideo
-          ? isOpened ? 'Ouvert' : 'Envoyé' 
+          ? isOpened ? 'Ouvert' : 'Envoyé'
           : isOpened ? 'Lu' : 'Distribué'
         }
       </span>
@@ -202,7 +202,7 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
 
   const lastMsg = conv.messages?.[0];
   const hasNew = !!(lastMsg && lastMsg.sender_id !== userId && (!lastMsg.opened_by || !lastMsg.opened_by.includes(userId || '')));
-  
+
   const isGroup = conv.is_group;
   const titleParts = conv.title?.split('::') ?? [];
   const displayTitle = titleParts[0] || 'Chat';
@@ -212,12 +212,12 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
   const otherAvatar = otherMember?.users?.avatar_url;
   const initials = displayTitle.substring(0, 2).toUpperCase() || 'GP';
 
-  const ringColor = hasNew 
-    ? lastMsg?.message_type === 'IMAGE' 
-      ? 'ring-[#ff004f]' 
-      : lastMsg?.message_type === 'VIDEO' 
-        ? 'ring-[#9b51e0]' 
-        : 'ring-[#00b2ff]' 
+  const ringColor = hasNew
+    ? lastMsg?.message_type === 'IMAGE'
+      ? 'ring-[#ff004f]'
+      : lastMsg?.message_type === 'VIDEO'
+        ? 'ring-[#9b51e0]'
+        : 'ring-[#00b2ff]'
     : '';
 
   return (
@@ -258,7 +258,7 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
             )}
           </div>
           {hasNew && (
-            <div 
+            <div
               className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 ${t.isLight ? 'border-[#f0f2f8]' : 'border-black'}`}
               style={{ backgroundColor: lastMsg?.message_type === 'IMAGE' ? '#ff004f' : lastMsg?.message_type === 'VIDEO' ? '#9b51e0' : '#00b2ff' }}
             />
@@ -319,7 +319,7 @@ export default function ChatScreen() {
     try {
       const newConvId = crypto.randomUUID();
       const fullTitle = `${groupTitle.trim()}::${selectedPreset}`;
-      
+
       // 1. Create group conversation
       const { error: createError } = await supabase
         .from('conversations')
@@ -352,7 +352,7 @@ export default function ChatScreen() {
       });
 
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      
+
       setActiveConversationPreview({
         title: groupTitle.trim() + '::' + selectedPreset,
         avatarUrl: 'group',
@@ -360,7 +360,7 @@ export default function ChatScreen() {
       setActiveConversationId(newConvId);
       setIsInConversation(true);
       setShowNewChatModal(false);
-      
+
       // Reset states
       setGroupTitle('');
       setSelectedFriends([]);
@@ -571,7 +571,7 @@ export default function ChatScreen() {
           onClick={() => setShowProfile(true)}
           aria-label="Profil"
           className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center active:scale-90 transition-transform"
-          style={{ background: 'linear-gradient(135deg, #FFFC00 0%, #ff9500 100%)' }}
+          style={{ background: 'linear-gradient(135deg, #FFC0CB 0%, #ff9500 100%)' }}
         >
           {user?.user_metadata?.avatar_url ? (
             <img src={user.user_metadata.avatar_url} className="w-full h-full object-cover" />
@@ -675,7 +675,7 @@ export default function ChatScreen() {
       {showNewChatModal && (
         <div className={`absolute inset-0 z-50 flex justify-center backdrop-blur-md ${t.isLight ? 'bg-[#f0f2f8]/75' : 'bg-black/70'} ${t.text}`}>
           <div className={`w-full max-w-[430px] h-full flex flex-col ${t.isLight ? 'bg-[#f0f2f8]/98' : 'bg-black/95'} border-x ${t.borderMuted}`}>
-            
+
             {/* Header */}
             <div className={`flex items-center gap-3 px-4 pt-14 pb-4 border-b ${t.borderMuted}`}>
               <button
@@ -724,9 +724,9 @@ export default function ChatScreen() {
                     className={`w-20 h-20 rounded-full flex items-center justify-center font-black text-white text-2xl tracking-wider shadow-[0_4px_20px_rgba(0,0,0,0.15)] ring-4 ring-offset-2 transition-all duration-300 ${t.isLight ? 'ring-black/5 ring-offset-[#f0f2f8]' : 'ring-white/5 ring-offset-black'}`}
                     style={{
                       background: selectedPreset === 'sunset' ? 'linear-gradient(to bottom right, #6366f1, #a855f7, #ec4899)' :
-                                  selectedPreset === 'emerald' ? 'linear-gradient(to bottom right, #34d399, #0d9488)' :
-                                  selectedPreset === 'cyan' ? 'linear-gradient(to bottom right, #22d3ee, #2563eb)' :
-                                  'linear-gradient(to bottom right, #facc15, #f97316, #ef4444)'
+                        selectedPreset === 'emerald' ? 'linear-gradient(to bottom right, #34d399, #0d9488)' :
+                          selectedPreset === 'cyan' ? 'linear-gradient(to bottom right, #22d3ee, #2563eb)' :
+                            'linear-gradient(to bottom right, #facc15, #f97316, #ef4444)'
                     }}
                   >
                     {groupTitle.trim().substring(0, 2).toUpperCase() || 'GP'}
@@ -753,9 +753,9 @@ export default function ChatScreen() {
                       className={`w-8 h-8 rounded-full transition-all duration-300 relative ${selectedPreset === preset ? 'scale-110 ring-2 ring-snap-yellow ring-offset-2' : 'scale-90 hover:scale-100 opacity-70'}`}
                       style={{
                         background: preset === 'sunset' ? 'linear-gradient(to bottom right, #6366f1, #a855f7, #ec4899)' :
-                                    preset === 'emerald' ? 'linear-gradient(to bottom right, #34d399, #0d9488)' :
-                                    preset === 'cyan' ? 'linear-gradient(to bottom right, #22d3ee, #2563eb)' :
-                                    'linear-gradient(to bottom right, #facc15, #f97316, #ef4444)',
+                          preset === 'emerald' ? 'linear-gradient(to bottom right, #34d399, #0d9488)' :
+                            preset === 'cyan' ? 'linear-gradient(to bottom right, #22d3ee, #2563eb)' :
+                              'linear-gradient(to bottom right, #facc15, #f97316, #ef4444)',
                         '--tw-ring-offset-color': t.isLight ? '#f0f2f8' : '#000'
                       } as React.CSSProperties}
                     >
@@ -788,7 +788,7 @@ export default function ChatScreen() {
             {/* Members / Users List */}
             <div className="flex-1 overflow-y-auto scroll-hide px-4 pb-8 flex flex-col gap-1.5">
               {isUsersLoading && <div className="flex justify-center pt-12"><Loader2 className={`animate-spin ${t.textMuted}`} size={28} /></div>}
-              
+
               {!isUsersLoading && modalMode === 'chat' && (
                 <>
                   {filteredUsers.length === 0 && <div className={`text-center pt-12 text-sm ${t.textMuted}`}>Aucun utilisateur trouvé</div>}
@@ -846,7 +846,7 @@ export default function ChatScreen() {
                                 <p className={`text-xs ${t.textMuted}`}>@{u.username}</p>
                               </div>
                             </div>
-                            
+
                             {/* Premium checkbox circle */}
                             <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedFriends.includes(u.id) ? 'bg-snap-yellow border-snap-yellow scale-105 shadow-[0_2px_8px_rgba(255,252,0,0.4)]' : `${t.isLight ? 'border-black/15' : 'border-white/15'}`}`}>
                               {selectedFriends.includes(u.id) && (

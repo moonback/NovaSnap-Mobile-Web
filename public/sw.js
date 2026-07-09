@@ -14,9 +14,9 @@
 // ============================================================
 
 const CACHE_VERSION = 'v4';
-const STATIC_CACHE  = `novasnap-static-${CACHE_VERSION}`;
+const STATIC_CACHE = `novasnap-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `novasnap-runtime-${CACHE_VERSION}`;
-const IMAGE_CACHE   = `novasnap-images-${CACHE_VERSION}`;
+const IMAGE_CACHE = `novasnap-images-${CACHE_VERSION}`;
 
 // Core shell assets that MUST be available offline
 const PRECACHE_URLS = [
@@ -32,31 +32,31 @@ const PRECACHE_URLS = [
 
 // Max entries per cache to prevent storage bloat
 const MAX_RUNTIME_ENTRIES = 60;
-const MAX_IMAGE_ENTRIES   = 80;
+const MAX_IMAGE_ENTRIES = 80;
 
 // Network timeout before falling back to cache (ms)
 const NETWORK_TIMEOUT_MS = 4000;
 
 // ── Icons par type de notification ──────────────────────────
 const NOTIFICATION_ICONS = {
-  NEW_MESSAGE:     '/icons/icon-192.png',
-  SNAP_OPENED:     '/icons/icon-192.png',
-  FRIEND_REQUEST:  '/icons/icon-192.png',
+  NEW_MESSAGE: '/icons/icon-192.png',
+  SNAP_OPENED: '/icons/icon-192.png',
+  FRIEND_REQUEST: '/icons/icon-192.png',
   FRIEND_ACCEPTED: '/icons/icon-192.png',
-  NEW_STORY:       '/icons/icon-192.png',
+  NEW_STORY: '/icons/icon-192.png',
   SNAP_SCREENSHOT: '/icons/icon-192.png',
-  DEFAULT:         '/icons/icon-192.png',
+  DEFAULT: '/icons/icon-192.png',
 };
 
 // ── Couleurs badge par type ─────────────────────────────────
 const NOTIFICATION_COLORS = {
-  NEW_MESSAGE:     '#FFFC00',
-  SNAP_OPENED:     '#22c55e',
-  FRIEND_REQUEST:  '#3b82f6',
+  NEW_MESSAGE: '#FFC0CB',
+  SNAP_OPENED: '#22c55e',
+  FRIEND_REQUEST: '#3b82f6',
   FRIEND_ACCEPTED: '#22c55e',
-  NEW_STORY:       '#a855f7',
+  NEW_STORY: '#a855f7',
   SNAP_SCREENSHOT: '#ef4444',
-  DEFAULT:         '#FFFC00',
+  DEFAULT: '#FFC0CB',
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -246,7 +246,7 @@ self.addEventListener('message', (event) => {
       // Allow the app to dynamically add URLs to cache
       if (Array.isArray(event.data.urls)) {
         caches.open(RUNTIME_CACHE).then((cache) => {
-          cache.addAll(event.data.urls).catch(() => {});
+          cache.addAll(event.data.urls).catch(() => { });
         });
       }
       break;
@@ -306,7 +306,7 @@ async function cacheFirstWithRefresh(request, cacheName, maxEntries) {
         cache.put(request, response);
         trimCache(cacheName, maxEntries);
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     return cached;
   }
@@ -351,7 +351,7 @@ function isImageUrl(url) {
 
 function isStaticAsset(url) {
   return /\.(js|css|woff2?|ttf|eot)(\?.*)?$/i.test(url.pathname) ||
-         url.pathname.startsWith('/assets/');
+    url.pathname.startsWith('/assets/');
 }
 
 /**

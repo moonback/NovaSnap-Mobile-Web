@@ -265,11 +265,11 @@ export default function App() {
     const checkPasswordReset = () => {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const queryParams = new URLSearchParams(window.location.search);
-      
+
       // Supabase envoie access_token dans le hash ou type=recovery
       const hasAccessToken = hashParams.has('access_token');
       const isRecovery = hashParams.get('type') === 'recovery' || queryParams.get('type') === 'recovery';
-      
+
       if (hasAccessToken || isRecovery) {
         setIsPasswordReset(true);
       }
@@ -290,7 +290,7 @@ export default function App() {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) checkAndCreateProfile(session.user);
-      
+
       // Si l'utilisateur vient de se connecter après un reset, on sort du mode reset
       if (_event === 'SIGNED_IN' && isPasswordReset) {
         setIsPasswordReset(false);
@@ -317,7 +317,7 @@ export default function App() {
           animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
           transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
           className="absolute -top-32 -left-32 w-[120vw] h-[120vw] max-w-[600px] max-h-[600px] rounded-full opacity-20 blur-[80px] pointer-events-none"
-          style={{ background: 'radial-gradient(circle, #FFFC00 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, #FFC0CB 0%, transparent 70%)' }}
         />
 
         <div className="flex flex-col items-center z-10">
@@ -325,11 +325,11 @@ export default function App() {
             initial={{ scale: 0.5, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-            className="w-32 h-32 rounded-[32px] bg-gradient-to-br from-[#FFFC00] to-[#eab308] flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(255,252,0,0.4)] p-4"
+            className="w-32 h-32 rounded-[32px] bg-gradient-to-br from-[#FFC0CB] to-[#eab308] flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(255,252,0,0.4)] p-4"
           >
-            <img 
-              src="/logo.png" 
-              alt="NovaSnap Logo" 
+            <img
+              src="/logo.png"
+              alt="NovaSnap Logo"
               className="w-full h-full object-contain"
             />
           </motion.div>
@@ -381,9 +381,9 @@ export default function App() {
           {/* Logo en arrière-plan avec logo.png */}
           <div className="absolute top-10 left-12 flex items-center gap-3 opacity-30 select-none hover:opacity-50 transition-opacity duration-300">
             <div className="w-12 h-12 rounded-[14px] bg-gradient-to-br from-snap-yellow to-yellow-500 flex items-center justify-center shadow-snap p-2">
-              <img 
-                src="/logo.png" 
-                alt="NovaSnap" 
+              <img
+                src="/logo.png"
+                alt="NovaSnap"
                 className="w-full h-full object-contain"
               />
             </div>
