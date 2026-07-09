@@ -564,23 +564,48 @@ export default function ChatScreen() {
 
   return (
     <div className={`w-full h-full flex flex-col overflow-hidden ${t.bg} ${t.text}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-4">
-        <button onClick={() => setShowProfile(true)} className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}>
-          <User size={18} />
+      {/* ── Header — Snapchat style ── */}
+      <div className="relative flex items-center justify-between px-4 pt-12 pb-3">
+        {/* Left — profile avatar */}
+        <button
+          onClick={() => setShowProfile(true)}
+          aria-label="Profil"
+          className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center active:scale-90 transition-transform"
+          style={{ background: 'linear-gradient(135deg, #FFFC00 0%, #ff9500 100%)' }}
+        >
+          {user?.user_metadata?.avatar_url ? (
+            <img src={user.user_metadata.avatar_url} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-black font-black text-sm">
+              {(user?.user_metadata?.username || user?.email || 'U').charAt(0).toUpperCase()}
+            </span>
+          )}
         </button>
-        <h1 className="text-xl font-black tracking-tight">Chat</h1>
-        <button onClick={() => setShowNewChatModal(true)} className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${t.iconBtn}`}>
+
+        {/* Center — title */}
+        <h1 className="absolute left-1/2 -translate-x-1/2 text-[19px] font-black tracking-tight">Chat</h1>
+
+        {/* Right — compose */}
+        <button
+          onClick={() => setShowNewChatModal(true)}
+          aria-label="Nouveau message"
+          className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+          style={{ background: t.isLight ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.1)' }}
+        >
           <Edit3 size={17} />
         </button>
       </div>
 
-      {/* Search bar */}
+      {/* ── Search bar — Snapchat dark pill ── */}
       <div className="px-4 pb-3">
         <div className="relative">
-          <Search size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
-          <input type="text" placeholder="Rechercher..." readOnly onClick={() => setShowNewChatModal(true)}
-            className={`w-full border rounded-full h-10 pl-10 pr-4 text-sm focus:outline-none transition-all ${t.input} ${t.border} ${t.text} ${t.isLight ? 'placeholder-black/30' : 'placeholder-white/30'}`}
+          <Search size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
+          <input
+            type="text"
+            placeholder="Rechercher..."
+            readOnly
+            onClick={() => setShowNewChatModal(true)}
+            className={`w-full h-[38px] rounded-full pl-9 pr-4 text-sm font-semibold focus:outline-none cursor-pointer snap-input ${t.isLight ? 'placeholder-black/35' : 'placeholder-white/35'}`}
           />
         </div>
       </div>

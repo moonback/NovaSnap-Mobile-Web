@@ -26,7 +26,7 @@ const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 
 export default function MapScreen() {
   const { friends, isLoading: friendsLoading } = useFriends();
-  const { user } = useAppStore();
+  const { user, setShowProfile } = useAppStore();
   const { toast } = useToast();
   const { data: allStories = [], isLoading: storiesLoading } = useStories();
 
@@ -547,8 +547,24 @@ export default function MapScreen() {
       {/* 2. Top bar search & buttons */}
       <div className="absolute top-14 inset-x-4 flex flex-col gap-2 z-40 pointer-events-none">
         <div className="flex items-center gap-2.5">
+          {/* Profile avatar left */}
+          <button
+            onClick={() => setShowProfile(true)}
+            className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center overflow-hidden active:scale-90 transition-transform pointer-events-auto shadow-lg flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #FFFC00 0%, #ff9500 100%)' }}
+          >
+            {user?.user_metadata?.avatar_url ? (
+              <img src={user.user_metadata.avatar_url} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-black font-black text-xs">
+                {(user?.user_metadata?.username || user?.email || 'U').charAt(0).toUpperCase()}
+              </span>
+            )}
+          </button>
+
+          {/* Search bar center */}
           <div className="flex-1 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-4 py-2.5 border border-white/8 pointer-events-auto shadow-lg">
-            <Search size={16} className="text-white/40" />
+            <Search size={15} className="text-white/40" />
             <input
               type="text"
               placeholder="Rechercher des amis, des lieux..."
@@ -563,6 +579,7 @@ export default function MapScreen() {
             )}
           </div>
           
+          {/* Settings right */}
           <button
             onClick={() => setShowSettings(true)}
             className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/8 flex items-center justify-center text-white active:scale-95 transition-all pointer-events-auto shadow-lg flex-shrink-0"

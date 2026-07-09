@@ -230,20 +230,31 @@ export default function StoriesScreen() {
 
   return (
     <div className={`relative w-full h-full flex flex-col overflow-hidden ${t.bg} ${t.text}`}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4">
-          <div>
-            <h1 className="text-xl font-black tracking-tight">Stories</h1>
-            <p className={`text-[11px] mt-0.5 ${t.textMuted}`}>{totalStories} story{totalStories > 1 ? 'ies' : ''} · {uniqueCreators} créateur{uniqueCreators > 1 ? 's' : ''}</p>
-          </div>
+        {/* ── Header — Snapchat style ── */}
+        <div className="relative flex items-center justify-between px-4 pt-12 pb-3">
+          {/* Left — add story */}
+          <button
+            onClick={() => setCurrentView('camera')}
+            aria-label="Créer une story"
+            className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            style={{ background: t.isLight ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.1)' }}
+          >
+            <Plus size={18} />
+          </button>
+
+          {/* Center — title */}
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-[19px] font-black tracking-tight">Stories</h1>
+
+          {/* Right — Nova AI toggle */}
           <button
             onClick={() => setShowAI(!showAI)}
+            aria-label="Nova AI"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-              showAI ? 'bg-snap-yellow text-black shadow-snap-sm' : `${t.surface} ${t.textSubtle}`
+              showAI ? 'bg-snap-yellow text-black' : `${t.isLight ? 'bg-black/8' : 'bg-white/10'} ${t.textSubtle}`
             }`}
           >
-            <Zap size={13} />
-            Nova AI
+            <Zap size={12} />
+            AI
           </button>
         </div>
 
