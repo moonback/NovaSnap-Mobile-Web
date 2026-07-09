@@ -53,7 +53,10 @@ export type StoryRow = {
     username: string | null;
     avatar_url: string | null;
   } | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
+
 
 // ── Memories ────────────────────────────────────────────────
 

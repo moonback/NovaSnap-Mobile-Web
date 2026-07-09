@@ -454,18 +454,134 @@ async function clearAppBadge() {
   }
 }
 
+const DB_NAME = 'novasnap-queue';
+const STORE_NAME = 'messages';
+const CONFIG_STORE = 'config';
+
+function openQueueDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 2); // DB version 2 supporting both messages and config
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(CONFIG_STORE)) {
+        db.createObjectStore(CONFIG_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function getStoredConfig(db) {
+  return new Promise((resolve) => {
+    const transaction = db.transaction(CONFIG_STORE, 'readonly');
+    const store = transaction.objectStore(CONFIG_STORE);
+    const reqUrl = store.get('supabaseUrl');
+    const reqKey = store.get('supabaseAnonKey');
+    transaction.oncomplete = () => {
+      resolve({
+        supabaseUrl: reqUrl.result || '',
+        supabaseAnonKey: reqKey.result || '',
+      });
+    };
+    transaction.onerror = () => resolve({ supabaseUrl: '', supabaseAnonKey: '' });
+  });
+}
+
+function getPendingMessages(db) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function removePendingMessage(db, id) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
 /**
  * Retry sending messages stored in IndexedDB (Background Sync)
  */
 async function retrySendMessages() {
-  // This is a placeholder — the app can store failed messages in IndexedDB
-  // and the SW will retry them when connectivity is restored.
+  let db;
   try {
-    const clients = await self.clients.matchAll({ type: 'window' });
-    clients.forEach((client) => {
-      client.postMessage({ type: 'RETRY_FAILED_MESSAGES' });
-    });
-  } catch {
-    // ignore
+    db = await openQueueDB();
+  } catch (err) {
+    console.error('[SW:BackgroundSync] Impossible d\'ouvrir IndexedDB:', err);
+    return;
+  }
+
+  const config = await getStoredConfig(db);
+  if (!config.supabaseUrl || !config.supabaseAnonKey) {
+    console.warn('[SW:BackgroundSync] Configuration Supabase manquante dans IndexedDB.');
+    return;
+  }
+
+  const messages = await getPendingMessages(db);
+  if (messages.length === 0) {
+    return;
+  }
+
+  console.log(`[SW:BackgroundSync] ${messages.length} messages en attente de synchronisation...`);
+
+  const processedIds = [];
+
+  for (const msg of messages) {
+    try {
+      const response = await fetch(`${config.supabaseUrl}/rest/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': config.supabaseAnonKey,
+          'Authorization': `Bearer ${config.supabaseAnonKey}`,
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({
+          conversation_id: msg.conversationId,
+          content: msg.content,
+          message_type: 'TEXT',
+          sender_id: msg.senderId,
+          client_message_id: msg.id,
+          is_ephemeral: true,
+          is_saved: false,
+          opened_by: [],
+          created_at: msg.createdAt,
+        }),
+      });
+
+      if (response.ok) {
+        await removePendingMessage(db, msg.id);
+        processedIds.push(msg.id);
+        console.log(`[SW:BackgroundSync] Message ${msg.id} synchronisé avec succès.`);
+      } else {
+        const errorText = await response.text();
+        console.error(`[SW:BackgroundSync] Erreur lors de l'envoi du message ${msg.id}: Status ${response.status} - ${errorText}`);
+      }
+    } catch (err) {
+      console.error(`[SW:BackgroundSync] Exception lors de l'envoi du message ${msg.id}:`, err);
+    }
+  }
+
+  if (processedIds.length > 0) {
+    try {
+      const clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach((client) => {
+        client.postMessage({ type: 'MESSAGES_SYNCED', ids: processedIds });
+      });
+    } catch (e) {
+      console.warn('Failed to notify clients of processed sync:', e);
+    }
   }
 }

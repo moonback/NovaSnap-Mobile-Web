@@ -552,12 +552,32 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
       expiresAt.setHours(expiresAt.getHours() + 24);
       const { path } = await uploadMedia('stories');
       const privacy = localStorage.getItem('novasnap_settings_story_privacy') || 'friends';
+      
+      let latitude: number | null = null;
+      let longitude: number | null = null;
+      if (navigator.geolocation && confirm("Partager ta localisation avec cette story pour l'afficher sur la carte ?")) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 5000,
+            });
+          });
+          latitude = pos.coords.latitude;
+          longitude = pos.coords.longitude;
+        } catch (geoErr) {
+          console.warn("Impossible de récupérer la position GPS:", geoErr);
+        }
+      }
+
       const { error } = await supabase.from('stories').insert({
         user_id: user.id,
         media_type: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
         media_url: path,
         expires_at: expiresAt.toISOString(),
         visibility: privacy,
+        latitude,
+        longitude,
       });
       if (error) {
         console.error('Supabase Insert Error:', error);

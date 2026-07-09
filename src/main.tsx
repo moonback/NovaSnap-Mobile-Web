@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './components/ui/ToastProvider.tsx';
 import App from './App.tsx';
 import './index.css';
+import { messageQueue } from './lib/messageQueue.ts';
 
 if ('serviceWorker' in navigator) {
   if (import.meta.env.DEV) {
@@ -17,6 +18,14 @@ if ('serviceWorker' in navigator) {
     });
   }
 }
+
+// Enregistrer les configurations Supabase pour que le Service Worker y accède hors connexion
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder';
+messageQueue.saveConfig(supabaseUrl, supabaseAnonKey).catch((e) => {
+  console.warn('Erreur d\'enregistrement de la configuration Supabase dans IndexedDB:', e);
+});
+
 
 const queryClient = new QueryClient();
 

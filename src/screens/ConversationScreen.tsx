@@ -27,6 +27,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import EphemeralMedia from '../components/chat/EphemeralMedia';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ConversationRow } from '../lib/types';
+import { messageQueue } from '../lib/messageQueue.ts';
 
 const logDebug = (msg: string, ...args: any[]) => {
   if (import.meta.env.DEV) {
@@ -776,6 +777,24 @@ export default function ConversationScreen({
     };
   }, [conversationId, user]);
 
+  // Écouter les notifications de synchronisation réussie envoyées par le Service Worker
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'MESSAGES_SYNCED') {
+        logDebug('[NovaChat:SW] Messages synchronisés détectés par le SW, rechargement du cache:', event.data.ids);
+        queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+        queryClient.invalidateQueries({ queryKey: ['conversations', user?.id] });
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleSWMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+    };
+  }, [conversationId, queryClient, user]);
+
   const toggleSave = useCallback(async (msg: Message) => {
     if (!user || savingId) return;
     logDebug(`[NovaChat:Lifecycle] Toggling save pour le message ${msg.id}. État actuel: ${msg.is_saved}`);
@@ -852,9 +871,36 @@ export default function ConversationScreen({
       setNewMessage('');
       return { previousMessages };
     },
-    onError: (err, content, context) => {
-      logError('[NovaChat:Mutation] Erreur lors de l\'envoi du message ! Restauration de l\'état précédent.', err);
-      if (context?.previousMessages) {
+    onError: (err, variables, context) => {
+      logError('[NovaChat:Mutation] Erreur lors de l\'envoi du message ! Enregistrement hors connexion dans IndexedDB.', err);
+      
+      // Stocker le message échoué dans la file d'attente locale
+      if (user) {
+        messageQueue.enqueue({
+          id: variables.meta.clientMessageId,
+          conversationId: conversationId,
+          content: variables.content,
+          senderId: user.id,
+          createdAt: new Date().toISOString(),
+        }).then(() => {
+          // Enregistrer la tâche de synchronisation en arrière-plan
+          if ('serviceWorker' in navigator && 'SyncManager' in window) {
+            navigator.serviceWorker.ready.then((reg) => {
+              (reg as any).sync.register('send-message').then(() => {
+                logDebug('[NovaChat:BackgroundSync] Tâche de synchronisation enregistrée avec succès.');
+              }).catch((syncErr: Error) => {
+                logWarn('[NovaChat:BackgroundSync] Échec d\'enregistrement de la tâche sync:', syncErr);
+              });
+            });
+          }
+        }).catch((queueErr) => {
+          logError('[NovaChat:BackgroundSync] Impossible de sauvegarder le message dans IndexedDB:', queueErr);
+        });
+      }
+
+      // Conserver l'état optimiste (en attente) au lieu de l'effacer tout de suite
+      // ou restaurer l'état initial s'il n'y a pas de support service worker
+      if (!('serviceWorker' in navigator) && context?.previousMessages) {
         queryClient.setQueryData(['messages', conversationId], context.previousMessages);
       }
     },

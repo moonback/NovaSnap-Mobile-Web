@@ -353,9 +353,9 @@ export default function MapScreen() {
 
       // Ajouter les auteurs de stories (activité récente = chaleur supplémentaire)
       storyAuthors.forEach((story, idx) => {
-        const angle = (idx / Math.max(storyAuthors.length, 1)) * 2 * Math.PI;
-        const lat = userCoords[0] + 0.002 * Math.cos(angle);
-        const lng = userCoords[1] + 0.002 * Math.sin(angle);
+        const hasRealCoords = typeof story.latitude === 'number' && typeof story.longitude === 'number';
+        const lat = hasRealCoords ? (story.latitude as number) : (userCoords[0] + 0.002 * Math.cos((idx / Math.max(storyAuthors.length, 1)) * 2 * Math.PI));
+        const lng = hasRealCoords ? (story.longitude as number) : (userCoords[1] + 0.002 * Math.sin((idx / Math.max(storyAuthors.length, 1)) * 2 * Math.PI));
         heatPoints.push({ lat, lng, weight: 0.6 });
       });
 
@@ -422,14 +422,14 @@ export default function MapScreen() {
       const username = story.users?.username || 'User';
       const avatarUrl = story.users?.avatar_url;
 
-      // Spread markers in a small circle around the user position
-      const angle = (index / Math.max(storyAuthors.length, 1)) * 2 * Math.PI;
-      const offsetLat = 0.003 * Math.cos(angle);
-      const offsetLng = 0.003 * Math.sin(angle);
-      const markerCoords: [number, number] = [
-        userCoords[0] + offsetLat,
-        userCoords[1] + offsetLng,
-      ];
+      // Spread markers in a small circle around the user position if real coordinates aren't available
+      const hasRealCoords = typeof story.latitude === 'number' && typeof story.longitude === 'number';
+      const markerCoords: [number, number] = hasRealCoords
+        ? [story.latitude as number, story.longitude as number]
+        : [
+            userCoords[0] + 0.003 * Math.cos((index / Math.max(storyAuthors.length, 1)) * 2 * Math.PI),
+            userCoords[1] + 0.003 * Math.sin((index / Math.max(storyAuthors.length, 1)) * 2 * Math.PI),
+          ];
 
       const html = avatarUrl
         ? `<img src="${avatarUrl}" style="width:28px;height:28px;border-radius:50%;border:2px solid #fffc00;" />`
