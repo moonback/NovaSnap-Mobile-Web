@@ -1,7 +1,7 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
-import { X, Search, Ghost, UserPlus, Check, Clock, UserMinus, MessageCircle, Camera, Users } from 'lucide-react';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { X, Search, Ghost, UserPlus, Check, Clock, UserMinus, MessageCircle, Camera, Users, Loader2 } from 'lucide-react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { useFriends } from '../hooks/useFriends';
@@ -212,6 +212,7 @@ export default function FriendsScreen() {
     friends,
     pendingReceived,
     pendingSent,
+    friendCount,
     pendingCount,
     isLoading,
     sendFriendRequest,
@@ -219,22 +220,62 @@ export default function FriendsScreen() {
     declineFriendRequest,
     removeFriend,
     getFriendshipStatus,
+    fetchNextPage: fetchNextFriendsPage,
+    hasNextPage: hasNextFriendsPage,
+    isFetchingNextPage: isFetchingNextFriendsPage,
   } = useFriends();
 
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [friendSearch, setFriendSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
 
+  const observerFriendsRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreFriendsRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isLoading || isFetchingNextFriendsPage || !hasNextFriendsPage) return;
+      if (observerFriendsRef.current) observerFriendsRef.current.disconnect();
+
+      observerFriendsRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          fetchNextFriendsPage();
+        }
+      });
+
+      if (node) observerFriendsRef.current.observe(node);
+    },
+    [isLoading, isFetchingNextFriendsPage, hasNextFriendsPage, fetchNextFriendsPage]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (observerFriendsRef.current) observerFriendsRef.current.disconnect();
+    };
+  }, []);
+
   // ── Search all users (Tab 3) ──────────────────────────────
-  const { data: allUsers = [], isLoading: isSearchLoading } = useQuery({
+  const {
+    data: allUsersPages,
+    isLoading: isSearchLoading,
+    fetchNextPage: fetchNextSearchPage,
+    hasNextPage: hasNextSearchPage,
+    isFetchingNextPage: isFetchingNextSearchPage,
+  } = useInfiniteQuery({
     queryKey: ['users-search', userSearch],
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryFn: async ({ pageParam = 0 }) => {
+      const limit = 20;
+      let query = supabase
         .from('users')
         .select('id, username, display_name, avatar_url, bio, snap_score')
         .neq('id', user?.id ?? '')
         .order('username');
+
+      if (userSearch) {
+        query = query.or(`username.ilike.%${userSearch}%,display_name.ilike.%${userSearch}%`);
+      }
+
+      const { data, error } = await query.range((pageParam as number) * limit, ((pageParam as number) + 1) * limit - 1);
       if (error) throw error;
+
       return Promise.all(
         (data as SearchUser[]).map(async (u) => {
           if (u.avatar_url) {
@@ -244,18 +285,39 @@ export default function FriendsScreen() {
         })
       );
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === 20 ? allPages.length : undefined;
+    },
     enabled: activeTab === 'add' && !!user,
-    staleTime: 60_000,
   });
 
-  const filteredSearchUsers = allUsers.filter((u) => {
-    if (!userSearch) return true;
-    const q = userSearch.toLowerCase();
-    return (
-      u.username?.toLowerCase().includes(q) ||
-      u.display_name?.toLowerCase().includes(q)
-    );
-  });
+  const allUsers = allUsersPages ? allUsersPages.pages.flatMap((page) => page) : [];
+
+  const observerSearchRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreSearchRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isSearchLoading || isFetchingNextSearchPage || !hasNextSearchPage) return;
+      if (observerSearchRef.current) observerSearchRef.current.disconnect();
+
+      observerSearchRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          fetchNextSearchPage();
+        }
+      });
+
+      if (node) observerSearchRef.current.observe(node);
+    },
+    [isSearchLoading, isFetchingNextSearchPage, hasNextSearchPage, fetchNextSearchPage]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (observerSearchRef.current) observerSearchRef.current.disconnect();
+    };
+  }, []);
+
+  const filteredSearchUsers = allUsers;
 
   // ── Filtered friends list ─────────────────────────────────
   const filteredFriends = friends.filter((f) => {
@@ -365,7 +427,7 @@ export default function FriendsScreen() {
           value={friendSearch}
           onChange={(e) => setFriendSearch(e.target.value)}
           placeholder="Rechercher un ami..."
-          className={`w-full ${theme.input} border ${theme.border} rounded-full h-10 pl-10 pr-4 ${theme.text} placeholder-${theme.textFaint.split('-')[1]} focus:outline-none focus:border-${theme.border.split('-')[1]}/20 transition-all text-sm`}
+          className={`w-full ${theme.input} border ${theme.border} rounded-full h-10 pl-10 pr-4 ${theme.text} ${theme.placeholder} focus:outline-none focus:border-snap-yellow/20 transition-all text-sm`}
         />
       </div>
 
@@ -407,6 +469,14 @@ export default function FriendsScreen() {
               onRemove={() => handleRemove(friend.friendship_id)}
             />
           ))}
+          {isFetchingNextFriendsPage && (
+            <div className="flex justify-center py-2">
+              <Loader2 className="animate-spin text-snap-yellow" size={20} />
+            </div>
+          )}
+          {hasNextFriendsPage && (
+            <div ref={loadMoreFriendsRef} className="h-1 w-full" />
+          )}
         </div>
       )}
     </div>
@@ -519,7 +589,7 @@ export default function FriendsScreen() {
             onChange={(e) => setUserSearch(e.target.value)}
             placeholder="Rechercher par nom ou @username..."
             autoFocus
-            className={`w-full ${theme.input} border ${theme.border} rounded-full h-10 pl-10 pr-4 ${theme.text} placeholder-${theme.textFaint.split('-')[1]} focus:outline-none focus:border-snap-yellow/40 transition-all text-sm`}
+            className={`w-full ${theme.input} border ${theme.border} rounded-full h-10 pl-10 pr-4 ${theme.text} ${theme.placeholder} focus:outline-none focus:border-snap-yellow/40 transition-all text-sm`}
           />
         </div>
       </div>
@@ -537,19 +607,31 @@ export default function FriendsScreen() {
           </div>
         )}
 
-        {!isSearchLoading && filteredSearchUsers.map((u) => {
-          const { status, friendshipId } = getSearchStatus(u.id);
-          return (
-            <SearchResultRow
-              key={u.id}
-              user={u}
-              friendshipStatus={status}
-              friendshipId={friendshipId}
-              onAdd={() => handleSendRequest(u.id)}
-              onAccept={() => friendshipId ? handleAccept(friendshipId) : undefined}
-            />
-          );
-        })}
+        {!isSearchLoading && (
+          <>
+            {filteredSearchUsers.map((u) => {
+              const { status, friendshipId } = getSearchStatus(u.id);
+              return (
+                <SearchResultRow
+                  key={u.id}
+                  user={u}
+                  friendshipStatus={status}
+                  friendshipId={friendshipId}
+                  onAdd={() => handleSendRequest(u.id)}
+                  onAccept={() => friendshipId ? handleAccept(friendshipId) : undefined}
+                />
+              );
+            })}
+            {isFetchingNextSearchPage && (
+              <div className="flex justify-center py-2">
+                <Loader2 className="animate-spin text-snap-yellow" size={20} />
+              </div>
+            )}
+            {hasNextSearchPage && (
+              <div ref={loadMoreSearchRef} className="h-1 w-full" />
+            )}
+          </>
+        )}
       </div>
     </div>
   );

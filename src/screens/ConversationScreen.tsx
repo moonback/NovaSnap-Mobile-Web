@@ -23,9 +23,41 @@ import {
 } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import { useToast } from '../components/ui/ToastProvider';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import EphemeralMedia from '../components/chat/EphemeralMedia';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { ConversationRow } from '../lib/types';
+
+const logDebug = (msg: string, ...args: any[]) => {
+  if (import.meta.env.DEV) {
+    console.log(msg, ...args);
+  }
+};
+
+const logError = (msg: string, ...args: any[]) => {
+  if (import.meta.env.DEV) {
+    console.error(msg, ...args);
+  }
+};
+
+const logWarn = (msg: string, ...args: any[]) => {
+  if (import.meta.env.DEV) {
+    console.warn(msg, ...args);
+  }
+};
+
+type InfiniteMessagesData = {
+  pages: Message[][];
+  pageParams: number[];
+};
+
+// Shape of a raw DB row returned by the conversation_members join query
+type RawMemberRow = {
+  user_id: string;
+  joined_at: string;
+  role: string | null;
+  users: { id: string; username: string | null; display_name: string | null; avatar_url: string | null } | { id: string; username: string | null; display_name: string | null; avatar_url: string | null }[] | null;
+};
 
 const EMOJIS = [
   '😀', '😂', '😍', '🥰', '😎', '😜', '🤔', '🙄',
@@ -102,6 +134,26 @@ export default function ConversationScreen({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
 
+  const updateCacheMessage = useCallback((msgId: string, updater: (m: Message) => Message) => {
+    queryClient.setQueryData<InfiniteMessagesData>(['messages', conversationId], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => page.map((m) => (m.id === msgId ? updater(m) : m))),
+      };
+    });
+  }, [conversationId, queryClient]);
+
+  const deleteCacheMessage = useCallback((msgId: string) => {
+    queryClient.setQueryData<InfiniteMessagesData>(['messages', conversationId], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => page.filter((m) => m.id !== msgId)),
+      };
+    });
+  }, [conversationId, queryClient]);
+
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
   const isTypingRef = useRef(false);
@@ -164,9 +216,7 @@ export default function ConversationScreen({
       nextReactions[user.id] = emoji;
     }
 
-    queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
-      old?.map((m) => (m.id === msg.id ? { ...m, reactions: nextReactions } : m)) ?? []
-    );
+    updateCacheMessage(msg.id, (m) => ({ ...m, reactions: nextReactions }));
 
     setSelectedMessageForMenu(null);
 
@@ -177,18 +227,16 @@ export default function ConversationScreen({
         .eq('id', msg.id);
 
       if (error) {
-        console.error('[Reactions] Error updating message reactions in Supabase:', error);
+        logError('[Reactions] Error updating message reactions in Supabase:', error);
       }
     } catch (err) {
-      console.error('[Reactions] Exception in toggleReaction:', err);
+      logError('[Reactions] Exception in toggleReaction:', err);
     }
   };
 
   const deleteMessage = async (msgId: string) => {
     if (!user) return;
-    queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
-      old?.filter((m) => m.id !== msgId) ?? []
-    );
+    deleteCacheMessage(msgId);
     setSelectedMessageForMenu(null);
 
     try {
@@ -198,10 +246,10 @@ export default function ConversationScreen({
         .eq('id', msgId);
 
       if (error) {
-        console.error('[MessageOptions] Error deleting message:', error);
+        logError('[MessageOptions] Error deleting message:', error);
       }
     } catch (err) {
-      console.error('[MessageOptions] Exception in deleteMessage:', err);
+      logError('[MessageOptions] Exception in deleteMessage:', err);
     }
   };
 
@@ -246,8 +294,8 @@ export default function ConversationScreen({
       await queryClient.invalidateQueries({ queryKey: ['conversations', user.id] });
       await queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
       
-      queryClient.setQueryData(['conversations', user.id], (old: any) => {
-        return old?.map((row: any) => {
+      queryClient.setQueryData(['conversations', user.id], (old: ConversationRow[]) => {
+        return old?.map((row: ConversationRow) => {
           if (row.conversations?.id === conversationId) {
             return {
               ...row,
@@ -288,7 +336,7 @@ export default function ConversationScreen({
         return [];
       }
 
-      return (data ?? []).map((m: any) => {
+      return (data ?? []).map((m: RawMemberRow) => {
         const u = Array.isArray(m.users) ? m.users[0] : m.users;
         return {
           user_id: m.user_id,
@@ -400,8 +448,8 @@ export default function ConversationScreen({
       if (error) throw error;
 
       // 3. Clear cache and go back
-      queryClient.setQueryData(['conversations', user.id], (old: any) =>
-        old?.filter((row: any) => row.conversations?.id !== conversationId) ?? []
+      queryClient.setQueryData(['conversations', user.id], (old: ConversationRow[]) =>
+        old?.filter((row: ConversationRow) => row.conversations?.id !== conversationId) ?? []
       );
       
       setShowLeaveConfirm(false);
@@ -448,23 +496,31 @@ export default function ConversationScreen({
 
   const messagesRef = useRef<Message[]>([]);
 
-  const { data: messages, isLoading } = useQuery<Message[]>({
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<Message[]>({
     queryKey: ['messages', conversationId],
-    queryFn: async () => {
-      console.log(`[NovaChat:Query] Chargement des messages pour la conversation ${conversationId}...`);
+    queryFn: async ({ pageParam = 0 }) => {
+      logDebug(`[NovaChat:Query] Chargement des messages pour la conversation ${conversationId}, page ${pageParam}...`);
       try {
+        const limit = 20;
         const { data, error } = await supabase
           .from('messages')
           .select(`id,content,message_type,media_url,created_at,sender_id,client_message_id,is_ephemeral,is_saved,opened_by,reactions,users:users!sender_id (username)`)
           .eq('conversation_id', conversationId)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: false })
+          .range((pageParam as number) * limit, ((pageParam as number) + 1) * limit - 1);
 
         if (error) {
-          console.error('[NovaChat:Query] Erreur Supabase lors du fetch des messages:', error);
+          logError('[NovaChat:Query] Erreur Supabase lors du fetch des messages:', error);
           throw error;
         }
 
-        console.log(`[NovaChat:Query] ${data?.length ?? 0} messages bruts récupérés.`);
+        logDebug(`[NovaChat:Query] ${data?.length ?? 0} messages bruts récupérés.`);
 
         // Filter out already-opened ephemeral messages to prevent them from showing on refresh
         const activeData = (data ?? []).filter((msg) => {
@@ -489,39 +545,67 @@ export default function ConversationScreen({
           })
         );
 
-        console.log('[NovaChat:Query] Traitement des messages terminé.', processed);
+        logDebug('[NovaChat:Query] Traitement des messages terminé.', processed);
         return processed;
       } catch (err) {
-        console.error('[NovaChat:Query] Exception attrapée dans queryFn:', err);
+        logError('[NovaChat:Query] Exception attrapée dans queryFn:', err);
         throw err;
       }
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === 20 ? allPages.length : undefined;
+    },
+    enabled: !!conversationId && !!user,
   });
 
+  const allMessages = data ? data.pages.flatMap((page) => page).reverse() : [];
+
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isLoading || isFetchingNextPage || !hasNextPage) return;
+      if (observerRef.current) observerRef.current.disconnect();
+
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          fetchNextPage();
+        }
+      });
+
+      if (node) observerRef.current.observe(node);
+    },
+    [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage]
+  );
+
   useEffect(() => {
-    if (messages) {
-      messagesRef.current = messages;
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (allMessages) {
+      messagesRef.current = allMessages;
     }
-  }, [messages]);
+  }, [allMessages]);
 
   // ── Auto mark messages as opened/read ──
   useEffect(() => {
-    if (!user || !messages || messages.length === 0) return;
+    if (!user || !allMessages || allMessages.length === 0) return;
 
-    const unreadMessages = messages.filter(
+    const unreadMessages = allMessages.filter(
       (msg) => msg.sender_id !== user.id && (!msg.opened_by || !msg.opened_by.includes(user.id))
     );
 
     if (unreadMessages.length > 0) {
-      console.log(`[ConversationScreen] Automatically marking ${unreadMessages.length} messages as opened.`);
+      logDebug(`[ConversationScreen] Automatically marking ${unreadMessages.length} messages as opened.`);
       
       unreadMessages.forEach(async (msg) => {
         const newOpenedBy = [...(msg.opened_by ?? []), user.id];
         
         // Optimistic cache update
-        queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
-          old?.map((m) => (m.id === msg.id ? { ...m, opened_by: newOpenedBy } : m)) ?? []
-        );
+        updateCacheMessage(msg.id, (m) => ({ ...m, opened_by: newOpenedBy }));
 
         try {
           await supabase
@@ -529,44 +613,58 @@ export default function ConversationScreen({
             .update({ opened_by: newOpenedBy })
             .eq('id', msg.id);
         } catch (err) {
-          console.error('[ConversationScreen] Error updating message opened_by:', err);
+          logError('[ConversationScreen] Error updating message opened_by:', err);
         }
       });
 
       queryClient.invalidateQueries({ queryKey: ['conversations', user.id] });
     }
-  }, [messages, user, conversationId, queryClient]);
+  }, [allMessages, user, conversationId, queryClient, updateCacheMessage]);
 
   useEffect(() => {
-    console.log(`[NovaChat:Realtime] Initialisation du canal realtime pour la conversation ${conversationId}...`);
+    logDebug(`[NovaChat:Realtime] Initialisation du canal realtime pour la conversation ${conversationId}...`);
     const channel = supabase
       .channel(`conversation:${conversationId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         async (payload) => {
           let newMsg = payload.new as Message;
-          console.log('[NovaChat:Realtime] INSERT reçu !', newMsg);
+          logDebug('[NovaChat:Realtime] INSERT reçu !', newMsg);
           if (newMsg.media_url && (newMsg.message_type === 'IMAGE' || newMsg.message_type === 'VIDEO')) {
             const signedUrl = await getCachedMediaUrl('chats', newMsg.media_url);
             newMsg = { ...newMsg, media_url: signedUrl };
           }
-          queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) => {
-            if (!oldData) return [newMsg];
-            if (oldData.some((m) => m.id === newMsg.id)) {
-              console.log('[NovaChat:Realtime] Message déjà présent dans le cache (doublon évité).');
+          queryClient.setQueryData<InfiniteMessagesData>(['messages', conversationId], (oldData) => {
+            if (!oldData) {
+              return {
+                pages: [[newMsg]],
+                pageParams: [0]
+              };
+            }
+            if (oldData.pages.some((page) => page.some((m) => m.id === newMsg.id))) {
+              logDebug('[NovaChat:Realtime] Message déjà présent dans le cache (doublon évité).');
               return oldData;
             }
-            const withoutPendingEcho = oldData.filter((m) => {
-              if (!m.pending) return true;
-              if (m.client_message_id && newMsg.client_message_id) {
-                const match = m.client_message_id === newMsg.client_message_id;
-                if (match) console.log(`[NovaChat:Realtime] Correspondance trouvée sur client_message_id: ${m.client_message_id}. Remplacement du message temporaire.`);
-                return !match;
+            const newPages = oldData.pages.map((page, index) => {
+              const withoutPendingEcho = page.filter((m) => {
+                if (!m.pending) return true;
+                if (m.client_message_id && newMsg.client_message_id) {
+                  const match = m.client_message_id === newMsg.client_message_id;
+                  if (match) logDebug(`[NovaChat:Realtime] Correspondance trouvée sur client_message_id: ${m.client_message_id}. Remplacement du message temporaire.`);
+                  return !match;
+                }
+                const contentMatch = m.sender_id === newMsg.sender_id && m.content === newMsg.content;
+                if (contentMatch) logDebug('[NovaChat:Realtime] Correspondance trouvée sur le contenu. Remplacement du message temporaire.');
+                return !contentMatch;
+              });
+              if (index === 0) {
+                return [newMsg, ...withoutPendingEcho];
               }
-              const contentMatch = m.sender_id === newMsg.sender_id && m.content === newMsg.content;
-              if (contentMatch) console.log('[NovaChat:Realtime] Correspondance trouvée sur le contenu. Remplacement du message temporaire.');
-              return !contentMatch;
+              return withoutPendingEcho;
             });
-            return [...withoutPendingEcho, newMsg];
+            return {
+              ...oldData,
+              pages: newPages,
+            };
           });
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
@@ -574,11 +672,11 @@ export default function ConversationScreen({
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         async (payload) => {
           let updated = payload.new as Message;
-          console.log('[NovaChat:Realtime] UPDATE reçu !', updated);
+          logDebug('[NovaChat:Realtime] UPDATE reçu !', updated);
           
           if (updated.media_url && (updated.message_type === 'IMAGE' || updated.message_type === 'VIDEO')) {
-            const oldData = queryClient.getQueryData<Message[]>(['messages', conversationId]);
-            const existingMsg = oldData?.find(m => m.id === updated.id);
+            const oldData = queryClient.getQueryData<InfiniteMessagesData>(['messages', conversationId]);
+            const existingMsg = oldData?.pages.flatMap(p => p).find(m => m.id === updated.id);
             if (existingMsg && existingMsg.media_url?.startsWith('http')) {
                updated.media_url = existingMsg.media_url;
             } else {
@@ -586,20 +684,18 @@ export default function ConversationScreen({
             }
           }
 
-          queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) =>
-            oldData ? oldData.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)) : oldData
-          );
+          updateCacheMessage(updated.id, (m) => ({ ...m, ...updated }));
         }
       )
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const deletedId = (payload.old as { id: string }).id;
-          console.log(`[NovaChat:Realtime] DELETE reçu pour le message ID: ${deletedId}`);
-          queryClient.setQueryData<Message[]>(['messages', conversationId], (oldData) => oldData?.filter((m) => m.id !== deletedId) ?? []);
+          logDebug(`[NovaChat:Realtime] DELETE reçu pour le message ID: ${deletedId}`);
+          deleteCacheMessage(deletedId);
         }
       )
       .on('broadcast', { event: 'typing' }, ({ payload }) => {
-        console.log('[NovaChat:Realtime] Broadcast typing reçu !', payload);
+          logDebug('[NovaChat:Realtime] Broadcast typing reçu !', payload);
         if (payload.userId !== user?.id) {
           setTypingUsers((prev) => {
             const next = { ...prev };
@@ -614,40 +710,38 @@ export default function ConversationScreen({
       });
 
     channel.subscribe((status) => {
-      console.log(`[NovaChat:Realtime] Changement de statut du canal: ${status}`);
+      logDebug(`[NovaChat:Realtime] Changement de statut du canal: ${status}`);
     });
 
     channelRef.current = channel;
 
     return () => {
-      console.log(`[NovaChat:Realtime] Fermeture du canal realtime pour ${conversationId}`);
+      logDebug(`[NovaChat:Realtime] Fermeture du canal realtime pour ${conversationId}`);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       channelRef.current = null;
       supabase.removeChannel(channel);
     };
-  }, [conversationId, queryClient, user]);
+  }, [conversationId, queryClient, user, updateCacheMessage, deleteCacheMessage]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [allMessages.length]);
 
   const markAsOpened = useCallback(async (msg: Message) => {
     if (!user) return;
     if (msg.sender_id === user.id || msg.opened_by?.includes(user.id)) return;
 
-    console.log(`[NovaChat:Lifecycle] Marquage du message ${msg.id} comme lu par l'utilisateur actuel.`);
+    logDebug(`[NovaChat:Lifecycle] Marquage du message ${msg.id} comme lu par l'utilisateur actuel.`);
     const newOpenedBy = [...(msg.opened_by ?? []), user.id];
-    queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
-      old?.map((m) => (m.id === msg.id ? { ...m, opened_by: newOpenedBy } : m)) ?? []
-    );
+    updateCacheMessage(msg.id, (m) => ({ ...m, opened_by: newOpenedBy }));
     try {
       const { error } = await supabase.from('messages').update({ opened_by: newOpenedBy }).eq('id', msg.id);
-      if (error) console.error(`[NovaChat:Lifecycle] Erreur lors du marquage comme lu du message ${msg.id} :`, error);
-      else console.log(`[NovaChat:Lifecycle] Message ${msg.id} marqué comme lu mis à jour avec succès dans Supabase.`);
+      if (error) logError(`[NovaChat:Lifecycle] Erreur lors du marquage comme lu du message ${msg.id} :`, error);
+      else logDebug(`[NovaChat:Lifecycle] Message ${msg.id} marqué comme lu mis à jour avec succès dans Supabase.`);
     } catch (e) {
-      console.error(`[NovaChat:Lifecycle] Exception lors du marquage comme lu du message ${msg.id} :`, e);
+      logError(`[NovaChat:Lifecycle] Exception lors du marquage comme lu du message ${msg.id} :`, e);
     }
-  }, [user, conversationId, queryClient]);
+  }, [user, conversationId, updateCacheMessage]);
 
   // Nettoyage des messages éphémères lus lors de la fermeture de la conversation
   useEffect(() => {
@@ -669,14 +763,14 @@ export default function ConversationScreen({
         .map((msg) => msg.id);
 
       if (toDeleteIds.length > 0) {
-        console.log(`[NovaChat:Cleanup] Suppression de ${toDeleteIds.length} messages éphémères lus lors de la fermeture :`, toDeleteIds);
+        logDebug(`[NovaChat:Cleanup] Suppression de ${toDeleteIds.length} messages éphémères lus lors de la fermeture :`, toDeleteIds);
         supabase
           .from('messages')
           .delete()
           .in('id', toDeleteIds)
           .then(({ error }) => {
-            if (error) console.error('[NovaChat:Cleanup] Erreur lors de la suppression des messages éphémères lus:', error);
-            else console.log('[NovaChat:Cleanup] Nettoyage des messages éphémères lus terminé avec succès.');
+            if (error) logError('[NovaChat:Cleanup] Erreur lors de la suppression des messages éphémères lus:', error);
+            else logDebug('[NovaChat:Cleanup] Nettoyage des messages éphémères lus terminé avec succès.');
           });
       }
     };
@@ -684,21 +778,19 @@ export default function ConversationScreen({
 
   const toggleSave = useCallback(async (msg: Message) => {
     if (!user || savingId) return;
-    console.log(`[NovaChat:Lifecycle] Toggling save pour le message ${msg.id}. État actuel: ${msg.is_saved}`);
+    logDebug(`[NovaChat:Lifecycle] Toggling save pour le message ${msg.id}. État actuel: ${msg.is_saved}`);
     setSavingId(msg.id);
     const newSaved = !msg.is_saved;
-    queryClient.setQueryData<Message[]>(['messages', conversationId], (old) =>
-      old?.map((m) => (m.id === msg.id ? { ...m, is_saved: newSaved } : m)) ?? []
-    );
+    updateCacheMessage(msg.id, (m) => ({ ...m, is_saved: newSaved }));
     try {
       const { error } = await supabase.from('messages').update({ is_saved: newSaved }).eq('id', msg.id);
-      if (error) console.error(`[NovaChat:Lifecycle] Erreur de mise à jour de la sauvegarde pour le message ${msg.id} :`, error);
-      else console.log(`[NovaChat:Lifecycle] État de sauvegarde du message ${msg.id} enregistré avec succès.`);
+      if (error) logError(`[NovaChat:Lifecycle] Erreur de mise à jour de la sauvegarde pour le message ${msg.id} :`, error);
+      else logDebug(`[NovaChat:Lifecycle] État de sauvegarde du message ${msg.id} enregistré avec succès.`);
     } catch (e) {
-      console.error(`[NovaChat:Lifecycle] Exception lors de la sauvegarde du message ${msg.id} :`, e);
+      logError(`[NovaChat:Lifecycle] Exception lors de la sauvegarde du message ${msg.id} :`, e);
     }
     setSavingId(null);
-  }, [user, savingId, conversationId, queryClient]);
+  }, [user, savingId, conversationId, updateCacheMessage]);
 
   const handlePressStart = (msg: Message) => {
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
@@ -715,7 +807,7 @@ export default function ConversationScreen({
 
   const sendMessageMutation = useMutation({
     mutationFn: async ({ content, meta }: { content: string; meta: { clientMessageId: string } }) => {
-      console.log('[NovaChat:Mutation] Insertion du message dans Supabase...', { content, meta });
+      logDebug('[NovaChat:Mutation] Insertion du message dans Supabase...', { content, meta });
       if (!user) throw new Error('Utilisateur non connecté');
       const { data, error } = await supabase.from('messages').insert({
         conversation_id: conversationId, content, message_type: 'TEXT', sender_id: user.id,
@@ -723,36 +815,51 @@ export default function ConversationScreen({
       }).select();
 
       if (error) {
-        console.error('[NovaChat:Mutation] Erreur de Supabase lors de l\'insertion :', error);
+        logError('[NovaChat:Mutation] Erreur de Supabase lors de l\'insertion :', error);
         throw error;
       }
-      console.log('[NovaChat:Mutation] Insertion réussie ! Données insérées:', data);
+      logDebug('[NovaChat:Mutation] Insertion réussie ! Données insérées:', data);
     },
     onMutate: async ({ content, meta }) => {
-      console.log('[NovaChat:Mutation] Début onMutate pour envoi optimiste.', { content, meta });
+      logDebug('[NovaChat:Mutation] Début onMutate pour envoi optimiste.', { content, meta });
       if (!user) return;
       const tempId = `temp-${Date.now()}`;
       await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
-      const previousMessages = queryClient.getQueryData<Message[]>(['messages', conversationId]) ?? [];
+      const previousMessages = queryClient.getQueryData<InfiniteMessagesData>(['messages', conversationId]);
       const optimisticMessage: Message = {
         id: tempId, content, sender_id: user.id, created_at: new Date().toISOString(),
         message_type: 'TEXT', is_ephemeral: true, is_saved: false, opened_by: [],
         pending: true, client_message_id: meta.clientMessageId,
       };
 
-      console.log('[NovaChat:Mutation] Ajout du message optimiste au cache :', optimisticMessage);
-      queryClient.setQueryData<Message[]>(['messages', conversationId], [...previousMessages, optimisticMessage]);
+      logDebug('[NovaChat:Mutation] Ajout du message optimiste au cache :', optimisticMessage);
+      if (previousMessages) {
+        queryClient.setQueryData<InfiniteMessagesData>(['messages', conversationId], {
+          ...previousMessages,
+          pages: previousMessages.pages.map((page, index) => {
+            if (index === 0) {
+              return [optimisticMessage, ...page];
+            }
+            return page;
+          }),
+        });
+      } else {
+        queryClient.setQueryData<InfiniteMessagesData>(['messages', conversationId], {
+          pages: [[optimisticMessage]],
+          pageParams: [0],
+        });
+      }
       setNewMessage('');
       return { previousMessages };
     },
     onError: (err, content, context) => {
-      console.error('[NovaChat:Mutation] Erreur lors de l\'envoi du message ! Restauration de l\'état précédent.', err);
+      logError('[NovaChat:Mutation] Erreur lors de l\'envoi du message ! Restauration de l\'état précédent.', err);
       if (context?.previousMessages) {
         queryClient.setQueryData(['messages', conversationId], context.previousMessages);
       }
     },
     onSettled: () => {
-      console.log('[NovaChat:Mutation] Mutation terminée (settled). Invalidation des requêtes.');
+      logDebug('[NovaChat:Mutation] Mutation terminée (settled). Invalidation des requêtes.');
       queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
       queryClient.invalidateQueries({ queryKey: ['conversations', user?.id] });
     },
@@ -898,8 +1005,8 @@ export default function ConversationScreen({
                             .eq('conversation_id', conversationId)
                             .eq('user_id', user.id);
                           if (error) throw error;
-                          queryClient.setQueryData(['conversations', user.id], (old: any) =>
-                            old?.filter((row: any) => row.conversations?.id !== conversationId) ?? []
+                          queryClient.setQueryData(['conversations', user.id], (old: ConversationRow[]) =>
+                            old?.filter((row: ConversationRow) => row.conversations?.id !== conversationId) ?? []
                           );
                           onBack();
                         } catch (err) {
@@ -928,7 +1035,17 @@ export default function ConversationScreen({
           </div>
         )}
 
-        {!isLoading && (!messages || messages.length === 0) && (
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-2 shrink-0">
+            <Loader2 className={`animate-spin ${t.textMuted}`} size={20} />
+          </div>
+        )}
+
+        {hasNextPage && (
+          <div ref={loadMoreRef} className="h-1 w-full shrink-0" />
+        )}
+
+        {!isLoading && (!allMessages || allMessages.length === 0) && (
           <div className={`my-auto mx-auto max-w-[270px] rounded-[24px] px-6 py-7 text-center border shadow-sm ${t.border} ${t.surface} bg-white/50 dark:bg-zinc-900/30 backdrop-blur-md`}>
             <div className="w-12 h-12 bg-snap-yellow/10 rounded-full flex items-center justify-center mx-auto mb-3">
               <span className="text-xl">👻</span>
@@ -938,7 +1055,7 @@ export default function ConversationScreen({
           </div>
         )}
 
-        {messages?.map((msg) => {
+        {allMessages?.map((msg) => {
           const isMe = msg.sender_id === user?.id;
           const isSaved = msg.is_saved ?? false;
           const isSaving = savingId === msg.id;

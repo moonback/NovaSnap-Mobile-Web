@@ -57,5 +57,9 @@ export function useTheme() {
 
     // ── Skeleton ──────────────────────────────────────────────
     skeleton: isLight ? 'bg-black/8' : 'bg-white/10',
+
+    // ── Placeholder text ──────────────────────────────────────
+    /** Safe static Tailwind class for input placeholder colour */
+    placeholder: isLight ? 'placeholder-black/30' : 'placeholder-white/25',
   };
 }

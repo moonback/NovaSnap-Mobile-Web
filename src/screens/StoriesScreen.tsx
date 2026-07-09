@@ -10,6 +10,17 @@ import GeminiOrb from '../components/GeminiOrb';
 import { useAppStore } from '../store/useAppStore';
 import { useTheme } from '../hooks/useTheme';
 
+type StoryViewer = {
+  viewer_id: string;
+  viewed_at: string;
+  users: {
+    id: string;
+    username: string | null;
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null;
+};
+
 export default function StoriesScreen() {
   const { data: stories, isLoading } = useStories();
   const { setCurrentView } = useAppStore();
@@ -19,7 +30,7 @@ export default function StoriesScreen() {
   const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
   const [showAI, setShowAI] = useState(false);
   const [showViewers, setShowViewers] = useState(false);
-  const [currentStoryViewers, setCurrentStoryViewers] = useState<any[]>([]);
+  const [currentStoryViewers, setCurrentStoryViewers] = useState<StoryViewer[]>([]);
   const [storyViewCounts, setStoryViewCounts] = useState<Record<string, number>>({});
 
   const queryClient = useQueryClient();
@@ -612,7 +623,7 @@ export default function StoriesScreen() {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {currentStoryViewers.map((view: any) => {
+                          {currentStoryViewers.map((view) => {
                             const viewer = view.users;
                             const timeAgo = getTimeAgo(view.viewed_at);
                             return (

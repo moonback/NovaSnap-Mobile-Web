@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import type { FriendWithProfile, FriendshipStatus } from '../lib/types';
@@ -26,38 +26,23 @@ type RawUserProfile = {
 // ── Query key ────────────────────────────────────────────────
 const FRIENDS_QUERY_KEY = (userId: string) => ['friends', userId] as const;
 
-// ── Fetch helper ─────────────────────────────────────────────
-async function fetchFriendships(userId: string): Promise<FriendWithProfile[]> {
-  // Fetch all friendships where I am user_id
-  const { data: asSender, error: senderError } = await supabase
+// ── Fetch Helper for pagination ──────────────────────────────
+async function fetchFriendshipsPage(userId: string, pageParam: number, limit: number): Promise<FriendWithProfile[]> {
+  const { data: rows, error } = await supabase
     .from('friendships')
     .select('id, user_id, friend_id, status, created_at, updated_at')
-    .eq('user_id', userId);
+    .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+    .order('created_at', { ascending: false })
+    .range(pageParam * limit, (pageParam + 1) * limit - 1);
 
-  if (senderError) throw senderError;
+  if (error) throw error;
+  if (!rows || rows.length === 0) return [];
 
-  // Fetch all friendships where I am friend_id
-  const { data: asReceiver, error: receiverError } = await supabase
-    .from('friendships')
-    .select('id, user_id, friend_id, status, created_at, updated_at')
-    .eq('friend_id', userId);
-
-  if (receiverError) throw receiverError;
-
-  const allRows: RawFriendshipRow[] = [
-    ...((asSender as RawFriendshipRow[]) ?? []),
-    ...((asReceiver as RawFriendshipRow[]) ?? []),
-  ];
-
-  if (allRows.length === 0) return [];
-
-  // Collect all other user IDs
-  const otherUserIds = allRows.map((row) =>
+  const otherUserIds = rows.map((row) =>
     row.user_id === userId ? row.friend_id : row.user_id
   );
   const uniqueIds = [...new Set(otherUserIds)];
 
-  // Fetch profiles for all those users
   const { data: profiles, error: profilesError } = await supabase
     .from('users')
     .select('id, username, display_name, avatar_url, bio, snap_score')
@@ -69,7 +54,6 @@ async function fetchFriendships(userId: string): Promise<FriendWithProfile[]> {
     ((profiles as RawUserProfile[]) ?? []).map((p) => [p.id, p])
   );
 
-  // Resolve signed avatar URLs in parallel
   const resolvedProfiles = new Map<string, RawUserProfile & { avatar_url: string | null }>();
   await Promise.all(
     uniqueIds.map(async (id) => {
@@ -82,8 +66,7 @@ async function fetchFriendships(userId: string): Promise<FriendWithProfile[]> {
     })
   );
 
-  // Build FriendWithProfile array
-  return allRows.map((row): FriendWithProfile => {
+  return rows.map((row): FriendWithProfile => {
     const isRequester = row.user_id === userId;
     const otherId = isRequester ? row.friend_id : row.user_id;
     const profile = resolvedProfiles.get(otherId);
@@ -103,6 +86,7 @@ async function fetchFriendships(userId: string): Promise<FriendWithProfile[]> {
     };
   });
 }
+
 
 // ── Hook ─────────────────────────────────────────────────────
 export function useFriends() {
@@ -126,6 +110,7 @@ export function useFriends() {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+          queryClient.invalidateQueries({ queryKey: ['friendships-counts', user.id] });
         }
       )
       .on(
@@ -138,6 +123,7 @@ export function useFriends() {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+          queryClient.invalidateQueries({ queryKey: ['friendships-counts', user.id] });
         }
       )
       .subscribe();
@@ -150,13 +136,55 @@ export function useFriends() {
     };
   }, [user, queryClient]);
 
+  // ── Friends Count Query ────────────────────────────────────
+  const { data: counts = { friendsCount: 0, pendingCount: 0 } } = useQuery({
+    queryKey: ['friendships-counts', user?.id],
+    queryFn: async () => {
+      if (!user) return { friendsCount: 0, pendingCount: 0 };
+      
+      const { count: friendsCount, error: friendsErr } = await supabase
+        .from('friendships')
+        .select('*', { count: 'exact', head: true })
+        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+        .eq('status', 'ACCEPTED');
+
+      if (friendsErr) throw friendsErr;
+
+      const { count: pendingCount, error: pendingErr } = await supabase
+        .from('friendships')
+        .select('*', { count: 'exact', head: true })
+        .eq('friend_id', user.id)
+        .eq('status', 'PENDING');
+
+      if (pendingErr) throw pendingErr;
+
+      return {
+        friendsCount: friendsCount ?? 0,
+        pendingCount: pendingCount ?? 0,
+      };
+    },
+    enabled: !!user,
+  });
+
   // ── Query ──────────────────────────────────────────────────
-  const { data: allFriendships = [], isLoading } = useQuery({
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: FRIENDS_QUERY_KEY(user?.id ?? ''),
-    queryFn: () => fetchFriendships(user!.id),
+    queryFn: ({ pageParam = 0 }) => fetchFriendshipsPage(user!.id, pageParam as number, 20),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === 20 ? allPages.length : undefined;
+    },
     enabled: !!user,
     staleTime: 30_000,
   });
+
+  const allFriendships = data ? data.pages.flatMap((page) => page) : [];
 
   // ── Derived lists ──────────────────────────────────────────
   const friends = allFriendships.filter((f) => f.friendship_status === 'ACCEPTED');
@@ -166,8 +194,8 @@ export function useFriends() {
   const pendingSent = allFriendships.filter(
     (f) => f.friendship_status === 'PENDING' && f.is_requester
   );
-  const friendCount = friends.length;
-  const pendingCount = pendingReceived.length;
+  const friendCount = counts.friendsCount;
+  const pendingCount = counts.pendingCount;
 
   // ── Mutations ──────────────────────────────────────────────
 
@@ -182,7 +210,10 @@ export function useFriends() {
       if (error) throw error;
     },
     onSuccess: () => {
-      if (user) queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+        queryClient.invalidateQueries({ queryKey: ['friendships-counts', user.id] });
+      }
     },
   });
 
@@ -195,7 +226,10 @@ export function useFriends() {
       if (error) throw error;
     },
     onSuccess: () => {
-      if (user) queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+        queryClient.invalidateQueries({ queryKey: ['friendships-counts', user.id] });
+      }
     },
   });
 
@@ -208,7 +242,10 @@ export function useFriends() {
       if (error) throw error;
     },
     onSuccess: () => {
-      if (user) queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+        queryClient.invalidateQueries({ queryKey: ['friendships-counts', user.id] });
+      }
     },
   });
 
@@ -221,7 +258,10 @@ export function useFriends() {
       if (error) throw error;
     },
     onSuccess: () => {
-      if (user) queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+        queryClient.invalidateQueries({ queryKey: ['friendships-counts', user.id] });
+      }
     },
   });
 
@@ -234,7 +274,10 @@ export function useFriends() {
       if (error) throw error;
     },
     onSuccess: () => {
-      if (user) queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY(user.id) });
+        queryClient.invalidateQueries({ queryKey: ['friendships-counts', user.id] });
+      }
     },
   });
 
@@ -251,6 +294,9 @@ export function useFriends() {
     friendCount,
     pendingCount,
     isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     sendFriendRequest: sendFriendRequestMutation.mutateAsync,
     acceptFriendRequest: acceptFriendRequestMutation.mutateAsync,
     declineFriendRequest: declineFriendRequestMutation.mutateAsync,

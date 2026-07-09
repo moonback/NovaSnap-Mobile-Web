@@ -1,16 +1,19 @@
-import React, { useMemo, useState, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useConversations } from '../hooks/useConversations';
 import { useFriends } from '../hooks/useFriends';
 import { Loader2, User, X, Search, Edit3, ChevronRight, Trash2, Check, Users } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import ConversationScreen from './ConversationScreen';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
 import { useTheme } from '../hooks/useTheme';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
-import type { AppUserProfile, ConversationRow } from '../lib/types';
+import type { AppUserProfile, ConversationRow, ConversationMessage } from '../lib/types';
+
+// Theme token type derived from the useTheme hook
+type ThemeTokens = ReturnType<typeof useTheme>;
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -26,7 +29,7 @@ function timeAgo(dateStr: string): string {
 const SWIPE_THRESHOLD = -72; // px to reveal delete action
 const DELETE_THRESHOLD = -200; // px to auto-confirm delete
 
-const getStatusIcon = (lastMsg: any, userId: string | undefined, hasNew: boolean) => {
+const getStatusIcon = (lastMsg: ConversationMessage | null, userId: string | undefined, hasNew: boolean) => {
   if (!lastMsg) return null;
   const isMe = lastMsg.sender_id === userId;
   const isImage = lastMsg.message_type === 'IMAGE';
@@ -77,7 +80,7 @@ const getStatusIcon = (lastMsg: any, userId: string | undefined, hasNew: boolean
   }
 };
 
-const getStatusText = (lastMsg: any, userId: string | undefined, hasNew: boolean, t: any) => {
+const getStatusText = (lastMsg: ConversationMessage | null, userId: string | undefined, hasNew: boolean, t: ThemeTokens) => {
   if (!lastMsg) return <span className={t.textFaint}>Aucun message</span>;
   const isMe = lastMsg.sender_id === userId;
   const isImage = lastMsg.message_type === 'IMAGE';
@@ -398,13 +401,29 @@ export default function ChatScreen() {
   const { friends } = useFriends();
   const friendIds = new Set(friends.map((f) => f.user.id));
 
-  const { data: allUsers, isLoading: isUsersLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: async () => {
-      const { data, error } = await supabase
+  const {
+    data: usersPages,
+    isLoading: isUsersLoading,
+    fetchNextPage: fetchNextUsersPage,
+    hasNextPage: hasNextUsersPage,
+    isFetchingNextPage: isFetchingNextPageData,
+  } = useInfiniteQuery({
+    queryKey: ['users', searchQuery],
+    queryFn: async ({ pageParam = 0 }) => {
+      const limit = 20;
+      let query = supabase
         .from('users')
-        .select('id, username, display_name, avatar_url');
+        .select('id, username, display_name, avatar_url')
+        .neq('id', user?.id ?? '')
+        .order('username');
+
+      if (searchQuery) {
+        query = query.or(`username.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`);
+      }
+
+      const { data, error } = await query.range((pageParam as number) * limit, ((pageParam as number) + 1) * limit - 1);
       if (error) throw error;
+
       return Promise.all(
         data.map(async (u) => {
           if (u.avatar_url) u.avatar_url = await getValidMediaUrl('avatars', u.avatar_url);
@@ -412,8 +431,37 @@ export default function ChatScreen() {
         })
       );
     },
-    enabled: showNewChatModal,
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === 20 ? allPages.length : undefined;
+    },
+    enabled: showNewChatModal && !!user,
   });
+
+  const allUsers = usersPages ? usersPages.pages.flatMap((page) => page) : [];
+
+  const observerUsersRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreUsersRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isUsersLoading || isFetchingNextPageData || !hasNextUsersPage) return;
+      if (observerUsersRef.current) observerUsersRef.current.disconnect();
+
+      observerUsersRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          fetchNextUsersPage();
+        }
+      });
+
+      if (node) observerUsersRef.current.observe(node);
+    },
+    [isUsersLoading, isFetchingNextPageData, hasNextUsersPage, fetchNextUsersPage]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (observerUsersRef.current) observerUsersRef.current.disconnect();
+    };
+  }, []);
 
   const handleStartChat = async (targetUser: AppUserProfile) => {
     if (!user) return;
@@ -482,12 +530,7 @@ export default function ChatScreen() {
     }
   };
 
-  const otherUsers = allUsers?.filter((u) => u.id !== user?.id) || [];
-  const filteredUsers = otherUsers.filter(
-    (u) =>
-      u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.display_name && u.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredUsers = allUsers;
 
   // Split into friends and others
   const filteredFriendUsers = filteredUsers.filter((u) => friendIds.has(u.id));
@@ -735,6 +778,14 @@ export default function ChatScreen() {
                       <p className={`text-xs font-bold uppercase tracking-wider mb-1 mt-3 px-2 ${t.textMuted}`}>Autres utilisateurs</p>
                       {filteredOtherUsers.map((u) => <UserRow key={u.id} user={u} isFriend={false} isCreating={isCreating} onSelect={() => handleStartChat(u)} />)}
                     </>
+                  )}
+                  {isFetchingNextPageData && (
+                    <div className="flex justify-center py-2 shrink-0">
+                      <Loader2 className={`animate-spin ${t.textMuted}`} size={20} />
+                    </div>
+                  )}
+                  {hasNextUsersPage && (
+                    <div ref={loadMoreUsersRef} className="h-1 w-full shrink-0" />
                   )}
                 </>
               )}

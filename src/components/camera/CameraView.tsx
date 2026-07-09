@@ -41,6 +41,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   });
 
   const [isBoomerang, setIsBoomerang] = useState(false);
+  const [isFlattening, setIsFlattening] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const playbackDirectionRef = useRef<'forward' | 'backward'>('forward');
 
@@ -195,7 +196,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   // Boomerang effect (boucle aller-retour)
   useEffect(() => {
     const video = previewVideoRef.current;
-    if (!video || !capturedMedia || capturedMedia.type !== 'video' || !capturedMedia.isBoomerang) return;
+    if (!isActive || !video || !capturedMedia || capturedMedia.type !== 'video' || !capturedMedia.isBoomerang) return;
 
     let animationFrameId: number;
     let lastTime = performance.now();
@@ -234,7 +235,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [capturedMedia, editorState.videoSpeed]);
+  }, [capturedMedia, editorState.videoSpeed, isActive]);
 
   const discardMedia = () => {
     const urlToRevoke = capturedMedia?.url;
@@ -270,127 +271,138 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const flattenImage = async (): Promise<string> => {
     if (!capturedMedia || capturedMedia.type !== 'image') return capturedMedia?.url || '';
 
-    return new Promise((resolve) => {
+    setIsFlattening(true);
+    // Yield execution to allow DOM loader to paint
+    await new Promise((r) => setTimeout(r, 80));
+
+    return new Promise<string>((resolve) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(capturedMedia.url);
+            return;
+          }
+
+          // Récupérer la taille réelle de l'image capturée
+          const width = img.naturalWidth || 640;
+          const height = img.naturalHeight || 480;
+
+          // Récupérer les coordonnées de recadrage précises
+          const crop = editorState.crop || { x: 0, y: 0, width: 100, height: 100 };
+          const sx = (crop.x / 100) * width;
+          const sy = (crop.y / 100) * height;
+          const sWidth = (crop.width / 100) * width;
+          const sHeight = (crop.height / 100) * height;
+
+          // Déterminer si l'image est pivotée de 90 ou 270 degrés
+          const isRotated90or270 = editorState.rotation === 90 || editorState.rotation === 270;
+          canvas.width = isRotated90or270 ? sHeight : sWidth;
+          canvas.height = isRotated90or270 ? sWidth : sHeight;
+
+          // Centrer et appliquer la rotation
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate((editorState.rotation * Math.PI) / 180);
+
+          // Dessiner l'image d'origine. Si front-facing, on la dessine à l'envers (effet miroir)
+          if (facingMode === 'user') {
+            ctx.scale(-1, 1);
+          }
+          // Dessiner uniquement la portion rognée (recadrage précis)
+          ctx.drawImage(img, sx, sy, sWidth, sHeight, -sWidth / 2, -sHeight / 2, sWidth, sHeight);
+
+          // Revenir en échelle normale pour dessiner les calques d'édition au bon endroit
+          if (facingMode === 'user') {
+            ctx.scale(-1, 1);
+          }
+
+          // Repositionner le point d'origine au coin haut-gauche de l'image d'origine pour que tous les calques s'alignent parfaitement
+          ctx.translate(-sWidth / 2 - sx, -sHeight / 2 - sy);
+
+          // Les dessins de SnapEditor sont dessinés sur une grille virtuelle de 720x1280
+          const scaleX = width / 720;
+          const scaleY = height / 1280;
+
+          // Dessiner les traits de crayon
+          for (const stroke of editorState.strokes) {
+            if (stroke.points.length < 2) continue;
+            ctx.beginPath();
+            ctx.strokeStyle = stroke.color;
+            ctx.lineWidth = stroke.width * scaleX;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.moveTo(stroke.points[0].x * scaleX, stroke.points[0].y * scaleY);
+            for (let i = 1; i < stroke.points.length; i++) {
+              ctx.lineTo(stroke.points[i].x * scaleX, stroke.points[i].y * scaleY);
+            }
+            ctx.stroke();
+          }
+
+          // Dessiner les stickers (Emojis)
+          for (const sticker of editorState.stickerLayers) {
+            const x = (sticker.x / 100) * width;
+            const y = (sticker.y / 100) * height;
+            const fontSize = sticker.size * scaleX * 1.3;
+            ctx.font = `${fontSize}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(sticker.emoji, x, y);
+          }
+
+          // Dessiner les textes
+          for (const text of editorState.textLayers) {
+            const x = (text.x / 100) * width;
+            const y = (text.y / 100) * height;
+            const fontSize = text.size * scaleX * 1.1;
+
+            let fontWeight = 'normal';
+            let fontFamily = 'sans-serif';
+
+            if (text.font.includes('font-black')) {
+              fontWeight = '900';
+              fontFamily = 'Impact, "Arial Black", sans-serif';
+            } else if (text.font.includes('font-serif')) {
+              fontFamily = 'Georgia, serif';
+            } else if (text.font.includes('font-mono')) {
+              fontFamily = 'monospace';
+            } else if (text.font.includes('font-light')) {
+              fontWeight = '300';
+            }
+
+            ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Ajouter une belle ombre portée noire pour la lisibilité
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            ctx.shadowBlur = 8 * scaleX;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 3 * scaleY;
+
+            ctx.fillStyle = text.color;
+            ctx.fillText(text.text, x, y);
+
+            // Réinitialiser les ombres
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+          }
+
+          const mediaQuality = localStorage.getItem('novasnap_settings_media_quality') || 'standard';
+          const quality = mediaQuality === 'high' ? 0.95 : mediaQuality === 'eco' || mediaQuality === 'low' ? 0.65 : 0.85;
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (err) {
           resolve(capturedMedia.url);
-          return;
+        } finally {
+          setIsFlattening(false);
         }
-
-        // Récupérer la taille réelle de l'image capturée
-        const width = img.naturalWidth || 640;
-        const height = img.naturalHeight || 480;
-
-        // Récupérer les coordonnées de recadrage précises
-        const crop = editorState.crop || { x: 0, y: 0, width: 100, height: 100 };
-        const sx = (crop.x / 100) * width;
-        const sy = (crop.y / 100) * height;
-        const sWidth = (crop.width / 100) * width;
-        const sHeight = (crop.height / 100) * height;
-
-        // Déterminer si l'image est pivotée de 90 ou 270 degrés
-        const isRotated90or270 = editorState.rotation === 90 || editorState.rotation === 270;
-        canvas.width = isRotated90or270 ? sHeight : sWidth;
-        canvas.height = isRotated90or270 ? sWidth : sHeight;
-
-        // Centrer et appliquer la rotation
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate((editorState.rotation * Math.PI) / 180);
-
-        // Dessiner l'image d'origine. Si front-facing, on la dessine à l'envers (effet miroir)
-        if (facingMode === 'user') {
-          ctx.scale(-1, 1);
-        }
-        // Dessiner uniquement la portion rognée (recadrage précis)
-        ctx.drawImage(img, sx, sy, sWidth, sHeight, -sWidth / 2, -sHeight / 2, sWidth, sHeight);
-
-        // Revenir en échelle normale pour dessiner les calques d'édition au bon endroit
-        if (facingMode === 'user') {
-          ctx.scale(-1, 1);
-        }
-
-        // Repositionner le point d'origine au coin haut-gauche de l'image d'origine pour que tous les calques s'alignent parfaitement
-        ctx.translate(-sWidth / 2 - sx, -sHeight / 2 - sy);
-
-        // Les dessins de SnapEditor sont dessinés sur une grille virtuelle de 720x1280
-        const scaleX = width / 720;
-        const scaleY = height / 1280;
-
-        // Dessiner les traits de crayon
-        for (const stroke of editorState.strokes) {
-          if (stroke.points.length < 2) continue;
-          ctx.beginPath();
-          ctx.strokeStyle = stroke.color;
-          ctx.lineWidth = stroke.width * scaleX;
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.moveTo(stroke.points[0].x * scaleX, stroke.points[0].y * scaleY);
-          for (let i = 1; i < stroke.points.length; i++) {
-            ctx.lineTo(stroke.points[i].x * scaleX, stroke.points[i].y * scaleY);
-          }
-          ctx.stroke();
-        }
-
-        // Dessiner les stickers (Emojis)
-        for (const sticker of editorState.stickerLayers) {
-          const x = (sticker.x / 100) * width;
-          const y = (sticker.y / 100) * height;
-          const fontSize = sticker.size * scaleX * 1.3;
-          ctx.font = `${fontSize}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(sticker.emoji, x, y);
-        }
-
-        // Dessiner les textes
-        for (const text of editorState.textLayers) {
-          const x = (text.x / 100) * width;
-          const y = (text.y / 100) * height;
-          const fontSize = text.size * scaleX * 1.1;
-
-          let fontWeight = 'normal';
-          let fontFamily = 'sans-serif';
-
-          if (text.font.includes('font-black')) {
-            fontWeight = '900';
-            fontFamily = 'Impact, "Arial Black", sans-serif';
-          } else if (text.font.includes('font-serif')) {
-            fontFamily = 'Georgia, serif';
-          } else if (text.font.includes('font-mono')) {
-            fontFamily = 'monospace';
-          } else if (text.font.includes('font-light')) {
-            fontWeight = '300';
-          }
-
-          ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-
-          // Ajouter une belle ombre portée noire pour la lisibilité
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-          ctx.shadowBlur = 8 * scaleX;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 3 * scaleY;
-
-          ctx.fillStyle = text.color;
-          ctx.fillText(text.text, x, y);
-
-          // Réinitialiser les ombres
-          ctx.shadowColor = 'transparent';
-          ctx.shadowBlur = 0;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
-        }
-
-        const mediaQuality = localStorage.getItem('novasnap_settings_media_quality') || 'standard';
-        const quality = mediaQuality === 'high' ? 0.95 : mediaQuality === 'eco' || mediaQuality === 'low' ? 0.65 : 0.85;
-        resolve(canvas.toDataURL('image/jpeg', quality));
       };
 
       img.onerror = () => {
+        setIsFlattening(false);
         resolve(capturedMedia.url);
       };
 
@@ -619,9 +631,9 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
               ) : (
                 <video
                   ref={(el) => {
+                    previewVideoRef.current = el;
                     if (el) {
                       el.playbackRate = editorState.videoSpeed;
-                      previewVideoRef.current = el;
                     }
                   }}
                   src={capturedMedia.url}
@@ -732,6 +744,13 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
             {isSending && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 rounded-[32px]">
                 <Loader2 className="animate-spin text-snap-yellow w-10 h-10" />
+              </div>
+            )}
+
+            {isFlattening && (
+              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-50 rounded-[32px] gap-3">
+                <Loader2 className="animate-spin text-snap-yellow w-10 h-10" />
+                <p className="text-white text-xs font-black tracking-widest uppercase">Traitement de l'image...</p>
               </div>
             )}
           </div>
