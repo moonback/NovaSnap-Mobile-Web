@@ -29,62 +29,36 @@ const FRIENDS_QUERY_KEY = (userId: string) => ['friends', userId] as const;
 // ── Fetch Helper for pagination ──────────────────────────────
 async function fetchFriendshipsPage(userId: string, pageParam: number, limit: number): Promise<FriendWithProfile[]> {
   const { data: rows, error } = await supabase
-    .from('friendships')
-    .select('id, user_id, friend_id, status, created_at, updated_at')
-    .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+    .from('friendships_resolved')
+    .select('*')
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .range(pageParam * limit, (pageParam + 1) * limit - 1);
 
   if (error) throw error;
   if (!rows || rows.length === 0) return [];
 
-  const otherUserIds = rows.map((row) =>
-    row.user_id === userId ? row.friend_id : row.user_id
-  );
-  const uniqueIds = [...new Set(otherUserIds)];
-
-  const { data: profiles, error: profilesError } = await supabase
-    .from('users')
-    .select('id, username, display_name, avatar_url, bio, snap_score')
-    .in('id', uniqueIds);
-
-  if (profilesError) throw profilesError;
-
-  const profileMap = new Map<string, RawUserProfile>(
-    ((profiles as RawUserProfile[]) ?? []).map((p) => [p.id, p])
-  );
-
-  const resolvedProfiles = new Map<string, RawUserProfile & { avatar_url: string | null }>();
-  await Promise.all(
-    uniqueIds.map(async (id) => {
-      const profile = profileMap.get(id);
-      if (!profile) return;
-      const avatarUrl = profile.avatar_url
-        ? await getValidMediaUrl('avatars', profile.avatar_url)
+  return Promise.all(
+    rows.map(async (row): Promise<FriendWithProfile> => {
+      const avatarUrl = row.friend_avatar_url
+        ? await getValidMediaUrl('avatars', row.friend_avatar_url)
         : null;
-      resolvedProfiles.set(id, { ...profile, avatar_url: avatarUrl });
+
+      return {
+        friendship_id: row.friendship_id,
+        friendship_status: row.friendship_status,
+        is_requester: row.is_requester,
+        user: {
+          id: row.friend_id,
+          username: row.friend_username,
+          display_name: row.friend_display_name,
+          avatar_url: avatarUrl,
+          bio: row.friend_bio,
+          snap_score: row.friend_snap_score || 0,
+        },
+      };
     })
   );
-
-  return rows.map((row): FriendWithProfile => {
-    const isRequester = row.user_id === userId;
-    const otherId = isRequester ? row.friend_id : row.user_id;
-    const profile = resolvedProfiles.get(otherId);
-
-    return {
-      friendship_id: row.id,
-      friendship_status: row.status,
-      is_requester: isRequester,
-      user: {
-        id: otherId,
-        username: profile?.username ?? null,
-        display_name: profile?.display_name ?? null,
-        avatar_url: profile?.avatar_url ?? null,
-        bio: profile?.bio ?? null,
-        snap_score: profile?.snap_score ?? 0,
-      },
-    };
-  });
 }
 
 
