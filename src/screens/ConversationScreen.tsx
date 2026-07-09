@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { useTheme } from '../hooks/useTheme';
+import { useRateLimit, QuotaExceededError } from '../hooks/useRateLimit';
 import {
   ChevronLeft,
   Send,
@@ -21,6 +22,7 @@ import {
   UserMinus
 } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
+import { useToast } from '../components/ui/ToastProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import EphemeralMedia from '../components/chat/EphemeralMedia';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -91,6 +93,8 @@ export default function ConversationScreen({
 
   const { user, setCurrentView, setDirectChatId } = useAppStore();
   const t = useTheme();
+  const { checkQuota } = useRateLimit();
+  const { toast } = useToast();
   const [newMessage, setNewMessage] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -754,10 +758,21 @@ export default function ConversationScreen({
     },
   });
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedMessage = newMessage.trim();
     if (!trimmedMessage) return;
+
+    try {
+      await checkQuota('message');
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        toast(`Limite atteinte : tu ne peux plus envoyer de messages aujourd'hui (${err.currentCount ?? 0}/${err.dailyLimit ?? '?'})`, 'error');
+        return;
+      }
+      // Network/auth error — let the send proceed to avoid blocking the user
+      console.warn('[handleSend] Rate limit check failed, proceeding anyway:', err);
+    }
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     isTypingRef.current = false;

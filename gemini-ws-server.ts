@@ -94,23 +94,22 @@ async function logSecurityEvent(
  */
 async function checkAiSessionQuota(userId: string): Promise<boolean> {
   try {
-    // Use a user-scoped client so auth.uid() resolves correctly inside the function.
-    // We pass the service role key but impersonate the user via the JWT stored in
-    // the connection — instead, we call the function via service role and pass the
-    // user_id explicitly through a dedicated service-role helper.
     const { data, error } = await supabaseAdmin.rpc('check_and_increment_quota_for_user', {
       p_user_id:       userId,
       p_resource_type: 'ai_session',
     });
     if (error) {
       console.error(`[QUOTA] check_and_increment_quota_for_user error for ${userId}:`, error.message);
-      // Fail open on DB errors to avoid blocking legitimate users
-      return true;
+      // Fail CLOSED on DB errors: deny the session rather than bypass the quota.
+      // This prevents an attacker from exhausting server resources by triggering
+      // DB failures (e.g. connection pool exhaustion).
+      return false;
     }
     return data === true;
   } catch (e) {
     console.error(`[QUOTA] Exception checking AI quota for ${userId}:`, e);
-    return true; // Fail open
+    // Fail closed: unknown errors deny access.
+    return false;
   }
 }
 

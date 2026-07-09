@@ -3,6 +3,7 @@ import { RefreshCw, Zap, ZapOff, X, Send, Download, Loader2, UserPlus, Ghost, In
 import { useConversations } from '../../hooks/useConversations';
 import { useFriends } from '../../hooks/useFriends';
 import { useSaveMemory } from '../../hooks/useMemories';
+import { useRateLimit, QuotaExceededError } from '../../hooks/useRateLimit';
 import { supabase, getValidMediaUrl } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../ui/ToastProvider';
@@ -13,6 +14,7 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const { user, directChatId, setDirectChatId, setShowProfile, setShowFriends, setIsEditingSnap } = useAppStore();
   const { toast } = useToast();
   const { pendingCount } = useFriends();
+  const { checkQuota } = useRateLimit();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -484,6 +486,8 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     if (!user || !capturedMedia) return;
     setIsSending(true);
     try {
+      // Check upload quota before sending
+      await checkQuota('upload');
       const { path } = await uploadMedia('chats', { conversationId });
       const { error } = await supabase.from('messages').insert({
         conversation_id: conversationId,
@@ -517,8 +521,12 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
       toast('Snap envoyé avec succès !', 'success');
       discardMedia();
     } catch (err) {
-      const parsedError = err instanceof Error ? err : new Error('Envoi échoué');
-      toast('Erreur : ' + parsedError.message, 'error');
+      if (err instanceof QuotaExceededError) {
+        toast(`Limite atteinte : tu ne peux plus envoyer de snaps aujourd'hui (${err.currentCount ?? 0}/${err.dailyLimit ?? '?'})`, 'error');
+      } else {
+        const parsedError = err instanceof Error ? err : new Error('Envoi échoué');
+        toast('Erreur : ' + parsedError.message, 'error');
+      }
     } finally { setIsSending(false); }
   };
 
@@ -526,6 +534,8 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     if (!user || !capturedMedia) return;
     setIsSending(true);
     try {
+      // Check story quota before publishing
+      await checkQuota('story');
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24);
       const { path } = await uploadMedia('stories');
@@ -565,8 +575,12 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
       toast('Story publiée !', 'success');
       discardMedia();
     } catch (err) {
-      const parsedError = err instanceof Error ? err : new Error('Publication échouée');
-      toast('Erreur : ' + parsedError.message, 'error');
+      if (err instanceof QuotaExceededError) {
+        toast(`Limite atteinte : tu ne peux plus publier de stories aujourd'hui (${err.currentCount ?? 0}/${err.dailyLimit ?? '?'})`, 'error');
+      } else {
+        const parsedError = err instanceof Error ? err : new Error('Publication échouée');
+        toast('Erreur : ' + parsedError.message, 'error');
+      }
     } finally { setIsSending(false); }
   };
 

@@ -6,6 +6,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#000000" />
 
+  <!--
+    Content Security Policy
+    ─────────────────────────────────────────────────────────────────────────
+    default-src 'self'          → bloc tout par défaut sauf origines explicites
+    script-src  'self' 'unsafe-inline' unpkg.com
+                                → bundle Vite (modules ESM inline) + Leaflet CDN
+    style-src   'self' 'unsafe-inline' unpkg.com
+                                → Tailwind inline styles + Leaflet CSS
+    img-src     'self' data: blob: *.supabase.co *.supabase.in
+                api.dicebear.com *.tile.openstreetmap.org
+                *.basemaps.cartocdn.com server.arcgisonline.com
+                                → avatars, story media, map tiles, DiceBear avatars
+    media-src   'self' blob: *.supabase.co *.supabase.in
+                                → vidéos/audios snap (blob URLs + Supabase Storage)
+    connect-src 'self' wss: *.supabase.co *.supabase.in
+                nominatim.openstreetmap.org api.dicebear.com
+                                → Supabase API/Realtime WS + geocoding + avatars
+    font-src    'self' data:    → polices inline
+    frame-src   'none'          → pas d'iframes
+    object-src  'none'          → pas de plugins Flash/PDF
+    base-uri    'self'          → empêche les injections <base>
+    form-action 'self'          → empêche les soumissions vers des sites tiers
+  -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src  'self' 'unsafe-inline' https://unpkg.com;
+    style-src   'self' 'unsafe-inline' https://unpkg.com;
+    img-src     'self' data: blob:
+                https://*.supabase.co https://*.supabase.in
+                https://api.dicebear.com
+                https://*.tile.openstreetmap.org
+                https://*.basemaps.cartocdn.com
+                https://server.arcgisonline.com;
+    media-src   'self' blob:
+                https://*.supabase.co https://*.supabase.in;
+    connect-src 'self' wss:
+                https://*.supabase.co https://*.supabase.in
+                https://nominatim.openstreetmap.org
+                https://api.dicebear.com;
+    font-src    'self' data:;
+    frame-src   'none';
+    object-src  'none';
+    base-uri    'self';
+    form-action 'self';
+  " />
+
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="/logo.png">
 

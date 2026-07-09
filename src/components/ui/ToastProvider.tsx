@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
-type ToastType = 'success' | 'error' | 'info';
+type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface Toast {
   id: string;
@@ -23,12 +23,14 @@ const icons: Record<ToastType, React.ReactNode> = {
   success: <CheckCircle size={16} className="text-emerald-400 shrink-0" />,
   error: <AlertCircle size={16} className="text-red-400 shrink-0" />,
   info: <Info size={16} className="text-snap-yellow shrink-0" />,
+  warning: <AlertTriangle size={16} className="text-amber-400 shrink-0" />,
 };
 
 const accents: Record<ToastType, string> = {
   success: 'border-emerald-500/30',
   error: 'border-red-500/30',
   info: 'border-snap-yellow/30',
+  warning: 'border-amber-500/30',
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
