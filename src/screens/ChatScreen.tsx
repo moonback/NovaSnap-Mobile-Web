@@ -947,7 +947,7 @@ export default function ChatScreen() {
             >
 
             {/* Header */}
-            <div className={`flex items-center gap-3 px-4 pt-14 pb-4 border-b ${t.borderMuted}`}>
+            <div className={`flex items-center gap-3 px-4 pt-5 pb-4 border-b ${t.borderMuted}`}>
               <motion.button
                 onClick={resetModalState}
                 whileTap={{ scale: 0.9 }}
