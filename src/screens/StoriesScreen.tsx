@@ -337,7 +337,7 @@ export default function StoriesScreen() {
   return (
     <div className={`relative w-full h-full flex flex-col overflow-hidden ${t.bg} ${t.text}`}>
         {/* ── Header — Snapchat style ── */}
-        <div className="relative flex items-center justify-between px-4 pt-12 pb-3">
+        <div className="relative flex items-center justify-between px-4 pt-5 pb-3">
           {/* Left — add story */}
           <button
             onClick={() => setCurrentView('camera')}

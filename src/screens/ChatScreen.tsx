@@ -190,7 +190,6 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
   // Optimized motion transforms
   const deleteOpacity = useTransform(x, [-80, -40], [1, 0]);
   const deleteScale = useTransform(x, [-200, -72], [1.3, 1]);
-  const bgColor = useTransform(x, [-200, -72, 0], ['#FFFC00', '#FFFC00', '#FFFC00']);
 
   const snapBack = useCallback(() => {
     animate(x, 0, { type: 'spring', stiffness: 400, damping: 30 });
@@ -272,10 +271,10 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
 
   return (
     <div className="relative overflow-hidden">
-      {/* Delete background */}
+      {/* Delete background — red, not yellow */}
       <motion.div
         className="absolute inset-0 flex items-center justify-end pr-6"
-        style={{ backgroundColor: bgColor }}
+        style={{ backgroundColor: '#ef4444' }}
       >
         <motion.div 
           style={{ opacity: deleteOpacity, scale: deleteScale }} 
@@ -283,40 +282,30 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
         >
           <AnimatePresence mode="wait">
             {isDeleting ? (
-              <motion.div
-                key="loader"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0 }}
-              >
-                <Loader2 size={22} className="text-black animate-spin" />
+              <motion.div key="loader" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                <Loader2 size={22} className="text-white animate-spin" />
               </motion.div>
             ) : (
-              <motion.div
-                key="trash"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0 }}
-              >
-                <Trash2 size={22} className="text-black" />
+              <motion.div key="trash" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                <Trash2 size={22} className="text-white" />
               </motion.div>
             )}
           </AnimatePresence>
-          <span className="text-black text-[9px] font-black uppercase tracking-wider">Suppr.</span>
+          <span className="text-white text-[9px] font-black uppercase tracking-wider">Suppr.</span>
         </motion.div>
       </motion.div>
 
       {/* Row content */}
       <motion.div
         style={{ x }}
-        className={`relative flex items-center gap-3.5 pl-4 pr-3 py-3 cursor-pointer select-none touch-pan-y border-b ${t.borderMuted} ${isDeleting ? 'pointer-events-none' : ''}`}
+        className={`relative flex items-center gap-3.5 pl-4 pr-3 py-3.5 cursor-pointer select-none touch-pan-y ${isDeleting ? 'pointer-events-none' : ''} ${hasNew ? (t.isLight ? 'bg-black/[0.03]' : 'bg-white/[0.04]') : ''}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onClick={handleClick}
       >
         <div className="relative shrink-0">
-          <div className={`w-[52px] h-[52px] rounded-full overflow-hidden transition-all duration-200 ${hasNew ? `ring-[2.5px] ${ringColor} ring-offset-[2.5px] ${t.ringOffset}` : ''}`}>
+          <div className={`w-[52px] h-[52px] rounded-full overflow-hidden transition-all duration-200 ${hasNew ? `ring-[2px] ${ringColor} ring-offset-[2px] ${t.ringOffset}` : ''}`}>
             {isGroup ? (
               <div className={`w-full h-full bg-gradient-to-br ${getGroupGradient(avatarPreset)} flex items-center justify-center font-black text-white text-sm tracking-wider`}>
                 {initials}
@@ -328,7 +317,7 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
                 className="w-full h-full object-cover" 
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-[#FFFC00] to-[#ff9500] flex items-center justify-center font-black text-black text-sm">
+              <div className="w-full h-full bg-gradient-to-br from-neutral-600 to-neutral-800 flex items-center justify-center font-black text-white text-sm">
                 {initials}
               </div>
             )}
@@ -337,11 +326,11 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
 
         <div className="flex-1 min-w-0 py-0.5">
           <div className="flex items-baseline justify-between gap-2 mb-0.5">
-            <span className={`truncate ${hasNew ? 'font-black text-[16px]' : 'font-bold text-[15px]'} tracking-tight ${t.text}`}>
+            <span className={`truncate ${hasNew ? 'font-black text-[15.5px]' : 'font-semibold text-[15px]'} tracking-tight ${t.text}`}>
               {displayTitle}
             </span>
             {lastMsg && (
-              <span className={`text-[11px] shrink-0 tabular-nums ${hasNew ? 'text-snap-yellow font-bold' : t.textFaint}`}>
+              <span className={`text-[11px] shrink-0 tabular-nums ${t.textFaint}`}>
                 {timeAgo(lastMsg.created_at)}
               </span>
             )}
@@ -353,6 +342,11 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
             </div>
           </div>
         </div>
+
+        {/* Unread dot — small and clean */}
+        {hasNew && (
+          <div className="w-2 h-2 rounded-full bg-[#00b2ff] shrink-0 self-center" />
+        )}
       </motion.div>
     </div>
   );
@@ -732,16 +726,13 @@ export default function ChatScreen() {
   return (
     <div className={`w-full h-full flex flex-col overflow-hidden ${t.bg} ${t.text}`}>
       {/* ── Header Snapchat ── */}
-      <div className="shrink-0 px-4 pt-14 pb-3">
+      <div className="shrink-0 px-4 pt-5 pb-3">
         <div className="flex items-center justify-between mb-4">
           <motion.button
             onClick={() => setShowProfile(true)}
             aria-label="Profil"
             whileTap={{ scale: 0.9 }}
-            className="w-10 h-10 rounded-full overflow-hidden shrink-0"
-            style={{
-              boxShadow: '0 0 0 2px rgba(255,252,0,0.35)',
-            }}
+            className="w-10 h-10 rounded-full overflow-hidden shrink-0 ring-[1.5px] ring-white/20"
           >
             {currentProfile?.avatar_url ? (
               <img src={currentProfile.avatar_url} className="w-full h-full object-cover" alt="avatar" />
@@ -763,9 +754,9 @@ export default function ChatScreen() {
             onClick={() => setShowNewChatModal(true)}
             aria-label="Nouveau message"
             whileTap={{ scale: 0.9 }}
-            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-snap-yellow text-black shadow-[0_2px_12px_rgba(255,252,0,0.35)]"
+            className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${t.isLight ? 'bg-black/8 text-black' : 'bg-white/10 text-white'}`}
           >
-            <UserPlus size={18} strokeWidth={2.5} />
+            <UserPlus size={18} strokeWidth={2} />
           </motion.button>
         </div>
 
@@ -801,8 +792,8 @@ export default function ChatScreen() {
                 className="flex flex-col items-center gap-1.5 shrink-0 w-[56px]"
                 aria-label="Nouveau chat"
               >
-                <div className="w-[52px] h-[52px] rounded-full bg-snap-yellow flex items-center justify-center shadow-[0_2px_10px_rgba(255,252,0,0.3)]">
-                  <MessageCirclePlus size={22} className="text-black" strokeWidth={2.2} />
+                <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center shadow-sm" style={{ background: t.isLight ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.1)' }}>
+                  <MessageCirclePlus size={22} className={t.text} strokeWidth={1.8} />
                 </div>
                 <span className="text-[10px] font-bold text-center leading-tight max-w-[56px] truncate">Nouveau</span>
               </motion.button>
@@ -819,17 +810,17 @@ export default function ChatScreen() {
                   className="flex flex-col items-center gap-1.5 shrink-0 w-[56px]"
                   aria-label={`Ouvrir la conversation avec ${friend.name}`}
                 >
-                  <div className={`relative w-[52px] h-[52px] rounded-full overflow-hidden ${friend.hasNew ? `ring-[2.5px] ring-snap-yellow ring-offset-[2.5px] ${t.ringOffset}` : ''}`}>
+                  <div className={`relative w-[52px] h-[52px] rounded-full overflow-hidden ${friend.hasNew ? `ring-[2px] ring-[#00b2ff] ring-offset-[2px] ${t.ringOffset}` : ''}`}>
                     {friend.avatar ? (
                       <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-[#FFFC00] to-[#ff9500] flex items-center justify-center font-black text-black text-xs">
+                      <div className="w-full h-full bg-gradient-to-br from-neutral-500 to-neutral-700 flex items-center justify-center font-black text-white text-xs">
                         {friend.name.substring(0, 2).toUpperCase()}
                       </div>
                     )}
                     {/* New message dot indicator */}
                     {friend.hasNew && (
-                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-snap-yellow rounded-full border-2 border-black" />
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#00b2ff] rounded-full border-2 border-black" />
                     )}
                   </div>
                   <span className={`text-[10px] text-center leading-tight max-w-[56px] truncate ${friend.hasNew ? 'font-black' : 'font-semibold'} ${t.textMuted}`}>
@@ -850,11 +841,11 @@ export default function ChatScreen() {
             onClick={() => setShowNewChatModal(true)}
             className={`w-full flex items-center gap-3.5 pl-4 pr-3 py-3.5 border-b ${t.borderMuted} transition-opacity`}
           >
-            <div className="w-[52px] h-[52px] rounded-full bg-snap-yellow flex items-center justify-center shrink-0 shadow-[0_2px_12px_rgba(255,252,0,0.25)]">
-              <Camera size={22} className="text-black" strokeWidth={2.2} />
+            <div className={`w-[52px] h-[52px] rounded-full flex items-center justify-center shrink-0 ${t.isLight ? 'bg-black/6' : 'bg-white/8'}`}>
+              <Camera size={22} className={t.textMuted} strokeWidth={1.8} />
             </div>
             <div className="flex-1 text-left">
-              <p className="font-black text-[16px] tracking-tight">Nouveau Snap / Chat</p>
+              <p className={`font-bold text-[15px] tracking-tight ${t.text}`}>Nouveau Snap / Chat</p>
               <p className={`text-[13px] mt-0.5 ${t.textMuted}`}>Envoie un message à un ami</p>
             </div>
           </motion.button>
@@ -884,7 +875,7 @@ export default function ChatScreen() {
                   <p className={`text-[11px] font-black uppercase tracking-[0.12em] ${t.textFaint}`}>
                     Nouveaux
                   </p>
-                  <span className="text-[10px] font-black bg-snap-yellow text-black rounded-full px-2 py-0.5 leading-none">
+                  <span className={`text-[10px] font-black rounded-full px-2 py-0.5 leading-none ${t.isLight ? 'bg-black/8 text-black/60' : 'bg-white/10 text-white/60'}`}>
                     {newConversations.length}
                   </span>
                 </div>
@@ -929,7 +920,7 @@ export default function ChatScreen() {
               onClick={() => setShowNewChatModal(true)}
               whileTap={{ scale: 0.94 }}
               whileHover={{ scale: 1.03 }}
-              className="px-8 py-3.5 text-black font-black rounded-full text-[14px] bg-snap-yellow shadow-[0_6px_24px_rgba(255,252,0,0.35)]"
+              className={`px-8 py-3.5 font-bold rounded-full text-[14px] border ${t.isLight ? 'border-black/15 text-black bg-black/5' : 'border-white/15 text-white bg-white/8'}`}
             >
               Commencer à chatter
             </motion.button>
@@ -986,7 +977,7 @@ export default function ChatScreen() {
                   type="button"
                   onClick={() => setModalMode('chat')}
                   whileTap={{ scale: 0.98 }}
-                  className={`relative flex-1 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all z-10 ${modalMode === 'chat' ? 'text-black' : `${t.textMuted} hover:text-current`}`}
+                  className={`relative flex-1 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all z-10 ${modalMode === 'chat' ? (t.isLight ? 'text-black' : 'text-white') : `${t.textMuted} hover:text-current`}`}
                 >
                   Nouveau Chat
                 </motion.button>
@@ -994,12 +985,12 @@ export default function ChatScreen() {
                   type="button"
                   onClick={() => setModalMode('group')}
                   whileTap={{ scale: 0.98 }}
-                  className={`relative flex-1 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all z-10 ${modalMode === 'group' ? 'text-black' : `${t.textMuted} hover:text-current`}`}
+                  className={`relative flex-1 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all z-10 ${modalMode === 'group' ? (t.isLight ? 'text-black' : 'text-white') : `${t.textMuted} hover:text-current`}`}
                 >
                   Nouveau Groupe
                 </motion.button>
                 <motion.div
-                  className="absolute bg-snap-yellow rounded-full shadow-md"
+                  className="absolute bg-white/90 dark:bg-white/15 rounded-full shadow-sm"
                   animate={{
                     x: modalMode === 'chat' ? 4 : '50%',
                     width: modalMode === 'chat' ? 'calc(50% - 8px)' : 'calc(50% - 8px)'
@@ -1347,7 +1338,7 @@ const UserRow: React.FC<{
             className="w-full h-full object-cover" 
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-[#FFFC00] to-[#ff9500] flex items-center justify-center font-black text-black text-sm">
+          <div className="w-full h-full bg-gradient-to-br from-neutral-500 to-neutral-700 flex items-center justify-center font-black text-white text-sm">
             {user.username?.substring(0, 2).toUpperCase()}
           </div>
         )}
@@ -1359,7 +1350,7 @@ const UserRow: React.FC<{
             {user.display_name || user.username}
           </p>
           {isFriend && (
-            <span className="text-[9px] font-black text-black bg-snap-yellow rounded-full px-2 py-0.5 shrink-0 uppercase tracking-wide">
+            <span className={`text-[9px] font-black rounded-full px-2 py-0.5 shrink-0 uppercase tracking-wide ${t.isLight ? 'bg-black/8 text-black/50' : 'bg-white/10 text-white/50'}`}>
               Ami
             </span>
           )}
@@ -1384,9 +1375,9 @@ const UserRow: React.FC<{
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="w-8 h-8 rounded-full bg-snap-yellow flex items-center justify-center"
+              className={`w-8 h-8 rounded-full flex items-center justify-center ${t.isLight ? 'bg-black/7 text-black/60' : 'bg-white/10 text-white/60'}`}
             >
-              <UserPlus size={15} className="text-black" strokeWidth={2.5} />
+              <UserPlus size={15} strokeWidth={2} />
             </motion.div>
           )}
         </AnimatePresence>
