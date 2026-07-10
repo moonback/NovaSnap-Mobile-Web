@@ -1,17 +1,9 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Ghost,
-  Flame,
-  Settings,
-  X,
-  Search,
-  Navigation,
-  Play,
-  Loader2,
-  Layers,
-  Users,
-  ImageOff,
+  Ghost, Flame, Settings, X, Search, Navigation, Play, Loader2,
+  Layers, Users, ImageOff, ZoomIn, ZoomOut, ChevronDown, MapPin,
+  Send, Heart, Reply, Eye, Clock,
 } from 'lucide-react';
 import { useFriends } from '../hooks/useFriends';
 import { useFriendLocations } from '../hooks/useFriendLocations';
@@ -21,1048 +13,875 @@ import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
 import type { StoryRow } from '../lib/types';
 
-// Leaflet CDN links
 const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+const LEAFLET_JS  = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 
-export default function MapScreen() {
-  const { friends, isLoading: friendsLoading } = useFriends();
-  const { user, setShowProfile } = useAppStore();
-  const { data: currentProfile } = useCurrentUserProfile();
-  const { toast } = useToast();
-  const { data: allStories = [], isLoading: storiesLoading } = useStories();
+// ─── tiny helpers ────────────────────────────────────────────────────────────
+const distanceLabel = (m: number) =>
+  m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
 
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [isGhostMode, setIsGhostMode] = useState(() => {
-    return localStorage.getItem('novasnap_settings_ghost_mode') === 'true';
-  });
-  const [showHeatmap, setShowHeatmap] = useState(() => {
-    return localStorage.getItem('novasnap_map_show_heatmap') !== 'false';
-  });
-  const [activeStory, setActiveStory] = useState<StoryRow | null>(null);
-  const [currentProgress, setCurrentProgress] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [placeResults, setPlaceResults] = useState<any[]>([]);
-  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+const timeAgo = (iso: string) => {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60_000);
+  if (m < 1)  return 'À l\'instant';
+  if (m < 60) return `Il y a ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `Il y a ${h} h`;
+  return `Il y a ${Math.floor(h / 24)} j`;
+};
 
-  const [showSettings, setShowSettings] = useState(false);
-  const [userCoords, setUserCoords] = useState<[number, number]>([48.8566, 2.3522]); // Default: Paris Center
-  const { data: friendLocations = [] } = useFriendLocations(
-    userCoords[0], userCoords[1],
+// ─── Friend pop-up card ───────────────────────────────────────────────────────
+interface FriendPopupProps {
+  friend: { user_id: string; username: string; avatar_url: string | null; distance_m: number; updated_at: string };
+  onClose: () => void;
+  onCenter: () => void;
+  onChat: () => void;
+}
+const FriendPopup: React.FC<FriendPopupProps> = ({ friend, onClose, onCenter, onChat }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 12, scale: 0.95 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    exit={{ opacity: 0, y: 12, scale: 0.95 }}
+    transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+    className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 w-56 z-50"
+  >
+    <div className="bg-[#111116]/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-4 shadow-2xl flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <div className="relative flex-shrink-0">
+          <div className="w-11 h-11 rounded-full overflow-hidden ring-2 ring-snap-yellow">
+            {friend.avatar_url
+              ? <img src={friend.avatar_url} className="w-full h-full object-cover" alt={friend.username} />
+              : <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">{(friend.username||'U')[0].toUpperCase()}</div>}
+          </div>
+          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-[#111116] rounded-full" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-black text-white text-sm truncate">{friend.username}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <MapPin size={10} className="text-snap-yellow flex-shrink-0" />
+            <span className="text-[10px] text-white/50 font-bold">{distanceLabel(friend.distance_m)}</span>
+            <span className="text-white/20">·</span>
+            <Clock size={10} className="text-white/40 flex-shrink-0" />
+            <span className="text-[10px] text-white/50 font-bold">{timeAgo(friend.updated_at)}</span>
+          </div>
+        </div>
+        <button onClick={onClose} className="w-6 h-6 rounded-full bg-white/8 flex items-center justify-center text-white/50 hover:text-white flex-shrink-0" aria-label="Fermer">
+          <X size={12} />
+        </button>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={onCenter} className="flex-1 py-2 rounded-2xl bg-white/8 text-white/80 text-[11px] font-black flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+          <Navigation size={11} /> Centrer
+        </button>
+        <button onClick={onChat} className="flex-1 py-2 rounded-2xl bg-snap-yellow text-black text-[11px] font-black flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+          <Send size={11} /> Message
+        </button>
+      </div>
+    </div>
+    {/* caret */}
+    <div className="w-3 h-3 bg-[#111116]/95 border-r border-b border-white/10 rotate-45 mx-auto -mt-1.5 rounded-sm" />
+  </motion.div>
+);
+
+// ─── Story Player ─────────────────────────────────────────────────────────────
+interface StoryPlayerProps {
+  stories: StoryRow[];
+  startIndex: number;
+  onClose: () => void;
+}
+const StoryPlayer: React.FC<StoryPlayerProps> = ({ stories, startIndex, onClose }) => {
+  const [idx, setIdx]         = useState(startIndex);
+  const [progress, setProgress] = useState(0);
+  const [paused, setPaused]   = useState(false);
+  const [liked, setLiked]     = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [showReply, setShowReply] = useState(false);
+  const holdTimer = useRef<ReturnType<typeof setTimeout>>();
+  const story = stories[idx];
+
+  useEffect(() => { setProgress(0); setLiked(false); setShowReply(false); }, [idx]);
+
+  useEffect(() => {
+    if (!story || paused) return;
+    const iv = setInterval(() => {
+      setProgress(p => {
+        if (p >= 100) {
+          clearInterval(iv);
+          if (idx + 1 < stories.length) { setIdx(i => i + 1); }
+          else { onClose(); }
+          return 0;
+        }
+        return p + 2;
+      });
+    }, 100);
+    return () => clearInterval(iv);
+  }, [story, paused, idx]);
+
+  if (!story) return null;
+
+  const username  = story.users?.username  || 'Utilisateur';
+  const avatarUrl = story.users?.avatar_url;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 z-50 bg-black flex flex-col select-none"
+    >
+      {/* Progress bars */}
+      <div className="absolute top-0 inset-x-0 pt-11 px-3 flex gap-1 z-20 pointer-events-none">
+        {stories.map((s, i) => (
+          <div key={s.id} className="h-[3px] flex-1 bg-white/25 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-white rounded-full"
+              style={{ width: i < idx ? '100%' : i === idx ? `${progress}%` : '0%' }}
+              transition={{ duration: 0.1, ease: 'linear' }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Header */}
+      <div className="absolute top-14 inset-x-0 px-4 flex items-center justify-between z-20">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-snap-yellow">
+            {avatarUrl
+              ? <img src={avatarUrl} className="w-full h-full object-cover" alt="" />
+              : <div className="w-full h-full bg-snap-yellow flex items-center justify-center font-black text-black text-sm">{username[0].toUpperCase()}</div>}
+          </div>
+          <div>
+            <p className="text-white font-black text-sm leading-tight">{username}</p>
+            <p className="text-white/50 text-[10px] font-bold">{idx + 1}/{stories.length} · {timeAgo(story.created_at)}</p>
+          </div>
+        </div>
+        <button onClick={onClose} aria-label="Fermer la story" className="w-9 h-9 rounded-full glass-dark flex items-center justify-center text-white active:scale-90 transition-transform">
+          <X size={20} />
+        </button>
+      </div>
+
+      {/* Media — hold to pause */}
+      <div
+        className="flex-1 w-full flex items-center justify-center bg-zinc-950 relative overflow-hidden"
+        onPointerDown={() => { holdTimer.current = setTimeout(() => setPaused(true), 150); }}
+        onPointerUp={() => { clearTimeout(holdTimer.current); setPaused(false); }}
+        onPointerLeave={() => { clearTimeout(holdTimer.current); setPaused(false); }}
+      >
+        {story.media_type === 'VIDEO'
+          ? <video key={story.id} src={story.media_url} autoPlay muted playsInline className="w-full h-full object-cover" />
+          : story.media_url
+            ? <img src={story.media_url} alt="Story" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
+            : <div className="flex flex-col items-center gap-3 text-white/30"><ImageOff size={40} /><p className="text-xs font-bold">Média indisponible</p></div>}
+        {paused && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
+            <div className="w-14 h-14 rounded-full bg-black/50 flex items-center justify-center"><div className="flex gap-1.5"><div className="w-1.5 h-6 bg-white rounded-full" /><div className="w-1.5 h-6 bg-white rounded-full" /></div></div>
+          </div>
+        )}
+      </div>
+
+      {/* Tap zones prev / next */}
+      <div className="absolute inset-0 flex z-10 pointer-events-none">
+        <div className="flex-1 pointer-events-auto" onClick={() => { if (idx > 0) { setIdx(idx - 1); setProgress(0); } }} />
+        <div className="flex-1 pointer-events-auto" onClick={() => { if (idx + 1 < stories.length) { setIdx(idx + 1); setProgress(0); } else onClose(); }} />
+      </div>
+
+      {/* Bottom actions */}
+      <div className="absolute bottom-0 inset-x-0 px-4 pb-10 z-20 flex flex-col gap-3 pointer-events-none">
+        <AnimatePresence>
+          {showReply && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+              className="flex items-center gap-2 pointer-events-auto">
+              <input
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                placeholder={`Répondre à ${username}…`}
+                className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-4 py-2.5 text-white text-xs placeholder-white/40 outline-none"
+                autoFocus
+              />
+              <button className="w-10 h-10 rounded-full bg-snap-yellow flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform" aria-label="Envoyer">
+                <Send size={16} className="text-black" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <div className="flex items-center justify-between pointer-events-auto">
+          <button onClick={() => setShowReply(v => !v)} className="flex items-center gap-2 py-2.5 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white text-xs font-bold active:scale-95 transition-transform">
+            <Reply size={14} /> Répondre
+          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setLiked(v => !v)} aria-label="J'aime" className="active:scale-90 transition-transform">
+              <Heart size={24} className={liked ? 'fill-red-500 text-red-500' : 'text-white'} />
+            </button>
+            <button aria-label="Partager" className="active:scale-90 transition-transform">
+              <Send size={22} className="text-white" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
-  const [coordsLoading, setCoordsLoading] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [mapStyle, setMapStyle] = useState<'dark' | 'satellite'>(() => {
-    return (localStorage.getItem('novasnap_map_style') as 'dark' | 'satellite') || 'dark';
-  });
-  const [showFriendsOnMap, setShowFriendsOnMap] = useState(() => {
-    return localStorage.getItem('novasnap_map_show_friends') !== 'false';
-  });
+};
 
-  // Stories grouped by author (one entry per user, most recent story first)
+// ─── Settings Sheet ────────────────────────────────────────────────────────────
+interface SettingsSheetProps {
+  onClose: () => void;
+  isGhostMode: boolean;       onToggleGhost: () => void;
+  showHeatmap: boolean;       onToggleHeatmap: () => void;
+  showFriendsOnMap: boolean;  onToggleFriends: () => void;
+  mapStyle: 'dark' | 'satellite'; onChangeStyle: (s: 'dark' | 'satellite') => void;
+}
+const SettingsSheet: React.FC<SettingsSheetProps> = ({
+  onClose, isGhostMode, onToggleGhost, showHeatmap, onToggleHeatmap,
+  showFriendsOnMap, onToggleFriends, mapStyle, onChangeStyle,
+}) => {
+  const ToggleRow = ({ icon, label, desc, active, onToggle, color }: {
+    icon: React.ReactNode; label: string; desc: string;
+    active: boolean; onToggle: () => void; color: string;
+  }) => (
+    <div className="flex items-center justify-between bg-white/[0.04] border border-white/[0.06] rounded-2xl p-3.5">
+      <div className="flex items-center gap-3">
+        <div className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center flex-shrink-0`}>{icon}</div>
+        <div><p className="text-xs font-bold text-white">{label}</p><p className="text-[9px] text-white/40 mt-0.5">{desc}</p></div>
+      </div>
+      <button
+        onClick={onToggle}
+        aria-label={`${active ? 'Désactiver' : 'Activer'} ${label}`}
+        className={`w-11 h-6 rounded-full p-0.5 transition-colors relative flex-shrink-0 ${active ? 'bg-snap-yellow' : 'bg-white/15'}`}
+      >
+        <motion.div layout className={`w-5 h-5 rounded-full bg-black shadow transition-all ${active ? 'translate-x-5' : 'translate-x-0'}`} />
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-40 flex items-end justify-center p-4 pb-28" onClick={onClose}>
+      <motion.div
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+        className="w-full bg-[#0e0e14] border border-white/10 rounded-[32px] p-5 flex flex-col gap-4 max-h-[72vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-black text-white">Réglages Carte</h3>
+          <button onClick={onClose} aria-label="Fermer" className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:text-white active:scale-90 transition-transform">
+            <X size={16} />
+          </button>
+        </div>
+
+        <ToggleRow icon={<Ghost size={18} className="text-purple-400" />} label="Mode Fantôme"
+          desc="Ta position est invisible pour tes amis."
+          active={isGhostMode} onToggle={onToggleGhost} color="bg-purple-600/15 border border-purple-500/20" />
+
+        <ToggleRow icon={<Flame size={18} className="text-orange-400" />} label="Zones Actives"
+          desc="Heatmap des zones à forte activité."
+          active={showHeatmap} onToggle={onToggleHeatmap} color="bg-orange-500/15 border border-orange-500/20" />
+
+        <ToggleRow icon={<Users size={18} className="text-green-400" />} label="Afficher les Amis"
+          desc="Voir tes amis en temps réel sur la carte."
+          active={showFriendsOnMap} onToggle={onToggleFriends} color="bg-green-500/15 border border-green-500/20" />
+
+        {/* Map style pill selector */}
+        <div className="bg-white/[0.04] border border-white/[0.06] rounded-2xl p-3.5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0"><Layers size={18} className="text-blue-400" /></div>
+            <div><p className="text-xs font-bold text-white">Style de Carte</p><p className="text-[9px] text-white/40 mt-0.5">Choisir l'apparence de la carte</p></div>
+          </div>
+          <div className="flex gap-2">
+            {(['dark', 'satellite'] as const).map(s => (
+              <button key={s} onClick={() => onChangeStyle(s)}
+                className={`flex-1 py-2 rounded-full text-[11px] font-black transition-all active:scale-95 ${mapStyle === s ? 'bg-snap-yellow text-black' : 'bg-white/10 text-white/60'}`}>
+                {s === 'dark' ? '🌑 Sombre' : '🛰 Satellite'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={onClose} className="w-full py-3.5 bg-snap-yellow text-black font-black text-xs rounded-2xl shadow-snap-sm active:scale-95 transition-all">
+          Appliquer et fermer
+        </button>
+      </motion.div>
+    </div>
+  );
+};
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+export default function MapScreen() {
+  const { friends, isLoading: friendsLoading }  = useFriends();
+  const { user, setCurrentView, setDirectChatId } = useAppStore();
+  const { data: currentProfile }                = useCurrentUserProfile();
+  const { toast }                               = useToast();
+  const { data: allStories = [], isLoading: storiesLoading } = useStories();
+  const { setShowProfile } = useAppStore();
+
+  // ── Map state ──
+  const [mapLoaded, setMapLoaded]   = useState(false);
+  const [isGhostMode, setIsGhostMode] = useState(() => localStorage.getItem('novasnap_settings_ghost_mode') === 'true');
+  const [showHeatmap, setShowHeatmap] = useState(() => localStorage.getItem('novasnap_map_show_heatmap') !== 'false');
+  const [mapStyle, setMapStyle]     = useState<'dark' | 'satellite'>(() => (localStorage.getItem('novasnap_map_style') as 'dark' | 'satellite') || 'dark');
+  const [showFriendsOnMap, setShowFriendsOnMap] = useState(() => localStorage.getItem('novasnap_map_show_friends') !== 'false');
+
+  // ── User coords ──
+  const [userCoords, setUserCoords]     = useState<[number, number]>([48.8566, 2.3522]);
+  const [coordsLoading, setCoordsLoading] = useState(false);
+  const { data: friendLocations = [] }  = useFriendLocations(userCoords[0], userCoords[1]);
+
+  // ── Search ──
+  const [searchQuery, setSearchQuery]     = useState('');
+  const [debounced, setDebounced]         = useState('');
+  const [placeResults, setPlaceResults]   = useState<any[]>([]);
+  const [isSearching, setIsSearching]     = useState(false);
+
+  // ── UI panels ──
+  const [showSettings, setShowSettings]   = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen]   = useState(false);
+
+  // ── Story viewer ──
+  const [activeAuthorId, setActiveAuthorId]   = useState<string | null>(null);
+  const [storyStartIndex, setStoryStartIndex] = useState(0);
+
+  // ── Friend pop-up ──
+  const [activeFriendPopup, setActiveFriendPopup] = useState<string | null>(null);
+
+  // ── Refs ──
+  const mapContainerRef   = useRef<HTMLDivElement>(null);
+  const mapInstanceRef    = useRef<any>(null);
+  const userMarkerRef     = useRef<any>(null);
+  const friendMarkersRef  = useRef<Map<string, any>>(new Map());
+  const storyMarkersRef   = useRef<any[]>([]);
+  const heatmapLayerRef   = useRef<any[]>([]);
+  const tileLayerRef      = useRef<any>(null);
+
+  // ── Derived data ──
   const storyAuthors = useMemo(() => {
     const map = new Map<string, StoryRow>();
-    for (const story of allStories) {
-      if (!map.has(story.user_id)) {
-        map.set(story.user_id, story);
-      }
-    }
+    for (const s of allStories) if (!map.has(s.user_id)) map.set(s.user_id, s);
     return Array.from(map.values());
   }, [allStories]);
 
-  // Stories for the active author (for sequential playback)
-  const [activeAuthorId, setActiveAuthorId] = useState<string | null>(null);
-  const [activeStoryIndex, setActiveStoryIndex] = useState(0);
+  const authorStories = useMemo(() =>
+    activeAuthorId ? allStories.filter(s => s.user_id === activeAuthorId) : [],
+    [allStories, activeAuthorId]);
 
-  const authorStories = useMemo(() => {
-    if (!activeAuthorId) return [];
-    return allStories.filter(s => s.user_id === activeAuthorId);
-  }, [allStories, activeAuthorId]);
+  const filteredFriends = useMemo(() =>
+    searchQuery ? friendLocations.filter(f => f.username?.toLowerCase().includes(searchQuery.toLowerCase())) : [],
+    [searchQuery, friendLocations]);
 
-  const openAuthorStories = (authorId: string) => {
-    const stories = allStories.filter(s => s.user_id === authorId);
-    if (stories.length === 0) return;
-    setActiveAuthorId(authorId);
-    setActiveStoryIndex(0);
-    setActiveStory(stories[0]);
-    setCurrentProgress(0);
-  };
+  // ─── Effects ──────────────────────────────────────────────────────────────
 
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const userMarkerRef = useRef<any>(null);
-  const friendMarkersRef = useRef<any[]>([]);
-  const landmarkMarkersRef = useRef<any[]>([]);
-  const heatmapLayerRef = useRef<any[]>([]);
-
-  // Search Logic
+  // Debounce search
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 500);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setDebounced(searchQuery), 500);
+    return () => clearTimeout(t);
   }, [searchQuery]);
 
+  // Nominatim place search
   useEffect(() => {
-    if (!debouncedSearchQuery || debouncedSearchQuery.length < 2) {
-      setPlaceResults([]);
-      return;
-    }
+    if (!debounced || debounced.length < 2) { setPlaceResults([]); return; }
+    let live = true;
+    setIsSearching(true);
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(debounced)}&limit=5`)
+      .then(r => r.json())
+      .then(d => { if (live) setPlaceResults(d); })
+      .catch(console.error)
+      .finally(() => { if (live) setIsSearching(false); });
+    return () => { live = false; };
+  }, [debounced]);
 
-    let isActive = true;
-    const fetchPlaces = async () => {
-      setIsSearchingPlaces(true);
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(debouncedSearchQuery)}&limit=5`);
-        const data = await res.json();
-        if (isActive) setPlaceResults(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (isActive) setIsSearchingPlaces(false);
-      }
-    };
-    fetchPlaces();
-    return () => { isActive = false; };
-  }, [debouncedSearchQuery]);
-
-  const filteredFriends = useMemo(() => {
-    if (!searchQuery) return [];
-    return friendLocations.filter(f =>
-      f.username?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery, friendLocations]);
-
-  // 1. Dynamic GPS User Coordinates
+  // GPS
   useEffect(() => {
     if (!navigator.geolocation) return;
     setCoordsLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserCoords([pos.coords.latitude, pos.coords.longitude]);
-        setCoordsLoading(false);
-      },
-      (err) => {
-        console.warn('Geolocation denied or unavailable, using default Paris.', err);
-        setCoordsLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 5000 }
+      pos => { setUserCoords([pos.coords.latitude, pos.coords.longitude]); setCoordsLoading(false); },
+      err => { console.warn('GPS:', err); setCoordsLoading(false); },
+      { enableHighAccuracy: true, timeout: 6000 }
     );
   }, []);
 
-  // 2. Load Leaflet Dynamically to bypass Vite/React 19 build conflicts
+  // Load Leaflet CDN
   useEffect(() => {
-    let cssLink = document.getElementById('leaflet-css') as HTMLLinkElement;
-    let jsScript = document.getElementById('leaflet-js') as HTMLScriptElement;
-
-    const initializeMapState = () => {
-      setMapLoaded(true);
-    };
-
-    if (!cssLink) {
-      cssLink = document.createElement('link');
-      cssLink.id = 'leaflet-css';
-      cssLink.rel = 'stylesheet';
-      cssLink.href = LEAFLET_CSS;
-      document.head.appendChild(cssLink);
-    }
-
-    if (!jsScript) {
-      jsScript = document.createElement('script');
-      jsScript.id = 'leaflet-js';
-      jsScript.src = LEAFLET_JS;
-      jsScript.async = true;
-      jsScript.onload = initializeMapState;
-      document.body.appendChild(jsScript);
-    } else {
-      if ((window as any).L) {
-        initializeMapState();
-      } else {
-        jsScript.onload = initializeMapState;
-      }
-    }
-
-    return () => {
-      // Keep CDN scripts for subsequent loads, but clean up active instances
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
+    let css = document.getElementById('leaflet-css') as HTMLLinkElement;
+    let js  = document.getElementById('leaflet-js') as HTMLScriptElement;
+    const init = () => setMapLoaded(true);
+    if (!css) { css = document.createElement('link'); css.id='leaflet-css'; css.rel='stylesheet'; css.href=LEAFLET_CSS; document.head.appendChild(css); }
+    if (!js)  { js = document.createElement('script'); js.id='leaflet-js'; js.src=LEAFLET_JS; js.async=true; js.onload=init; document.body.appendChild(js); }
+    else       { (window as any).L ? init() : (js.onload = init); }
+    return () => { if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
   }, []);
 
-  // 3. Initialize Leaflet Map
+  // Inject custom CSS once
   useEffect(() => {
-    if (!mapLoaded || !mapContainerRef.current || mapInstanceRef.current) return;
-
-    const L = (window as any).L;
-    if (!L) return;
-
-    // Create Leaflet Map Center
-    const map = L.map(mapContainerRef.current, {
-      center: userCoords,
-      zoom: 13,
-      zoomControl: false,
-      attributionControl: false,
-    });
-
-    mapInstanceRef.current = map;
-
-    // Custom CSS styles injection for Leaflet components
+    if (!mapLoaded) return;
+    const id = 'novasnap-map-styles';
+    if (document.getElementById(id)) return;
     const style = document.createElement('style');
+    style.id = id;
     style.innerHTML = `
-      .pulsing-blue-dot {
-        width: 14px;
-        height: 14px;
-        background: #0084ff;
-        border: 2px solid white;
-        border-radius: 50%;
-        box-shadow: 0 0 0 4px rgba(0, 132, 255, 0.4), 0 0 20px rgba(0, 132, 255, 0.6);
-        animation: pulseBlue 1.6s infinite alternate;
-      }
-      .pulsing-ghost-dot {
-        width: 16px;
-        height: 16px;
-        background: #a855f7;
-        border: 2px solid white;
-        border-radius: 50%;
-        box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.4), 0 0 20px rgba(168, 85, 247, 0.6);
-        animation: pulseGhost 1.6s infinite alternate;
-      }
-      .friend-avatar-marker {
-        border: 2px solid #FFC0CB;
-        border-radius: 50%;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-        background: #000;
-      }
-      .landmark-glowing-ring {
-        width: 24px;
-        height: 24px;
-        background: rgba(255, 252, 0, 0.15);
-        border: 2px solid #FFC0CB;
-        border-radius: 50%;
-        box-shadow: 0 0 0 6px rgba(255, 252, 0, 0.25), 0 0 24px rgba(255, 252, 0, 0.8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 11px;
-        cursor: pointer;
-        animation: pulseYellow 1.2s infinite alternate;
-      }
-      .heatmap-core {
-        background: transparent;
-        border: none;
-        pointer-events: none;
-      }
-      .heatmap-activity-zone {
-        width: 100%;
-        height: 100%;
-        background: radial-gradient(circle, 
-          rgba(255, 30, 0, 0.9) 0%, 
-          rgba(255, 180, 0, 0.75) 15%, 
-          rgba(30, 215, 96, 0.45) 35%, 
-          rgba(29, 155, 240, 0.2) 60%, 
-          transparent 85%);
-        border-radius: 50%;
-        filter: blur(12px);
-        mix-blend-mode: screen;
-        animation: pulseHeatmap 3s infinite alternate ease-in-out;
-      }
-      @keyframes pulseBlue {
-        0% { transform: scale(0.9); box-shadow: 0 0 0 0px rgba(0, 132, 255, 0.5); }
-        100% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(0, 132, 255, 0); }
-      }
-      @keyframes pulseGhost {
-        0% { transform: scale(0.9); box-shadow: 0 0 0 0px rgba(168, 85, 247, 0.5); }
-        100% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(168, 85, 247, 0); }
-      }
-      @keyframes pulseYellow {
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0px rgba(255, 252, 0, 0.4); }
-        100% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 252, 0, 0); }
-      }
-      @keyframes pulseHeatmap {
-        0% { transform: scale(0.85); opacity: 0.6; }
-        100% { transform: scale(1.15); opacity: 1; }
-      }
+      .ns-dot-blue{width:14px;height:14px;background:#0084ff;border:2px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(0,132,255,.35);animation:nsPulseBlue 1.8s infinite}
+      .ns-dot-ghost{width:16px;height:16px;background:#a855f7;border:2px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(168,85,247,.35);animation:nsPulseGhost 1.8s infinite}
+      .ns-friend-marker{border-radius:50%;overflow:hidden;border:2.5px solid #FFC0CB;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+      .ns-story-ring{border-radius:50%;overflow:visible;display:flex;align-items:center;justify-content:center;cursor:pointer}
+      .ns-story-ring-inner{border-radius:50%;overflow:hidden;border:2.5px solid #FFFC00;box-shadow:0 0 0 4px rgba(255,252,0,.3),0 0 18px rgba(255,252,0,.5);animation:nsGlowY 2s infinite alternate}
+      .ns-heat{background:transparent;border:none;pointer-events:none}
+      .ns-heat-inner{width:100%;height:100%;background:radial-gradient(circle,rgba(255,30,0,.9) 0%,rgba(255,180,0,.7) 15%,rgba(30,215,96,.4) 35%,rgba(29,155,240,.15) 60%,transparent 85%);border-radius:50%;filter:blur(14px);mix-blend-mode:screen;animation:nsHeat 3s infinite alternate ease-in-out}
+      .leaflet-tooltip.ns-tooltip{background:rgba(0,0,0,.75)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:999px!important;color:#fff!important;font-size:9px!important;font-weight:900!important;padding:2px 8px!important;white-space:nowrap!important;box-shadow:none!important}
+      .leaflet-tooltip.ns-tooltip::before{display:none!important}
+      @keyframes nsPulseBlue{0%{box-shadow:0 0 0 0 rgba(0,132,255,.6)}70%{box-shadow:0 0 0 10px rgba(0,132,255,0)}100%{box-shadow:0 0 0 0 rgba(0,132,255,0)}}
+      @keyframes nsPulseGhost{0%{box-shadow:0 0 0 0 rgba(168,85,247,.6)}70%{box-shadow:0 0 0 10px rgba(168,85,247,0)}100%{box-shadow:0 0 0 0 rgba(168,85,247,0)}}
+      @keyframes nsGlowY{0%{box-shadow:0 0 0 4px rgba(255,252,0,.3),0 0 12px rgba(255,252,0,.4)}100%{box-shadow:0 0 0 8px rgba(255,252,0,.1),0 0 28px rgba(255,252,0,.7)}}
+      @keyframes nsHeat{0%{transform:scale(.82);opacity:.5}100%{transform:scale(1.18);opacity:1}}
     `;
     document.head.appendChild(style);
+  }, [mapLoaded]);
 
-  }, [mapLoaded, userCoords]);
-
-  // 3.5 Dynamic Tile Layer
-  const tileLayerRef = useRef<any>(null);
+  // Init map
   useEffect(() => {
+    if (!mapLoaded || !mapContainerRef.current || mapInstanceRef.current) return;
     const L = (window as any).L;
-    const map = mapInstanceRef.current;
+    if (!L) return;
+    mapInstanceRef.current = L.map(mapContainerRef.current, { center: userCoords, zoom: 13, zoomControl: false, attributionControl: false });
+  }, [mapLoaded]);
+
+  // Tile layer
+  useEffect(() => {
+    const L = (window as any).L; const map = mapInstanceRef.current;
     if (!L || !map) return;
-
-    if (tileLayerRef.current) {
-      map.removeLayer(tileLayerRef.current);
-    }
-
+    if (tileLayerRef.current) map.removeLayer(tileLayerRef.current);
     const url = mapStyle === 'dark'
       ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
       : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-
     tileLayerRef.current = L.tileLayer(url, { maxZoom: 20 }).addTo(map);
   }, [mapStyle, mapLoaded]);
 
-  // 4. Update elements on the map (User, Friends, Landmarks, Heatmap)
+  // Update map markers
   useEffect(() => {
-    const L = (window as any).L;
-    const map = mapInstanceRef.current;
+    const L = (window as any).L; const map = mapInstanceRef.current;
     if (!L || !map) return;
 
-    // --- User Live Position ---
-    if (userMarkerRef.current) {
-      map.removeLayer(userMarkerRef.current);
-    }
+    // User dot
+    if (userMarkerRef.current) map.removeLayer(userMarkerRef.current);
+    userMarkerRef.current = L.marker(userCoords, {
+      icon: L.divIcon({ className: isGhostMode ? 'ns-dot-ghost' : 'ns-dot-blue', iconSize: [16,16], iconAnchor: [8,8] })
+    }).addTo(map);
 
-    const userIcon = L.divIcon({
-      className: isGhostMode ? 'pulsing-ghost-dot' : 'pulsing-blue-dot',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-    });
-
-    userMarkerRef.current = L.marker(userCoords, { icon: userIcon }).addTo(map);
-
-    // --- Active Heatmap Zones (based on real friend positions + story density) ---
-    heatmapLayerRef.current.forEach((layer) => map.removeLayer(layer));
+    // Heatmap
+    heatmapLayerRef.current.forEach(l => map.removeLayer(l));
     heatmapLayerRef.current = [];
-
     if (showHeatmap) {
-      // Calculer la densité : regrouper les amis proches (< 500m) pour intensifier la zone
-      const R = 6371000; // rayon Terre en mètres
-      const toRad = (d: number) => (d * Math.PI) / 180;
-      const distM = (a: [number, number], b: [number, number]) => {
-        const dLat = toRad(b[0] - a[0]);
-        const dLng = toRad(b[1] - a[1]);
-        const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLng / 2) ** 2;
-        return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+      const R = 6371000, toRad = (d: number) => d * Math.PI / 180;
+      const distM = (a: [number,number], b: [number,number]) => {
+        const dLat = toRad(b[0]-a[0]), dLng = toRad(b[1]-a[1]);
+        const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLng/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
       };
-
-      // Points de chaleur = positions des amis + position user si pas ghost
-      const heatPoints: Array<{ lat: number; lng: number; weight: number }> = [];
-
-      friendLocations.forEach((friend) => {
-        // Compter combien d'autres amis sont dans un rayon de 500m
-        const nearby = friendLocations.filter(
-          (f) => f.user_id !== friend.user_id && distM([friend.lat, friend.lng], [f.lat, f.lng]) < 500
-        ).length;
-        heatPoints.push({ lat: friend.lat, lng: friend.lng, weight: 1 + nearby });
+      const pts: {lat:number;lng:number;w:number}[] = [];
+      friendLocations.forEach(f => {
+        const nearby = friendLocations.filter(g => g.user_id !== f.user_id && distM([f.lat,f.lng],[g.lat,g.lng]) < 500).length;
+        pts.push({ lat: f.lat, lng: f.lng, w: 1 + nearby });
       });
-
-      // Ajouter les auteurs de stories (activité récente = chaleur supplémentaire)
-      storyAuthors.forEach((story, idx) => {
-        const hasRealCoords = typeof story.latitude === 'number' && typeof story.longitude === 'number';
-        const lat = hasRealCoords ? (story.latitude as number) : (userCoords[0] + 0.002 * Math.cos((idx / Math.max(storyAuthors.length, 1)) * 2 * Math.PI));
-        const lng = hasRealCoords ? (story.longitude as number) : (userCoords[1] + 0.002 * Math.sin((idx / Math.max(storyAuthors.length, 1)) * 2 * Math.PI));
-        heatPoints.push({ lat, lng, weight: 0.6 });
+      storyAuthors.forEach((s, i) => {
+        const lat = typeof s.latitude === 'number' ? s.latitude : userCoords[0] + 0.002*Math.cos((i/Math.max(storyAuthors.length,1))*2*Math.PI);
+        const lng = typeof s.longitude === 'number' ? s.longitude : userCoords[1] + 0.002*Math.sin((i/Math.max(storyAuthors.length,1))*2*Math.PI);
+        pts.push({ lat, lng, w: 0.6 });
       });
-
-      // Ajouter la position de l'utilisateur lui-même (zone d'activité personnelle)
-      if (!isGhostMode) {
-        heatPoints.push({ lat: userCoords[0], lng: userCoords[1], weight: 1.5 });
-      }
-
-      heatPoints.forEach(({ lat, lng, weight }) => {
-        // Taille et opacité proportionnelles au poids
-        const size = Math.round(120 + weight * 60); // 120px → 360px
-        const opacity = Math.min(0.35 + weight * 0.15, 0.85);
-        const heatmapIcon = L.divIcon({
-          className: 'heatmap-core',
-          html: `<div class="heatmap-activity-zone" style="opacity:${opacity};width:${size}px;height:${size}px;"></div>`,
-          iconSize: [size, size],
-          iconAnchor: [size / 2, size / 2],
-        });
-        const layer = L.marker([lat, lng], { icon: heatmapIcon }).addTo(map);
-        heatmapLayerRef.current.push(layer);
+      if (!isGhostMode) pts.push({ lat: userCoords[0], lng: userCoords[1], w: 1.5 });
+      pts.forEach(({ lat, lng, w }) => {
+        const sz = Math.round(120 + w * 60);
+        const op = Math.min(0.3 + w * 0.14, 0.8);
+        const icon = L.divIcon({ className: 'ns-heat', html: `<div class="ns-heat-inner" style="opacity:${op};width:${sz}px;height:${sz}px;"></div>`, iconSize:[sz,sz], iconAnchor:[sz/2,sz/2] });
+        heatmapLayerRef.current.push(L.marker([lat,lng],{icon}).addTo(map));
       });
     }
 
+    // Friend markers
     friendMarkersRef.current.forEach(m => map.removeLayer(m));
-    friendMarkersRef.current = [];
-
+    friendMarkersRef.current = new Map();
     if (showFriendsOnMap && !isGhostMode) {
       friendLocations.forEach(friend => {
         const html = friend.avatar_url
-          ? `
-<img src="${friend.avatar_url}" style="width: 32px; height: 32px; border-radius: 50%;" />
-`
-          : `
-<div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(to right, #eab308, #f97316); display: flex; align-items: center; justify-content: center; font-weight: bold; color: black; font-size: 10px;">
-  ${(friend.username || 'U').substring(0, 2).toUpperCase()}
-</div>
-`;
-
-        const icon = L.divIcon({
-          className: 'friend-avatar-marker',
-          html,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
-        });
-
+          ? `<img src="${friend.avatar_url}" style="width:34px;height:34px;border-radius:50%;" />`
+          : `<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#eab308,#f97316);display:flex;align-items:center;justify-content:center;font-weight:900;color:black;font-size:11px;">${(friend.username||'U')[0].toUpperCase()}</div>`;
+        const icon = L.divIcon({ className: 'ns-friend-marker', html, iconSize:[38,38], iconAnchor:[19,19] });
         const marker = L.marker([friend.lat, friend.lng], { icon }).addTo(map);
-        marker.bindTooltip(friend.username || 'Friend', {
-          permanent: true,
-          direction: 'bottom',
-          offset: [0, 8],
-          className: 'glass-dark text-white text-[9px] font-black',
-        });
-        friendMarkersRef.current.push(marker);
+        marker.bindTooltip(friend.username||'Ami', { permanent: true, direction: 'bottom', offset:[0,10], className: 'ns-tooltip' });
+        marker.on('click', () => setActiveFriendPopup(friend.user_id));
+        friendMarkersRef.current.set(friend.user_id, marker);
       });
     }
 
-    // --- Stories markers (one per author, positioned near user for now) ---
-    // Note: stories table has no lat/lng columns yet — markers are placed
-    // near the user's position with a small offset per author index.
-    landmarkMarkersRef.current.forEach((m) => map.removeLayer(m));
-    landmarkMarkersRef.current = [];
-
-    storyAuthors.forEach((story, index) => {
-      const username = story.users?.username || 'User';
+    // Story markers
+    storyMarkersRef.current.forEach(m => map.removeLayer(m));
+    storyMarkersRef.current = [];
+    storyAuthors.forEach((story, i) => {
+      const username  = story.users?.username  || 'User';
       const avatarUrl = story.users?.avatar_url;
-
-      // Spread markers in a small circle around the user position if real coordinates aren't available
-      const hasRealCoords = typeof story.latitude === 'number' && typeof story.longitude === 'number';
-      const markerCoords: [number, number] = hasRealCoords
-        ? [story.latitude as number, story.longitude as number]
-        : [
-          userCoords[0] + 0.003 * Math.cos((index / Math.max(storyAuthors.length, 1)) * 2 * Math.PI),
-          userCoords[1] + 0.003 * Math.sin((index / Math.max(storyAuthors.length, 1)) * 2 * Math.PI),
-        ];
-
-      const html = avatarUrl
-        ? `<img src="${avatarUrl}" style="width:28px;height:28px;border-radius:50%;border:2px solid #FFC0CB;" />`
-        : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#eab308,#f97316);display:flex;align-items:center;justify-content:center;font-weight:900;color:black;font-size:11px;border:2px solid #FFC0CB;">${username.substring(0, 1).toUpperCase()}</div>`;
-
-      const storyIcon = L.divIcon({
-        className: 'landmark-glowing-ring',
-        html,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
-
-      const marker = L.marker(markerCoords, { icon: storyIcon }).addTo(map);
-      marker.on('click', () => {
-        openAuthorStories(story.user_id);
-      });
-      landmarkMarkersRef.current.push(marker);
+      const lat = typeof story.latitude  === 'number' ? story.latitude  : userCoords[0] + 0.003*Math.cos((i/Math.max(storyAuthors.length,1))*2*Math.PI);
+      const lng = typeof story.longitude === 'number' ? story.longitude : userCoords[1] + 0.003*Math.sin((i/Math.max(storyAuthors.length,1))*2*Math.PI);
+      const inner = avatarUrl
+        ? `<img src="${avatarUrl}" style="width:28px;height:28px;border-radius:50%;display:block;" />`
+        : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#FFFC00,#f97316);display:flex;align-items:center;justify-content:center;font-weight:900;color:black;font-size:12px;">${username[0].toUpperCase()}</div>`;
+      const icon = L.divIcon({ className: 'ns-story-ring', html: `<div class="ns-story-ring-inner">${inner}</div>`, iconSize:[32,32], iconAnchor:[16,16] });
+      const marker = L.marker([lat,lng], { icon, zIndexOffset: 100 }).addTo(map);
+      marker.on('click', () => { setActiveAuthorId(story.user_id); setStoryStartIndex(0); });
+      storyMarkersRef.current.push(marker);
     });
 
   }, [mapLoaded, userCoords, isGhostMode, showHeatmap, friendLocations, showFriendsOnMap, storyAuthors]);
 
-  // 5. Autoplay & Progress Bars for Stories
-  useEffect(() => {
-    if (!activeStory) return;
+  // ─── Handlers ─────────────────────────────────────────────────────────────
 
-    setCurrentProgress(0);
-    const interval = setInterval(() => {
-      setCurrentProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          // Advance to next story of same author, or close
-          const nextIndex = activeStoryIndex + 1;
-          if (nextIndex < authorStories.length) {
-            setActiveStoryIndex(nextIndex);
-            setActiveStory(authorStories[nextIndex]);
-          } else {
-            setActiveStory(null);
-            setActiveAuthorId(null);
-            setActiveStoryIndex(0);
-          }
-          return 0;
-        }
-        return prev + 2; // Auto advances in 5 seconds
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [activeStory]);
-
-  const handleCenterUser = () => {
+  const handleCenter = useCallback(() => {
     if (!mapInstanceRef.current) return;
     mapInstanceRef.current.setView(userCoords, 14, { animate: true, duration: 1.2 });
-    toast('Recentré sur ma position live ! GPS actée.', 'success');
-  };
+    toast('Recentré sur ta position GPS 📍', 'success');
+  }, [userCoords, toast]);
+
+  const handleZoom = useCallback((dir: 1 | -1) => {
+    if (!mapInstanceRef.current) return;
+    const z = mapInstanceRef.current.getZoom();
+    mapInstanceRef.current.setZoom(z + dir, { animate: true });
+  }, []);
+
+  const handleCenterFriend = useCallback((userId: string, name: string) => {
+    const loc = friendLocations.find(f => f.user_id === userId);
+    if (!loc) { toast(`${name} n'a pas de position récente.`, 'info'); return; }
+    mapInstanceRef.current?.setView([loc.lat, loc.lng], 16, { animate: true, duration: 1.4 });
+  }, [friendLocations, toast]);
+
+  const handleChatFriend = useCallback((userId: string) => {
+    setDirectChatId(userId);
+    setCurrentView('chat');
+  }, [setDirectChatId, setCurrentView]);
 
   const toggleGhostMode = () => {
-    const nextVal = !isGhostMode;
-    setIsGhostMode(nextVal);
-    localStorage.setItem('novasnap_settings_ghost_mode', String(nextVal));
-    toast(
-      nextVal
-        ? '👻 Mode Fantôme activé ! Ta position est masquée sur la carte.'
-        : '🌍 Mode Fantôme désactivé ! Position partagée avec tes amis.',
-      'info'
-    );
+    const next = !isGhostMode;
+    setIsGhostMode(next);
+    localStorage.setItem('novasnap_settings_ghost_mode', String(next));
+    toast(next ? '👻 Mode Fantôme activé — position masquée' : '🌍 Position partagée avec tes amis', 'info');
   };
-
   const toggleHeatmap = () => {
-    const nextVal = !showHeatmap;
-    setShowHeatmap(nextVal);
-    localStorage.setItem('novasnap_map_show_heatmap', String(nextVal));
-    toast(nextVal ? 'Heatmap de chaleur activée 🔥' : 'Heatmap désactivée', 'info');
+    const next = !showHeatmap;
+    setShowHeatmap(next);
+    localStorage.setItem('novasnap_map_show_heatmap', String(next));
+    toast(next ? 'Heatmap activée 🔥' : 'Heatmap désactivée', 'info');
+  };
+  const toggleFriends = () => {
+    const next = !showFriendsOnMap;
+    setShowFriendsOnMap(next);
+    localStorage.setItem('novasnap_map_show_friends', String(next));
+    toast(next ? 'Amis visibles sur la carte' : 'Amis masqués', 'info');
+  };
+  const changeStyle = (s: 'dark' | 'satellite') => {
+    setMapStyle(s);
+    localStorage.setItem('novasnap_map_style', s);
+    toast(`Carte : ${s === 'dark' ? 'Mode Sombre 🌑' : 'Vue Satellite 🛰'}`, 'success');
   };
 
-  const toggleFriendsOnMap = () => {
-    const nextVal = !showFriendsOnMap;
-    setShowFriendsOnMap(nextVal);
-    localStorage.setItem('novasnap_map_show_friends', String(nextVal));
-    toast(nextVal ? 'Amis affichés sur la carte' : 'Amis masqués', 'info');
-  };
+  const activeFriend = activeFriendPopup ? friendLocations.find(f => f.user_id === activeFriendPopup) : null;
 
-  const changeMapStyle = (style: 'dark' | 'satellite') => {
-    setMapStyle(style);
-    localStorage.setItem('novasnap_map_style', style);
-    toast(`Style de carte : ${style === 'dark' ? 'Sombre' : 'Satellite'}`, 'success');
-  };
-
-  const handleCenterOnFriend = (friendId: string, friendName: string) => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-
-    const location = friendLocations.find((f) => f.user_id === friendId);
-    if (!location) {
-      toast(`${friendName} n'a pas de position récente.`, 'info');
-      return;
-    }
-
-    map.setView([location.lat, location.lng], 15, { animate: true, duration: 1.5 });
-    toast(`Zoom sur ${friendName} 📍`, 'success');
-  };
-
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="relative w-full h-full bg-[#0d0d12] text-white overflow-hidden flex flex-col">
-      {/* 1. Map container node */}
+
+      {/* Map container */}
       <div className="flex-1 w-full h-full relative z-0">
         <div ref={mapContainerRef} className="w-full h-full" style={{ background: '#0e0e13' }} />
         {!mapLoaded && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#07070a] gap-3">
-            <Loader2 className="animate-spin text-snap-yellow" size={32} />
-            <p className="text-white/40 text-xs font-black tracking-widest uppercase">Chargement de Snap Map...</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#07070a] gap-4">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full bg-snap-yellow/10 flex items-center justify-center">
+                <Loader2 className="animate-spin text-snap-yellow" size={28} />
+              </div>
+              <div className="absolute inset-0 rounded-full border-2 border-snap-yellow/20 animate-ping" />
+            </div>
+            <p className="text-white/40 text-[11px] font-black tracking-widest uppercase">Chargement de la carte…</p>
           </div>
         )}
       </div>
 
-      {/* 2. Top bar search & buttons */}
-      <div className="absolute top-14 inset-x-4 flex flex-col gap-2 z-40 pointer-events-none">
+      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      <div className="absolute top-14 inset-x-4 flex flex-col gap-2 z-30 pointer-events-none">
         <div className="flex items-center gap-2.5">
-          {/* Profile avatar left */}
+          {/* Avatar */}
           <button
             onClick={() => setShowProfile(true)}
-            className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center overflow-hidden active:scale-90 transition-transform pointer-events-auto shadow-lg flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #FFC0CB 0%, #ff9500 100%)' }}
+            aria-label="Voir mon profil"
+            className="w-10 h-10 rounded-full border border-white/15 overflow-hidden active:scale-90 transition-transform pointer-events-auto shadow-lg flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg,#FFC0CB 0%,#ff9500 100%)' }}
           >
-            {currentProfile?.avatar_url ? (
-              <img src={currentProfile.avatar_url} className="w-full h-full object-cover" alt="Profil" />
-            ) : (
-              <span className="text-black font-black text-xs">
-                {(currentProfile?.username || user?.user_metadata?.username || user?.email || 'U').charAt(0).toUpperCase()}
-              </span>
-            )}
+            {currentProfile?.avatar_url
+              ? <img src={currentProfile.avatar_url} className="w-full h-full object-cover" alt="Profil" />
+              : <span className="w-full h-full flex items-center justify-center text-black font-black text-xs">{(currentProfile?.username || user?.email || 'U')[0].toUpperCase()}</span>}
           </button>
 
-          {/* Search bar center */}
-          <div className="flex-1 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-4 py-2.5 border border-white/8 pointer-events-auto shadow-lg">
-            <Search size={15} className="text-white/40" />
+          {/* Search */}
+          <div className="flex-1 flex items-center gap-2 bg-black/65 backdrop-blur-xl rounded-full px-4 py-2.5 border border-white/8 pointer-events-auto shadow-lg">
+            <Search size={14} className="text-white/40 flex-shrink-0" />
             <input
               type="text"
-              placeholder="Rechercher des amis, des lieux..."
+              placeholder="Amis, lieux, adresses…"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder-white/35 font-semibold"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')}>
-                <X size={14} className="text-white/40" />
+              <button onClick={() => setSearchQuery('')} aria-label="Effacer la recherche">
+                <X size={13} className="text-white/40" />
               </button>
             )}
           </div>
 
-          {/* Settings right */}
+          {/* Settings */}
           <button
             onClick={() => setShowSettings(true)}
-            className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/8 flex items-center justify-center text-white active:scale-95 transition-all pointer-events-auto shadow-lg flex-shrink-0"
+            aria-label="Paramètres de la carte"
+            className="w-10 h-10 rounded-full bg-black/65 backdrop-blur-xl border border-white/8 flex items-center justify-center text-white active:scale-90 transition-all pointer-events-auto shadow-lg flex-shrink-0"
           >
-            <Settings size={18} />
+            <Settings size={17} />
           </button>
         </div>
 
-        {/* Search Results Dropdown */}
-        {searchQuery && (
-          <div className="w-full max-w-[calc(100%-3rem)] bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl flex flex-col gap-1 pointer-events-auto max-h-[40vh] overflow-y-auto">
-            {filteredFriends.length > 0 && (
-              <div className="flex flex-col gap-1">
-                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest px-2 pt-1 pb-0.5">Amis</p>
-                {filteredFriends.map(friend => (
-                  <button
-                    key={friend.user_id}
-                    onClick={() => {
-                      handleCenterOnFriend(friend.user_id, friend.username || 'Ami');
-                      setSearchQuery('');
-                    }}
-                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-left"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-snap-yellow flex items-center justify-center overflow-hidden flex-shrink-0">
-                      {friend.avatar_url ? (
-                        <img src={friend.avatar_url} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-black font-black text-xs">{(friend.username || 'U').substring(0, 1).toUpperCase()}</span>
-                      )}
-                    </div>
-                    <span className="text-sm font-bold text-white truncate">{friend.username}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {debouncedSearchQuery.length >= 2 && (
-              <div className="flex flex-col gap-1 mt-1">
-                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest px-2 pt-1 pb-0.5 flex items-center justify-between">
-                  Lieux
-                  {isSearchingPlaces && <Loader2 size={10} className="animate-spin text-white/40" />}
-                </p>
-                {placeResults.map((place, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      if (mapInstanceRef.current) {
-                        mapInstanceRef.current.setView([parseFloat(place.lat), parseFloat(place.lon)], 15, { animate: true, duration: 1.5 });
-                        toast(`Lieu trouvé: ${place.name || place.display_name.split(',')[0]}`, 'success');
-                        setSearchQuery('');
-                      }
-                    }}
-                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-left"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex flex-shrink-0 items-center justify-center">
-                      <Navigation size={14} />
-                    </div>
-                    <div className="flex flex-col overflow-hidden">
-                      <span className="text-sm font-bold text-white truncate">{place.name || place.display_name.split(',')[0]}</span>
-                      <span className="text-[10px] text-white/50 truncate">{place.display_name}</span>
-                    </div>
-                  </button>
-                ))}
-                {!isSearchingPlaces && placeResults.length === 0 && (
-                  <p className="text-xs text-white/40 italic px-2 py-2">Aucun lieu trouvé.</p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* 3. Floating Quick controls */}
-      <div className="absolute right-4 bottom-52 flex flex-col gap-3.5 z-10">
-        {/* Ghost Mode Quick Button */}
-        <button
-          onClick={toggleGhostMode}
-          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${isGhostMode
-              ? 'bg-purple-600/90 border-purple-400 text-white shadow-purple-500/20'
-              : 'bg-black/60 backdrop-blur-md border-white/10 text-white/80 hover:text-white'
-            }`}
-          title={isGhostMode ? 'Mode Fantôme actif (Position cachée)' : 'Partager ma position'}
-        >
-          <Ghost size={20} className={isGhostMode ? 'animate-bounce' : ''} />
-        </button>
-
-        {/* Heatmap Toggle Button */}
-        <button
-          onClick={toggleHeatmap}
-          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${showHeatmap
-              ? 'bg-orange-500/90 border-orange-400 text-white shadow-orange-500/20'
-              : 'bg-black/60 backdrop-blur-md border-white/10 text-white/80 hover:text-white'
-            }`}
-          title="Afficher la Heatmap d'activité"
-        >
-          <Flame size={20} className={showHeatmap ? 'animate-pulse' : ''} />
-        </button>
-
-        {/* Autour de moi Toggle Button */}
-        <button
-          onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-lg ${isDrawerOpen
-              ? 'bg-blue-500/90 border-blue-400 text-white shadow-blue-500/20'
-              : 'bg-black/60 backdrop-blur-md border-white/10 text-white/80 hover:text-white'
-            }`}
-          title="Autour de moi"
-        >
-          <Users size={20} className={isDrawerOpen ? 'scale-110' : ''} />
-        </button>
-
-        {/* Recenter GPS Position Button */}
-        <button
-          onClick={handleCenterUser}
-          disabled={coordsLoading}
-          className="w-11 h-11 rounded-full bg-snap-yellow border border-yellow-400 flex items-center justify-center text-black active:scale-90 transition-all shadow-lg disabled:opacity-50"
-          title="Recentrer sur ma position live"
-        >
-          {coordsLoading ? (
-            <Loader2 className="animate-spin" size={20} />
-          ) : (
-            <Navigation size={20} fill="black" />
-          )}
-        </button>
-      </div>
-
-      {/* 4. Bottom slide-up drawer for nearby friends & public stories */}
-      <div className="absolute bottom-24 inset-x-4 z-10 flex flex-col gap-2 pointer-events-none">
-        {isGhostMode && (
-          <div className="self-center bg-purple-950/70 border border-purple-500/20 backdrop-blur-md text-[10px] text-purple-200 font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 pointer-events-auto shadow-lg animate-pulse mb-1">
-            <Ghost size={12} />
-            Mode Fantôme Activé — Position masquée
-          </div>
-        )}
-
+        {/* Search dropdown */}
         <AnimatePresence>
-          {isDrawerOpen && (
+          {searchQuery && (
             <motion.div
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 50, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[32px] p-4 pointer-events-auto shadow-2xl flex flex-col overflow-hidden"
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+              className="w-full bg-black/85 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-2xl flex flex-col gap-0.5 pointer-events-auto max-h-[40vh] overflow-y-auto"
             >
-              {/* Header with close button */}
-              <div className="flex items-center justify-between pb-3">
-                <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Autour de moi</p>
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] text-snap-yellow font-black">
-                    {friendLocations.length} ami{friendLocations.length > 1 ? 's' : ''} visible{friendLocations.length > 1 ? 's' : ''}
-                  </span>
-                  <button
-                    onClick={() => setIsDrawerOpen(false)}
-                    className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3.5">
-                {/* Friends horizontal list */}
-                <div className="flex gap-4 overflow-x-auto scroll-hide pb-0.5">
-                  {friendsLoading && (
-                    <div className="flex items-center justify-center w-full py-2">
-                      <Loader2 className="animate-spin text-white/20" size={16} />
-                    </div>
-                  )}
-
-                  {!friendsLoading && friends.length === 0 && (
-                    <div className="py-2 text-center w-full">
-                      <p className="text-[11px] text-white/30 font-medium">Ajoute des amis pour les voir sur la carte !</p>
-                    </div>
-                  )}
-
-                  {!friendsLoading && friends.map((friend) => (
-                    <button
-                      key={friend.friendship_id}
-                      onClick={() => handleCenterOnFriend(friend.user.id, friend.user.username || 'Ami')}
-                      className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform"
-                    >
-                      <div className="w-12 h-12 rounded-full p-[2px] ring-2 ring-yellow-400 bg-black relative">
-                        {friend.user.avatar_url ? (
-                          <img src={friend.user.avatar_url} className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-[10px]">
-                            {(friend.user.username || 'U').substring(0, 1).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-black rounded-full" />
+              {/* Friends results */}
+              {filteredFriends.length > 0 && (
+                <>
+                  <p className="text-[9px] font-black text-white/35 uppercase tracking-widest px-2 pt-1 pb-1">Amis</p>
+                  {filteredFriends.map(f => (
+                    <button key={f.user_id} onClick={() => { handleCenterFriend(f.user_id, f.username||'Ami'); setSearchQuery(''); }}
+                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/8 active:bg-white/15 transition-colors text-left">
+                      <div className="w-8 h-8 rounded-full bg-snap-yellow overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        {f.avatar_url ? <img src={f.avatar_url} className="w-full h-full object-cover" alt="" /> : <span className="text-black font-black text-xs">{(f.username||'U')[0].toUpperCase()}</span>}
                       </div>
-                      <span className="text-[10px] font-bold text-white/70 truncate max-w-[56px]">
-                        {friend.user.username}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{f.username}</p>
+                        <p className="text-[10px] text-white/40">{distanceLabel(f.distance_m)} · {timeAgo(f.updated_at)}</p>
+                      </div>
+                      <Navigation size={13} className="text-white/30 flex-shrink-0" />
                     </button>
                   ))}
-                </div>
+                </>
+              )}
 
-                <div className="h-[1px] bg-white/5" />
-
-                {/* Real Stories list */}
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Stories actives</p>
-                  <span className="text-[10px] text-white/40 font-bold">{storyAuthors.length} en ligne</span>
-                </div>
-
-                {storiesLoading && (
-                  <div className="flex items-center justify-center py-3">
-                    <Loader2 className="animate-spin text-white/20" size={16} />
-                  </div>
-                )}
-
-                {!storiesLoading && storyAuthors.length === 0 && (
-                  <p className="text-[11px] text-white/30 font-medium text-center py-2">
-                    Aucune story active pour le moment.
+              {/* Place results */}
+              {debounced.length >= 2 && (
+                <>
+                  <p className="text-[9px] font-black text-white/35 uppercase tracking-widest px-2 pt-2 pb-1 flex items-center justify-between">
+                    Lieux {isSearching && <Loader2 size={9} className="animate-spin text-white/40" />}
                   </p>
-                )}
-
-                {!storiesLoading && storyAuthors.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {storyAuthors.map((story) => {
-                      const username = story.users?.username || 'User';
-                      const avatarUrl = story.users?.avatar_url;
-                      return (
-                        <button
-                          key={story.user_id}
-                          onClick={() => openAuthorStories(story.user_id)}
-                          className="bg-white/4 hover:bg-white/8 border border-white/5 rounded-2xl p-2.5 flex flex-col items-center gap-1.5 text-center transition-all active:scale-95"
-                        >
-                          <div className="w-10 h-10 rounded-full ring-2 ring-snap-yellow overflow-hidden bg-black flex-shrink-0">
-                            {avatarUrl ? (
-                              <img src={avatarUrl} className="w-full h-full object-cover" alt={username} />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
-                                {username.substring(0, 1).toUpperCase()}
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-[10px] font-black text-white truncate max-w-[80px]">{username}</span>
-                          <span className="text-[8px] font-bold text-snap-yellow flex items-center gap-0.5 justify-center">
-                            <Play size={7} fill="currentColor" /> Story
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                  {placeResults.map((place, i) => (
+                    <button key={i} onClick={() => {
+                      mapInstanceRef.current?.setView([parseFloat(place.lat), parseFloat(place.lon)], 15, { animate: true, duration: 1.4 });
+                      toast(`📍 ${place.name || place.display_name.split(',')[0]}`, 'success');
+                      setSearchQuery('');
+                    }} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/8 active:bg-white/15 transition-colors text-left">
+                      <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center flex-shrink-0"><Navigation size={13} /></div>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-sm font-bold text-white truncate">{place.name || place.display_name.split(',')[0]}</span>
+                        <span className="text-[10px] text-white/40 truncate">{place.display_name}</span>
+                      </div>
+                    </button>
+                  ))}
+                  {!isSearching && placeResults.length === 0 && (
+                    <p className="text-xs text-white/30 italic px-2 py-2.5 text-center">Aucun lieu trouvé pour « {debounced} »</p>
+                  )}
+                </>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* 5. Global Settings Modal */}
+      {/* ── Right FABs ────────────────────────────────────────────────────── */}
+      <div className="absolute right-4 bottom-52 flex flex-col gap-3 z-20">
+        {/* Ghost mode */}
+        <button onClick={toggleGhostMode} aria-label={isGhostMode ? 'Désactiver mode fantôme' : 'Activer mode fantôme'}
+          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-xl ${isGhostMode ? 'bg-purple-600 border-purple-400 shadow-purple-600/30' : 'bg-black/65 backdrop-blur-xl border-white/10 text-white/70'}`}>
+          <Ghost size={19} className={isGhostMode ? 'text-white' : ''} />
+        </button>
+        {/* Heatmap */}
+        <button onClick={toggleHeatmap} aria-label="Activer/désactiver la heatmap"
+          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-xl ${showHeatmap ? 'bg-orange-500 border-orange-400 shadow-orange-500/30' : 'bg-black/65 backdrop-blur-xl border-white/10 text-white/70'}`}>
+          <Flame size={19} className={showHeatmap ? 'text-white' : ''} />
+        </button>
+        {/* Friends drawer */}
+        <button onClick={() => setIsDrawerOpen(v => !v)} aria-label="Autour de moi"
+          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all active:scale-90 shadow-xl ${isDrawerOpen ? 'bg-blue-500 border-blue-400 shadow-blue-500/30' : 'bg-black/65 backdrop-blur-xl border-white/10 text-white/70'}`}>
+          <Users size={19} className={isDrawerOpen ? 'text-white' : ''} />
+        </button>
+        {/* Zoom in */}
+        <button onClick={() => handleZoom(1)} aria-label="Zoom avant"
+          className="w-11 h-11 rounded-full bg-black/65 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/70 active:scale-90 transition-all shadow-lg">
+          <ZoomIn size={18} />
+        </button>
+        {/* Zoom out */}
+        <button onClick={() => handleZoom(-1)} aria-label="Zoom arrière"
+          className="w-11 h-11 rounded-full bg-black/65 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/70 active:scale-90 transition-all shadow-lg">
+          <ZoomOut size={18} />
+        </button>
+        {/* Recenter */}
+        <button onClick={handleCenter} disabled={coordsLoading} aria-label="Recentrer sur ma position"
+          className="w-11 h-11 rounded-full bg-snap-yellow border border-yellow-300 flex items-center justify-center text-black active:scale-90 transition-all shadow-lg shadow-yellow-400/20 disabled:opacity-50">
+          {coordsLoading ? <Loader2 className="animate-spin" size={19} /> : <Navigation size={19} fill="black" />}
+        </button>
+      </div>
+
+      {/* ── Ghost mode banner ─────────────────────────────────────────────── */}
       <AnimatePresence>
-        {showSettings && (
-          <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-40 flex items-end justify-center p-4 pb-28">
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-              className="w-full bg-[#121218] border border-white/10 rounded-[32px] p-6 flex flex-col gap-5 max-h-[70vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-black">Réglages de ma Carte</h3>
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/60 hover:text-white"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+        {isGhostMode && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+            className="absolute bottom-[calc(6rem+16px)] left-1/2 -translate-x-1/2 z-20"
+          >
+            <div className="bg-purple-950/80 border border-purple-500/25 backdrop-blur-xl text-[10px] text-purple-200 font-black px-4 py-2 rounded-full flex items-center gap-2 shadow-lg whitespace-nowrap">
+              <Ghost size={11} className="animate-pulse" /> Mode Fantôme Activé — Position masquée
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-              {/* Ghost Mode Configuration */}
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between bg-white/3 border border-white/5 rounded-2xl p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-600/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                      <Ghost size={20} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold">Mode Fantôme</p>
-                      <p className="text-[9px] text-white/40 mt-0.5">Masquer complètement ta position en temps réel.</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={toggleGhostMode}
-                    className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${isGhostMode ? 'bg-purple-600' : 'bg-white/10'
-                      }`}
-                  >
-                    <div
-                      className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${isGhostMode ? 'translate-x-5.5' : 'translate-x-0'
-                        }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Heatmap Configuration */}
-                <div className="flex items-center justify-between bg-white/3 border border-white/5 rounded-2xl p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
-                      <Flame size={20} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold">Zones Actives (Heatmap)</p>
-                      <p className="text-[9px] text-white/40 mt-0.5">Afficher les zones à forte concentration de stories.</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={toggleHeatmap}
-                    className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${showHeatmap ? 'bg-orange-500' : 'bg-white/10'
-                      }`}
-                  >
-                    <div
-                      className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${showHeatmap ? 'translate-x-5.5' : 'translate-x-0'
-                        }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Map Style Configuration */}
-                <div className="flex items-center justify-between bg-white/3 border border-white/5 rounded-2xl p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                      <Layers size={20} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold">Style de Carte</p>
-                      <p className="text-[9px] text-white/40 mt-0.5">{mapStyle === 'dark' ? 'Sombre (Mode Nuit)' : 'Vue Satellite'}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => changeMapStyle(mapStyle === 'dark' ? 'satellite' : 'dark')}
-                    className="px-3 py-1.5 rounded-full bg-white/10 text-[10px] font-bold active:scale-95 transition-transform"
-                  >
-                    Changer
-                  </button>
-                </div>
-
-                {/* Show Friends Configuration */}
-                <div className="flex items-center justify-between bg-white/3 border border-white/5 rounded-2xl p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-green-400">
-                      <Users size={20} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold">Afficher les Amis</p>
-                      <p className="text-[9px] text-white/40 mt-0.5">Voir la position de tes amis sur la carte.</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={toggleFriendsOnMap}
-                    className={`w-12 h-6.5 rounded-full p-0.5 transition-colors relative ${showFriendsOnMap ? 'bg-green-500' : 'bg-white/10'
-                      }`}
-                  >
-                    <div
-                      className={`w-5.5 h-5.5 rounded-full bg-white transition-all shadow-md ${showFriendsOnMap ? 'translate-x-5.5' : 'translate-x-0'
-                        }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowSettings(false)}
-                className="w-full py-3.5 bg-snap-yellow text-black font-black text-xs rounded-2xl shadow-snap-sm active:scale-95 transition-all text-center mt-2"
-              >
-                Fermer et Appliquer
-              </button>
-            </motion.div>
+      {/* ── Friend popup ────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {activeFriend && (
+          <div className="absolute inset-0 z-30 pointer-events-none">
+            <div className="absolute left-1/2 bottom-[calc(6rem+80px)] -translate-x-1/2 pointer-events-auto">
+              <FriendPopup
+                friend={activeFriend}
+                onClose={() => setActiveFriendPopup(null)}
+                onCenter={() => { handleCenterFriend(activeFriend.user_id, activeFriend.username); setActiveFriendPopup(null); }}
+                onChat={() => { handleChatFriend(activeFriend.user_id); setActiveFriendPopup(null); }}
+              />
+            </div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* 6. Story Player */}
-      <AnimatePresence>
-        {activeStory && (
-          <div className="absolute inset-0 z-50 bg-black flex flex-col">
-            {/* Progress Bars (one per story of this author) */}
-            <div className="absolute top-0 inset-x-0 pt-12 px-3 flex gap-1 z-10">
-              {authorStories.map((s, i) => (
-                <div key={s.id} className="h-[3px] flex-1 bg-white/25 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-white rounded-full transition-all duration-100 ease-linear"
-                    style={{
-                      width: i < activeStoryIndex ? '100%' : i === activeStoryIndex ? `${currentProgress}%` : '0%',
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Story Header */}
-            <div className="absolute top-16 inset-x-0 px-4 flex items-center justify-between z-30">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full overflow-hidden bg-snap-yellow flex items-center justify-center">
-                  {activeStory.users?.avatar_url ? (
-                    <img src={activeStory.users.avatar_url} className="w-full h-full object-cover" alt="" />
-                  ) : (
-                    <span className="font-black text-black text-sm">
-                      {(activeStory.users?.username || 'U').substring(0, 1).toUpperCase()}
-                    </span>
-                  )}
-                </div>
+      {/* ── Bottom drawer — Autour de moi ─────────────────────────────────── */}
+      <div className="absolute bottom-24 inset-x-3 z-20 flex flex-col gap-2 pointer-events-none">
+        <AnimatePresence>
+          {isDrawerOpen && (
+            <motion.div
+              initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+              className="bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 pointer-events-auto shadow-2xl flex flex-col overflow-hidden"
+            >
+              {/* Drawer header */}
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-white font-black text-sm leading-tight">
-                    {activeStory.users?.username || 'Utilisateur'}
-                  </p>
-                  <p className="text-white/50 text-[10px] font-bold">
-                    Story · {activeStoryIndex + 1}/{authorStories.length}
-                  </p>
+                  <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Autour de moi</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-black text-snap-yellow">
+                    {friendLocations.length} ami{friendLocations.length !== 1 ? 's' : ''} visible{friendLocations.length !== 1 ? 's' : ''}
+                  </span>
+                  <button onClick={() => setIsDrawerOpen(false)} aria-label="Fermer" className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors">
+                    <X size={13} />
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setActiveStory(null);
-                  setActiveAuthorId(null);
-                  setActiveStoryIndex(0);
-                }}
-                className="w-9 h-9 rounded-full glass-dark flex items-center justify-center text-white active:scale-90 transition-transform"
-              >
-                <X size={20} />
-              </button>
-            </div>
 
-            {/* Media content */}
-            <div className="flex-1 w-full h-full flex items-center justify-center bg-zinc-950 relative">
-              {activeStory.media_type === 'VIDEO' ? (
-                <video
-                  key={activeStory.id}
-                  src={activeStory.media_url}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-              ) : activeStory.media_url ? (
-                <img
-                  src={activeStory.media_url}
-                  alt="Story"
-                  className="w-full h-full object-cover"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              ) : (
-                <div className="flex flex-col items-center gap-3 text-white/30">
-                  <ImageOff size={40} />
-                  <p className="text-xs font-bold">Média indisponible</p>
+              {/* Friends row */}
+              <div className="flex gap-3.5 overflow-x-auto scroll-hide pb-1">
+                {friendsLoading && <div className="w-full flex items-center justify-center py-3"><Loader2 className="animate-spin text-white/20" size={16} /></div>}
+                {!friendsLoading && friends.length === 0 && (
+                  <div className="w-full text-center py-3 px-2">
+                    <Users size={22} className="text-white/15 mx-auto mb-1.5" />
+                    <p className="text-[10px] text-white/30 font-medium">Ajoute des amis pour les voir ici !</p>
+                  </div>
+                )}
+                {!friendsLoading && friends.map(friend => (
+                  <button key={friend.friendship_id} onClick={() => handleCenterFriend(friend.user.id, friend.user.username || 'Ami')}
+                    className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform">
+                    <div className="w-12 h-12 rounded-full p-[2px] ring-2 ring-yellow-400 bg-black relative">
+                      {friend.user.avatar_url
+                        ? <img src={friend.user.avatar_url} className="w-full h-full rounded-full object-cover" alt={friend.user.username||''} />
+                        : <div className="w-full h-full rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-[10px]">{(friend.user.username||'U')[0].toUpperCase()}</div>}
+                      {friendLocations.some(f => f.user_id === friend.user.id) && (
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-black rounded-full" />
+                      )}
+                    </div>
+                    <span className="text-[9px] font-bold text-white/60 truncate max-w-[52px]">{friend.user.username}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="h-px bg-white/6 my-3" />
+
+              {/* Stories section */}
+              <div className="flex items-center justify-between mb-2.5">
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1.5">
+                  <Eye size={11} /> Stories actives
+                </p>
+                <span className="text-[10px] text-white/35 font-bold">{storyAuthors.length} en ligne</span>
+              </div>
+
+              {storiesLoading && <div className="flex items-center justify-center py-4"><Loader2 className="animate-spin text-white/20" size={16} /></div>}
+
+              {!storiesLoading && storyAuthors.length === 0 && (
+                <div className="text-center py-4">
+                  <ImageOff size={22} className="text-white/15 mx-auto mb-1.5" />
+                  <p className="text-[10px] text-white/30 font-medium">Aucune story active pour le moment</p>
                 </div>
               )}
-            </div>
 
-            {/* Tap zones for prev/next */}
-            <div className="absolute inset-0 flex">
-              <div
-                className="flex-1 cursor-pointer"
-                onClick={() => {
-                  if (activeStoryIndex > 0) {
-                    const prev = activeStoryIndex - 1;
-                    setActiveStoryIndex(prev);
-                    setActiveStory(authorStories[prev]);
-                    setCurrentProgress(0);
-                  }
-                }}
-              />
-              <div
-                className="flex-1 cursor-pointer"
-                onClick={() => {
-                  const next = activeStoryIndex + 1;
-                  if (next < authorStories.length) {
-                    setActiveStoryIndex(next);
-                    setActiveStory(authorStories[next]);
-                    setCurrentProgress(0);
-                  } else {
-                    setActiveStory(null);
-                    setActiveAuthorId(null);
-                    setActiveStoryIndex(0);
-                  }
-                }}
-              />
-            </div>
-          </div>
+              {!storiesLoading && storyAuthors.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {storyAuthors.map(story => {
+                    const username = story.users?.username || 'User';
+                    const avatarUrl = story.users?.avatar_url;
+                    const count = allStories.filter(s => s.user_id === story.user_id).length;
+                    return (
+                      <button key={story.user_id} onClick={() => { setActiveAuthorId(story.user_id); setStoryStartIndex(0); }}
+                        className="bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.06] rounded-2xl p-2.5 flex flex-col items-center gap-1.5 text-center transition-all active:scale-95">
+                        <div className="relative">
+                          <div className="w-10 h-10 rounded-full story-ring overflow-hidden bg-black flex-shrink-0">
+                            {avatarUrl
+                              ? <img src={avatarUrl} className="w-full h-full object-cover" alt={username} />
+                              : <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">{username[0].toUpperCase()}</div>}
+                          </div>
+                          {count > 1 && (
+                            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-snap-yellow text-black text-[8px] font-black rounded-full flex items-center justify-center">{count}</span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-black text-white truncate w-full">{username}</span>
+                        <span className="text-[8px] font-bold text-snap-yellow flex items-center gap-0.5"><Play size={7} fill="currentColor" /> Story</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Settings Sheet ─────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showSettings && (
+          <SettingsSheet
+            onClose={() => setShowSettings(false)}
+            isGhostMode={isGhostMode}       onToggleGhost={toggleGhostMode}
+            showHeatmap={showHeatmap}       onToggleHeatmap={toggleHeatmap}
+            showFriendsOnMap={showFriendsOnMap} onToggleFriends={toggleFriends}
+            mapStyle={mapStyle}             onChangeStyle={changeStyle}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Story Player ────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {activeAuthorId && authorStories.length > 0 && (
+          <StoryPlayer
+            stories={authorStories}
+            startIndex={storyStartIndex}
+            onClose={() => { setActiveAuthorId(null); setStoryStartIndex(0); }}
+          />
         )}
       </AnimatePresence>
     </div>
