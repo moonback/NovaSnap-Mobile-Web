@@ -72,6 +72,19 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
   const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
   const ALLOWED_VIDEO_TYPES = new Set(['video/webm', 'video/mp4']);
 
+  // Utility to convert data URL to Blob without fetch (CSP-compliant)
+  const dataURLToBlob = (dataURL: string): Blob => {
+    const [header, data] = dataURL.split(',');
+    const mimeMatch = header.match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+    const binary = atob(data);
+    const array = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      array[i] = binary.charCodeAt(i);
+    }
+    return new Blob([array], { type: mime });
+  };
+
   const stopStream = useCallback(() => {
     if (!streamRef.current) return;
     streamRef.current.getTracks().forEach((track) => track.stop());
@@ -415,12 +428,17 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     if (!user || !capturedMedia) return;
     setIsSavingMemory(true);
     try {
-      let finalMediaUrl = capturedMedia.url;
+      let fileBlob: Blob;
       if (capturedMedia.type === 'image') {
-        finalMediaUrl = await flattenImage();
+        const finalMediaUrl = await flattenImage();
+        fileBlob = finalMediaUrl.startsWith('data:') 
+          ? dataURLToBlob(finalMediaUrl)
+          : await fetch(finalMediaUrl).then(r => r.blob());
+      } else {
+        fileBlob = capturedMedia.url.startsWith('data:')
+          ? dataURLToBlob(capturedMedia.url)
+          : await fetch(capturedMedia.url).then(r => r.blob());
       }
-      const response = await fetch(finalMediaUrl);
-      const fileBlob = await response.blob();
       
       await saveMemory.mutateAsync({
         mediaBlob: fileBlob,
@@ -466,13 +484,18 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
     if (!user || !capturedMedia) throw new Error('Aucun média capturé');
     
     // Obtain the flattened version of the image (with texts, drawings, stickers)
-    let finalMediaUrl = capturedMedia.url;
+    let fileBlob: Blob;
     if (capturedMedia.type === 'image') {
-      finalMediaUrl = await flattenImage();
+      const finalMediaUrl = await flattenImage();
+      fileBlob = finalMediaUrl.startsWith('data:') 
+        ? dataURLToBlob(finalMediaUrl)
+        : await fetch(finalMediaUrl).then(r => r.blob());
+    } else {
+      fileBlob = capturedMedia.url.startsWith('data:')
+        ? dataURLToBlob(capturedMedia.url)
+        : await fetch(capturedMedia.url).then(r => r.blob());
     }
 
-    const response = await fetch(finalMediaUrl);
-    const fileBlob = await response.blob();
     validateUploadBlob(fileBlob);
     const fileExt = capturedMedia.type === 'image' ? 'jpg' : 'webm';
 
@@ -518,8 +541,9 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
           if (capturedMedia.type === 'image') {
             finalMediaUrl = await flattenImage();
           }
-          const response = await fetch(finalMediaUrl);
-          const fileBlob = await response.blob();
+          const fileBlob = finalMediaUrl.startsWith('data:')
+            ? dataURLToBlob(finalMediaUrl)
+            : await fetch(finalMediaUrl).then(r => r.blob());
           await saveMemory.mutateAsync({
             mediaBlob: fileBlob,
             mediaType: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',
@@ -553,20 +577,28 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
       const { path } = await uploadMedia('stories');
       const privacy = localStorage.getItem('novasnap_settings_story_privacy') || 'friends';
       
+      // Récupérer silencieusement la position GPS si disponible (pas de confirm())
+      // La permission a déjà été demandée au niveau App.tsx via le modal de localisation
       let latitude: number | null = null;
       let longitude: number | null = null;
-      if (navigator.geolocation && confirm("Partager ta localisation avec cette story pour l'afficher sur la carte ?")) {
+      if (navigator.geolocation && navigator.permissions) {
         try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 5000,
+          const permState = await navigator.permissions.query({ name: 'geolocation' });
+          if (permState.state === 'granted') {
+            const pos = await new Promise<GeolocationPosition | null>((resolve) => {
+              navigator.geolocation.getCurrentPosition(
+                resolve,
+                () => resolve(null),
+                { enableHighAccuracy: false, timeout: 4000, maximumAge: 60_000 },
+              );
             });
-          });
-          latitude = pos.coords.latitude;
-          longitude = pos.coords.longitude;
-        } catch (geoErr) {
-          console.warn("Impossible de récupérer la position GPS:", geoErr);
+            if (pos) {
+              latitude = pos.coords.latitude;
+              longitude = pos.coords.longitude;
+            }
+          }
+        } catch {
+          // La permission GPS n'est pas disponible ou refusée — on publie sans coordonnées
         }
       }
 
@@ -592,8 +624,9 @@ export default function CameraView({ isActive = true }: { isActive?: boolean }) 
           if (capturedMedia.type === 'image') {
             finalMediaUrl = await flattenImage();
           }
-          const response = await fetch(finalMediaUrl);
-          const fileBlob = await response.blob();
+          const fileBlob = finalMediaUrl.startsWith('data:')
+            ? dataURLToBlob(finalMediaUrl)
+            : await fetch(finalMediaUrl).then(r => r.blob());
           await saveMemory.mutateAsync({
             mediaBlob: fileBlob,
             mediaType: capturedMedia.type === 'image' ? 'IMAGE' : 'VIDEO',

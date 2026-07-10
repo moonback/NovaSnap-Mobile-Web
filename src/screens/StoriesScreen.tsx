@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStories } from '../hooks/useStories';
-import { X, Plus, Zap, Trash2, Loader2, Eye } from 'lucide-react';
+import { X, Plus, Zap, Trash2, Loader2, Eye, Send, MessageCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/ui/ToastProvider';
@@ -9,6 +9,7 @@ import Skeleton from '../components/ui/Skeleton';
 import GeminiOrb from '../components/GeminiOrb';
 import { useAppStore } from '../store/useAppStore';
 import { useTheme } from '../hooks/useTheme';
+import type { StoryRow } from '../lib/types';
 
 type StoryViewer = {
   viewer_id: string;
@@ -23,7 +24,7 @@ type StoryViewer = {
 
 export default function StoriesScreen() {
   const { data: stories, isLoading } = useStories();
-  const { setCurrentView } = useAppStore();
+  const { setCurrentView, setDirectChatId, setIsInConversation } = useAppStore();
   const t = useTheme();
   const [activeGroupIndex, setActiveGroupIndex] = useState<number | null>(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
@@ -32,6 +33,12 @@ export default function StoriesScreen() {
   const [showViewers, setShowViewers] = useState(false);
   const [currentStoryViewers, setCurrentStoryViewers] = useState<StoryViewer[]>([]);
   const [storyViewCounts, setStoryViewCounts] = useState<Record<string, number>>({});
+
+  // ── Story reply state ─────────────────────────────────────────────────
+  const [replyDraft, setReplyDraft] = useState('');
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const [showReplyInput, setShowReplyInput] = useState(false);
+  const replyInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
   const { user } = useAppStore();
@@ -168,6 +175,94 @@ export default function StoriesScreen() {
     }
   };
 
+  // ── Story reply: find or create a 1:1 conversation then send the message ──
+  const handleReplyToStory = async (story: StoryRow, message: string) => {
+    if (!user || !message.trim()) return;
+    const authorId = story.user_id;
+    if (authorId === user.id) return;
+
+    setIsSendingReply(true);
+    try {
+      // 1. Find existing 1:1 conversation with the story author
+      const { data: myMemberships } = await supabase
+        .from('conversation_members')
+        .select('conversation_id')
+        .eq('user_id', user.id);
+
+      const myConvIds = (myMemberships ?? []).map((m) => m.conversation_id);
+      let conversationId: string | null = null;
+
+      if (myConvIds.length > 0) {
+        const { data: shared } = await supabase
+          .from('conversation_members')
+          .select('conversation_id, conversations!inner(is_group)')
+          .in('conversation_id', myConvIds)
+          .eq('user_id', authorId);
+
+        const direct = (shared ?? []).find((s) => {
+          const conv = s.conversations as any;
+          return conv && !conv.is_group;
+        });
+        if (direct) conversationId = direct.conversation_id;
+      }
+
+      // 2. Create conversation if none exists
+      if (!conversationId) {
+        const newId = crypto.randomUUID();
+        const { data: authorProfile } = await supabase
+          .from('users')
+          .select('username, display_name')
+          .eq('id', authorId)
+          .maybeSingle();
+
+        const { error: createErr } = await supabase
+          .from('conversations')
+          .insert({ id: newId, is_group: false, title: authorProfile?.display_name || authorProfile?.username || 'Chat' });
+        if (createErr) throw createErr;
+
+        const { error: selfErr } = await supabase
+          .from('conversation_members')
+          .insert({ conversation_id: newId, user_id: user.id });
+        if (selfErr) throw selfErr;
+
+        const { error: otherErr } = await supabase
+          .from('conversation_members')
+          .insert({ conversation_id: newId, user_id: authorId });
+        if (otherErr) throw otherErr;
+
+        conversationId = newId;
+      }
+
+      // 3. Send the reply message
+      const { error: msgErr } = await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        message_type: 'TEXT',
+        content: message.trim(),
+        is_ephemeral: true,
+        is_saved: false,
+        opened_by: [],
+      });
+      if (msgErr) throw msgErr;
+
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      toast('Réponse envoyée ! 💬', 'success');
+      setReplyDraft('');
+      setShowReplyInput(false);
+      setActiveGroupIndex(null);
+
+      // 4. Navigate directly to the conversation
+      setDirectChatId(conversationId);
+      setIsInConversation(true);
+      setCurrentView('chat');
+    } catch (err) {
+      const parsed = err instanceof Error ? err : new Error('Envoi échoué');
+      toast('Erreur : ' + parsed.message, 'error');
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
+
   const loadStoryViewers = async (storyId: string) => {
     try {
       const { data, error } = await supabase
@@ -199,6 +294,10 @@ export default function StoriesScreen() {
       const group = groupedStories[activeGroupIndex];
       const currentStory = group.stories[activeStoryIndex];
       
+      // Reset reply input on story change
+      setShowReplyInput(false);
+      setReplyDraft('');
+
       // Enregistrer la vue si ce n'est pas notre propre story
       if (currentStory && user && currentStory.user_id !== user.id) {
         supabase
@@ -540,6 +639,62 @@ export default function StoriesScreen() {
                 }
               }}
             />
+
+            {/* ── Reply bar (only for other users' stories) ────────────── */}
+            {currentStory.user_id !== user?.id && (
+              <div className="absolute bottom-0 inset-x-0 z-30 pb-8 px-4 pt-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-auto">
+                {showReplyInput ? (
+                  <motion.form
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleReplyToStory(currentStory, replyDraft);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <input
+                      ref={replyInputRef}
+                      type="text"
+                      value={replyDraft}
+                      onChange={(e) => setReplyDraft(e.target.value)}
+                      placeholder={`Répondre à ${username}...`}
+                      autoFocus
+                      maxLength={200}
+                      className="flex-1 bg-white/15 backdrop-blur-md border border-white/20 rounded-full px-5 py-3 text-white text-sm font-semibold placeholder-white/40 focus:outline-none focus:border-white/40 focus:bg-white/20 transition-all"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!replyDraft.trim() || isSendingReply}
+                      className="w-11 h-11 rounded-full bg-snap-yellow text-black flex items-center justify-center shrink-0 active:scale-90 transition-all disabled:opacity-50 shadow-snap"
+                    >
+                      {isSendingReply
+                        ? <Loader2 size={18} className="animate-spin" />
+                        : <Send size={18} className="ml-0.5" />
+                      }
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowReplyInput(false); setReplyDraft(''); }}
+                      className="w-11 h-11 rounded-full bg-white/15 text-white flex items-center justify-center shrink-0 active:scale-90 transition-all"
+                    >
+                      <X size={18} />
+                    </button>
+                  </motion.form>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setShowReplyInput(true);
+                      setTimeout(() => replyInputRef.current?.focus(), 80);
+                    }}
+                    className="w-full flex items-center justify-center gap-2.5 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white font-bold text-sm active:scale-95 transition-all hover:bg-white/15"
+                  >
+                    <MessageCircle size={16} />
+                    Répondre à {username}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Delete Confirmation Modal */}
             <AnimatePresence>
