@@ -3,19 +3,37 @@ import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useConversations } from '../hooks/useConversations';
 import { useFriends } from '../hooks/useFriends';
 import { useCurrentUserProfile } from '../hooks/useCurrentUserProfile';
-import { Loader2, X, Search, UserPlus, Trash2, Check, Users, MessageCirclePlus, Camera } from 'lucide-react';
+import { 
+  Loader2, 
+  X, 
+  Search, 
+  UserPlus, 
+  Trash2, 
+  Check, 
+  Users, 
+  MessageCirclePlus, 
+  Camera
+} from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import ConversationScreen from './ConversationScreen';
-import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
 import { useTheme } from '../hooks/useTheme';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
 import type { AppUserProfile, ConversationRow, ConversationMessage } from '../lib/types';
 
 // Theme token type derived from the useTheme hook
 type ThemeTokens = ReturnType<typeof useTheme>;
 
+// Constants for better maintainability
+const SWIPE_THRESHOLD = -72;
+const DELETE_THRESHOLD = -200;
+const MAX_GROUP_MEMBERS = 99;
+const USERS_PER_PAGE = 20;
+const MAX_QUICK_FRIENDS = 12;
+
+// Utility functions
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -26,10 +44,18 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hrs / 24)}j`;
 }
 
-// ── Swipeable conversation row ────────────────────────────────
-const SWIPE_THRESHOLD = -72; // px to reveal delete action
-const DELETE_THRESHOLD = -200; // px to auto-confirm delete
+// Memoized utility functions for better performance
+const convHasNew = (conv: NonNullable<ConversationRow['conversations']>, userId: string | undefined) => {
+  const lastMsg = conv.messages?.[0];
+  return !!(lastMsg && lastMsg.sender_id !== userId && (!lastMsg.opened_by || !lastMsg.opened_by.includes(userId || '')));
+};
 
+const getConvDisplayTitle = (conv: NonNullable<ConversationRow['conversations']>) => {
+  const titleParts = conv.title?.split('::') ?? [];
+  return titleParts[0] || 'Chat';
+};
+
+// ── Swipeable conversation row ────────────────────────────────
 const getStatusIcon = (lastMsg: ConversationMessage | null, userId: string | undefined, hasNew: boolean) => {
   if (!lastMsg) return null;
   const isMe = lastMsg.sender_id === userId;
@@ -41,39 +67,53 @@ const getStatusIcon = (lastMsg: ConversationMessage | null, userId: string | und
 
   if (!isMe) {
     if (hasNew) {
-      if (isImage || isVideo) {
-        return (
-          <div
-            className="w-3.5 h-3.5 rounded-[4px] shrink-0 animate-pulse"
-            style={{ backgroundColor: color, boxShadow: `0 0 8px ${shadowColor}` }}
-          />
-        );
-      } else {
-        return (
-          <div
-            className="w-3.5 h-3.5 rounded-full shrink-0"
-            style={{ backgroundColor: color, boxShadow: `0 0 8px ${shadowColor}` }}
-          />
-        );
-      }
+      const baseClasses = "w-3.5 h-3.5 shrink-0 animate-pulse";
+      const shape = isImage || isVideo ? "rounded-[4px]" : "rounded-full";
+      return (
+        <div
+          className={`${baseClasses} ${shape}`}
+          style={{ backgroundColor: color, boxShadow: `0 0 8px ${shadowColor}` }}
+        />
+      );
     } else {
-      if (isImage || isVideo) {
-        return <div className="w-3.5 h-3.5 border-2 rounded-[4px] shrink-0" style={{ borderColor: color }} />;
-      } else {
-        return <div className="w-3.5 h-3.5 border-2 rounded-full shrink-0" style={{ borderColor: color }} />;
-      }
+      const baseClasses = "w-3.5 h-3.5 border-2 shrink-0";
+      const shape = isImage || isVideo ? "rounded-[4px]" : "rounded-full";
+      return <div className={`${baseClasses} ${shape}`} style={{ borderColor: color }} />;
     }
   } else {
     const isOpened = lastMsg.opened_by && lastMsg.opened_by.length > 0;
     if (isOpened) {
       return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+        <svg 
+          width="14" 
+          height="14" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke={color} 
+          strokeWidth="3.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          className="shrink-0"
+          aria-label="Message lu"
+        >
           <polyline points="9 18 15 12 9 6" />
         </svg>
       );
     } else {
       return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill={color} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" style={{ filter: `drop-shadow(0 0 4px ${shadowColor})` }}>
+        <svg 
+          width="14" 
+          height="14" 
+          viewBox="0 0 24 24" 
+          fill={color} 
+          stroke={color} 
+          strokeWidth="1.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          className="shrink-0" 
+          style={{ filter: `drop-shadow(0 0 4px ${shadowColor})` }}
+          aria-label="Message envoyé"
+        >
           <polygon points="5 3 19 12 5 21 5 3" />
         </svg>
       );
@@ -83,34 +123,39 @@ const getStatusIcon = (lastMsg: ConversationMessage | null, userId: string | und
 
 const getStatusText = (lastMsg: ConversationMessage | null, userId: string | undefined, hasNew: boolean, t: ThemeTokens) => {
   if (!lastMsg) return <span className={t.textFaint}>Aucun message</span>;
+  
   const isMe = lastMsg.sender_id === userId;
   const isImage = lastMsg.message_type === 'IMAGE';
   const isVideo = lastMsg.message_type === 'VIDEO';
-
   const colorClass = isImage ? 'text-[#ff004f]' : isVideo ? 'text-[#9b51e0]' : 'text-[#00b2ff]';
 
   if (!isMe) {
     if (hasNew) {
+      const messageType = isImage || isVideo ? 'Nouveau Snap' : 'Nouveau chat';
       return (
         <span className={`font-black ${colorClass} text-[13px] tracking-tight`}>
-          {isImage ? 'Nouveau Snap' : isVideo ? 'Nouveau Snap' : 'Nouveau chat'}
+          {messageType}
         </span>
       );
     } else {
+      const content = isImage || isVideo 
+        ? 'Snap reçu · Appuie pour voir' 
+        : lastMsg.content;
       return (
         <span className={`text-[13px] leading-snug ${t.textMuted} truncate block`}>
-          {isImage ? 'Snap reçu · Appuie pour voir' : isVideo ? 'Snap reçu · Appuie pour voir' : lastMsg.content}
+          {content}
         </span>
       );
     }
   } else {
     const isOpened = lastMsg.opened_by && lastMsg.opened_by.length > 0;
+    const status = isImage || isVideo
+      ? (isOpened ? 'Ouvert' : 'Envoyé')
+      : (isOpened ? 'Lu' : 'Distribué');
+      
     return (
       <span className={`text-[13px] leading-snug ${t.textMuted}`}>
-        {isImage || isVideo
-          ? isOpened ? 'Ouvert' : 'Envoyé'
-          : isOpened ? 'Lu' : 'Distribué'
-        }
+        {status}
       </span>
     );
   }
@@ -124,15 +169,17 @@ interface SwipeableConvRowProps {
   onDelete: (convId: string) => Promise<void>;
 }
 
-function convHasNew(conv: NonNullable<ConversationRow['conversations']>, userId: string | undefined) {
-  const lastMsg = conv.messages?.[0];
-  return !!(lastMsg && lastMsg.sender_id !== userId && (!lastMsg.opened_by || !lastMsg.opened_by.includes(userId || '')));
-}
-
-function getConvDisplayTitle(conv: NonNullable<ConversationRow['conversations']>) {
-  const titleParts = conv.title?.split('::') ?? [];
-  return titleParts[0] || 'Chat';
-}
+// Memoized group gradient selector for better performance
+const getGroupGradient = (preset: string) => {
+  const gradients = {
+    emerald: 'from-emerald-400 to-teal-600 text-white',
+    cyan: 'from-cyan-400 to-blue-600 text-white',
+    gold: 'from-yellow-400 via-orange-500 to-red-500 text-white',
+    sunset: 'from-indigo-500 via-purple-500 to-pink-500 text-white'
+  } as const;
+  
+  return gradients[preset as keyof typeof gradients] || gradients.sunset;
+};
 
 const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, onOpen, onDelete }) => {
   const x = useMotionValue(0);
@@ -140,12 +187,10 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
   const startX = useRef(0);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Delete button opacity: appears as soon as we swipe left
+  // Optimized motion transforms
   const deleteOpacity = useTransform(x, [-80, -40], [1, 0]);
-  // Scale the trash icon slightly as we pull further
   const deleteScale = useTransform(x, [-200, -72], [1.3, 1]);
-  // Background color shifts to red when past delete threshold
-  const bgColor = useTransform(x, [-200, -72, 0], ['#FFFF00', '#FFFF00', '#FFFF00']);
+  const bgColor = useTransform(x, [-200, -72, 0], ['#FFFC00', '#FFFC00', '#FFFC00']);
 
   const snapBack = useCallback(() => {
     animate(x, 0, { type: 'spring', stiffness: 400, damping: 30 });
@@ -153,73 +198,67 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
 
   const confirmDelete = useCallback(async () => {
     setIsDeleting(true);
-    // Slide fully off screen then delete
-    await animate(x, -500, { duration: 0.25, ease: 'easeIn' });
-    await onDelete(conv.id);
-  }, [conv.id, onDelete, x]);
+    try {
+      await animate(x, -500, { duration: 0.25, ease: 'easeIn' });
+      await onDelete(conv.id);
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      setIsDeleting(false);
+      snapBack();
+    }
+  }, [conv.id, onDelete, x, snapBack]);
 
-  const handlePointerDown = (e: React.PointerEvent) => {
+  // Optimized pointer event handlers
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
     e.stopPropagation();
     if (isDeleting) return;
     isDragging.current = false;
     startX.current = e.clientX;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
+  }, [isDeleting]);
 
-  const handlePointerMove = (e: React.PointerEvent) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (isDeleting) return;
     const delta = e.clientX - startX.current;
     if (Math.abs(delta) > 6) {
       e.stopPropagation();
     }
-    // Only allow left swipe
     if (delta > 0) { x.set(0); return; }
     isDragging.current = Math.abs(delta) > 6;
     x.set(Math.max(delta, -240));
-  };
+  }, [isDeleting, x]);
 
-  const handlePointerUp = async () => {
+  const handlePointerUp = useCallback(async () => {
     if (isDeleting) return;
     const current = x.get();
     if (current <= DELETE_THRESHOLD) {
       await confirmDelete();
     } else if (current <= SWIPE_THRESHOLD) {
-      // Snap to reveal delete button
       animate(x, -80, { type: 'spring', stiffness: 400, damping: 30 });
     } else {
       snapBack();
     }
-  };
+  }, [isDeleting, x, confirmDelete, snapBack]);
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     if (isDragging.current) return;
     if (x.get() !== 0) { snapBack(); return; }
     onOpen();
-  };
+  }, [onOpen, snapBack, x]);
 
-  const getGroupGradient = (preset: string) => {
-    switch (preset) {
-      case 'emerald':
-        return 'from-emerald-400 to-teal-600 text-white';
-      case 'cyan':
-        return 'from-cyan-400 to-blue-600 text-white';
-      case 'gold':
-        return 'from-yellow-400 via-orange-500 to-red-500 text-white';
-      case 'sunset':
-      default:
-        return 'from-indigo-500 via-purple-500 to-pink-500 text-white';
-    }
-  };
-
-  const lastMsg = conv.messages?.[0];
-  const hasNew = !!(lastMsg && lastMsg.sender_id !== userId && (!lastMsg.opened_by || !lastMsg.opened_by.includes(userId || '')));
-
+  // Memoized computed values
+  const lastMsg = useMemo(() => conv.messages?.[0], [conv.messages]);
+  const hasNew = useMemo(() => convHasNew(conv, userId), [conv, userId]);
   const isGroup = conv.is_group;
   const titleParts = conv.title?.split('::') ?? [];
   const displayTitle = titleParts[0] || 'Chat';
   const avatarPreset = titleParts[1] || 'sunset';
 
-  const otherMember = !isGroup ? conv.conversation_members?.find((m) => m.user_id !== userId) : null;
+  const otherMember = useMemo(
+    () => !isGroup ? conv.conversation_members?.find((m) => m.user_id !== userId) : null,
+    [conv.conversation_members, isGroup, userId]
+  );
+  
   const otherAvatar = otherMember?.users?.avatar_url;
   const initials = displayTitle.substring(0, 2).toUpperCase() || 'GP';
 
@@ -233,21 +272,41 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
 
   return (
     <div className="relative overflow-hidden">
-      {/* Delete background — Snapchat yellow swipe */}
+      {/* Delete background */}
       <motion.div
         className="absolute inset-0 flex items-center justify-end pr-6"
         style={{ backgroundColor: bgColor }}
       >
-        <motion.div style={{ opacity: deleteOpacity, scale: deleteScale }} className="flex flex-col items-center gap-0.5">
-          {isDeleting
-            ? <Loader2 size={22} className="text-black animate-spin" />
-            : <Trash2 size={22} className="text-black" />
-          }
+        <motion.div 
+          style={{ opacity: deleteOpacity, scale: deleteScale }} 
+          className="flex flex-col items-center gap-0.5"
+        >
+          <AnimatePresence mode="wait">
+            {isDeleting ? (
+              <motion.div
+                key="loader"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+              >
+                <Loader2 size={22} className="text-black animate-spin" />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="trash"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+              >
+                <Trash2 size={22} className="text-black" />
+              </motion.div>
+            )}
+          </AnimatePresence>
           <span className="text-black text-[9px] font-black uppercase tracking-wider">Suppr.</span>
         </motion.div>
       </motion.div>
 
-      {/* Row content — flat Snapchat list item */}
+      {/* Row content */}
       <motion.div
         style={{ x }}
         className={`relative flex items-center gap-3.5 pl-4 pr-3 py-3 cursor-pointer select-none touch-pan-y border-b ${t.borderMuted} ${isDeleting ? 'pointer-events-none' : ''}`}
@@ -263,9 +322,15 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
                 {initials}
               </div>
             ) : otherAvatar ? (
-              <img src={otherAvatar} alt="Avatar" className="w-full h-full object-cover" />
+              <img 
+                src={otherAvatar} 
+                alt={`Avatar de ${displayTitle}`} 
+                className="w-full h-full object-cover" 
+              />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-[#FFFC00] to-[#ff9500] flex items-center justify-center font-black text-black text-sm">{initials}</div>
+              <div className="w-full h-full bg-gradient-to-br from-[#FFFC00] to-[#ff9500] flex items-center justify-center font-black text-black text-sm">
+                {initials}
+              </div>
             )}
           </div>
         </div>
@@ -312,19 +377,29 @@ export default function ChatScreen() {
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<'sunset' | 'emerald' | 'cyan' | 'gold'>('sunset');
 
-  const toggleFriendSelection = (friendId: string) => {
+  const toggleFriendSelection = useCallback((friendId: string) => {
     setSelectedFriends((prev) => {
       const exists = prev.includes(friendId);
-      if (!exists && prev.length >= 99) {
+      if (!exists && prev.length >= MAX_GROUP_MEMBERS) {
         toast('La limite est de 100 membres par groupe !', 'warning');
         return prev;
       }
       return exists ? prev.filter((id) => id !== friendId) : [...prev, friendId];
     });
-  };
+  }, [toast]);
 
-  const handleStartGroup = async () => {
+  const resetModalState = useCallback(() => {
+    setShowNewChatModal(false);
+    setSearchQuery('');
+    setGroupTitle('');
+    setSelectedFriends([]);
+    setModalMode('chat');
+    setSelectedPreset('sunset');
+  }, []);
+
+  const handleStartGroup = useCallback(async () => {
     if (!user || !groupTitle.trim() || selectedFriends.length === 0) return;
+    
     setIsCreating(true);
     try {
       const newConvId = crypto.randomUUID();
@@ -336,24 +411,25 @@ export default function ChatScreen() {
         .insert({ id: newConvId, is_group: true, title: fullTitle });
       if (createError) throw createError;
 
-      // 2. Add current user first (essential for RLS conversation memberships insertion)
+      // 2. Add current user first (essential for RLS)
       const { error: selfMemberError } = await supabase
         .from('conversation_members')
         .insert({ conversation_id: newConvId, user_id: user.id, role: 'ADMIN' });
       if (selfMemberError) throw selfMemberError;
 
-      // 3. Add other members in batch insert
+      // 3. Add other members in batch
       const membersToInsert = selectedFriends.map((friendId) => ({
         conversation_id: newConvId,
         user_id: friendId,
         role: 'MEMBER'
       }));
+      
       const { error: membersError } = await supabase
         .from('conversation_members')
         .insert(membersToInsert);
       if (membersError) throw membersError;
 
-      // 4. Send group system creation message
+      // 4. Send system message
       await supabase.from('messages').insert({
         conversation_id: newConvId,
         sender_id: user.id,
@@ -361,29 +437,25 @@ export default function ChatScreen() {
         content: `📢 ${user.user_metadata?.display_name || user.user_metadata?.username || user.email?.split('@')[0] || 'Un utilisateur'} a créé le groupe "${groupTitle.trim()}"`,
       });
 
+      // 5. Update UI
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });
-
+      
       setActiveConversationPreview({
-        title: groupTitle.trim() + '::' + selectedPreset,
+        title: `${groupTitle.trim()}::${selectedPreset}`,
         avatarUrl: 'group',
       });
       setActiveConversationId(newConvId);
       setIsInConversation(true);
-      setShowNewChatModal(false);
-
-      // Reset states
-      setGroupTitle('');
-      setSelectedFriends([]);
-      setSelectedPreset('sunset');
-      setModalMode('chat');
+      resetModalState();
       toast('Groupe créé avec succès ! 🎉', 'success');
+      
     } catch (e) {
       const parsedError = e instanceof Error ? e : new Error('Impossible de créer le groupe');
       toast('Erreur : ' + parsedError.message, 'error');
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [user, groupTitle, selectedPreset, selectedFriends, queryClient, toast, resetModalState, setIsInConversation]);
 
   const handleDeleteConversation = useCallback(async (convId: string) => {
     if (!user) return;
@@ -407,9 +479,9 @@ export default function ChatScreen() {
     }
   }, [user, queryClient, toast]);
 
-  // Friends data for the "Nouveau chat" modal
+  // Enhanced friends data with better filtering
   const { friends } = useFriends();
-  const friendIds = new Set(friends.map((f) => f.user.id));
+  const friendIds = useMemo(() => new Set(friends.map((f) => f.user.id)), [friends]);
 
   const {
     data: usersPages,
@@ -417,10 +489,10 @@ export default function ChatScreen() {
     fetchNextPage: fetchNextUsersPage,
     hasNextPage: hasNextUsersPage,
     isFetchingNextPage: isFetchingNextPageData,
+    error: usersError,
   } = useInfiniteQuery({
     queryKey: ['users', searchQuery],
     queryFn: async ({ pageParam = 0 }) => {
-      const limit = 20;
       let query = supabase
         .from('users')
         .select('id, username, display_name, avatar_url')
@@ -431,7 +503,10 @@ export default function ChatScreen() {
         query = query.or(`username.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`);
       }
 
-      const { data, error } = await query.range((pageParam as number) * limit, ((pageParam as number) + 1) * limit - 1);
+      const { data, error } = await query.range(
+        (pageParam as number) * USERS_PER_PAGE, 
+        ((pageParam as number) + 1) * USERS_PER_PAGE - 1
+      );
       if (error) throw error;
 
       return Promise.all(
@@ -443,9 +518,11 @@ export default function ChatScreen() {
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === 20 ? allPages.length : undefined;
+      return lastPage.length === USERS_PER_PAGE ? allPages.length : undefined;
     },
     enabled: showNewChatModal && !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   const allUsers = usersPages ? usersPages.pages.flatMap((page) => page) : [];
@@ -473,16 +550,20 @@ export default function ChatScreen() {
     };
   }, []);
 
-  const handleStartChat = async (targetUser: AppUserProfile) => {
+  const handleStartChat = useCallback(async (targetUser: AppUserProfile) => {
     if (!user) return;
+    
     setIsCreating(true);
     try {
+      // Optimized conversation check
       const { data: myConversations, error: myConvError } = await supabase
         .from('conversation_members')
         .select('conversation_id')
         .eq('user_id', user.id);
       if (myConvError) throw myConvError;
+      
       const myConvIds = myConversations.map((c) => c.conversation_id);
+      
       if (myConvIds.length > 0) {
         const { data: sharedMembers, error: sharedError } = await supabase
           .from('conversation_members')
@@ -490,6 +571,7 @@ export default function ChatScreen() {
           .in('conversation_id', myConvIds)
           .eq('user_id', targetUser.id);
         if (sharedError) throw sharedError;
+        
         if (sharedMembers && sharedMembers.length > 0) {
           setActiveConversationPreview({
             title: targetUser.display_name || targetUser.username || 'Chat',
@@ -497,23 +579,23 @@ export default function ChatScreen() {
           });
           setActiveConversationId(sharedMembers[0].conversation_id);
           setIsInConversation(true);
-          setShowNewChatModal(false);
+          resetModalState();
           return;
         }
       }
-      // Generate the conversation id client-side so we never need to SELECT
-      // the row back (which would fail RLS before members are inserted).
+      
+      // Create new conversation
       const newConvId = crypto.randomUUID();
       const { error: createError } = await supabase
         .from('conversations')
-        .insert({ id: newConvId, is_group: false, title: targetUser.display_name || targetUser.username });
+        .insert({ 
+          id: newConvId, 
+          is_group: false, 
+          title: targetUser.display_name || targetUser.username 
+        });
       if (createError) throw createError;
 
-      // Insert current user first — RLS on conversation_members requires the
-      // authenticated user to be the one being inserted (auth.uid() = user_id).
-      // Inserting both rows at once triggers the policy for each row independently,
-      // and the second row (targetUser) fails because auth.uid() !== targetUser.id.
-      // Solution: insert self first, then insert the other member via a separate call.
+      // Insert current user first for RLS compliance
       const { error: selfMemberError } = await supabase
         .from('conversation_members')
         .insert({ conversation_id: newConvId, user_id: user.id });
@@ -525,32 +607,38 @@ export default function ChatScreen() {
       if (otherMemberError) throw otherMemberError;
 
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      
       setActiveConversationPreview({
         title: targetUser.display_name || targetUser.username || 'Chat',
         avatarUrl: targetUser.avatar_url ?? undefined,
       });
       setActiveConversationId(newConvId);
       setIsInConversation(true);
-      setShowNewChatModal(false);
+      resetModalState();
+      
     } catch (e) {
       const parsedError = e instanceof Error ? e : new Error('Impossible de démarrer la conversation');
       toast('Erreur : ' + parsedError.message, 'error');
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [user, queryClient, toast, resetModalState, setIsInConversation]);
 
-  const filteredUsers = allUsers;
-
-  // Split into friends and others
-  const filteredFriendUsers = filteredUsers.filter((u) => friendIds.has(u.id));
-  const filteredOtherUsers = filteredUsers.filter((u) => !friendIds.has(u.id));
+  // Optimized computed values with better memoization
+  const filteredUsers = useMemo(() => allUsers, [allUsers]);
+  const filteredFriendUsers = useMemo(() => 
+    filteredUsers.filter((u) => friendIds.has(u.id)), 
+    [filteredUsers, friendIds]
+  );
+  const filteredOtherUsers = useMemo(() => 
+    filteredUsers.filter((u) => !friendIds.has(u.id)), 
+    [filteredUsers, friendIds]
+  );
 
   const activeConversation = useMemo(
-    () =>
-      conversations?.find(
-        (c: ConversationRow) => c.conversations?.id === activeConversationId
-      )?.conversations,
+    () => conversations?.find(
+      (c: ConversationRow) => c.conversations?.id === activeConversationId
+    )?.conversations,
     [activeConversationId, conversations]
   );
 
@@ -581,11 +669,19 @@ export default function ChatScreen() {
 
   const quickFriends = useMemo(() => {
     const seen = new Set<string>();
-    const items: { id: string; name: string; avatar: string | null; convId: string; hasNew: boolean }[] = [];
+    const items: { 
+      id: string; 
+      name: string; 
+      avatar: string | null; 
+      convId: string; 
+      hasNew: boolean;
+    }[] = [];
+    
     for (const conv of sortedConversations) {
       if (conv.is_group) continue;
       const member = conv.conversation_members?.find((m) => m.user_id !== user?.id);
       if (!member || seen.has(member.user_id)) continue;
+      
       seen.add(member.user_id);
       items.push({
         id: member.user_id,
@@ -594,12 +690,14 @@ export default function ChatScreen() {
         convId: conv.id,
         hasNew: convHasNew(conv, user?.id),
       });
-      if (items.length >= 12) break;
+      
+      if (items.length >= MAX_QUICK_FRIENDS) break;
     }
     return items;
   }, [sortedConversations, user?.id]);
 
-  const renderConvRow = (conv: NonNullable<ConversationRow['conversations']>) => (
+  // Optimized conversation row renderer
+  const renderConvRow = useCallback((conv: NonNullable<ConversationRow['conversations']>) => (
     <SwipeableConvRow
       key={conv.id}
       conv={conv}
@@ -611,7 +709,7 @@ export default function ChatScreen() {
       }}
       onDelete={handleDeleteConversation}
     />
-  );
+  ), [user?.id, t, setIsInConversation, handleDeleteConversation]);
 
   if (activeConversationId) {
     const otherMember = activeConversation?.conversation_members?.find(
@@ -692,33 +790,36 @@ export default function ChatScreen() {
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto scroll-hide pb-28">
-        {/* Quick friends strip — style Snapchat */}
+        {/* Quick friends strip */}
         {!isLoading && quickFriends.length > 0 && (
           <div className="mb-2">
             <div className="flex gap-4 overflow-x-auto scroll-hide px-4 pb-3 pt-1">
-              <button
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.92 }}
                 onClick={() => setShowNewChatModal(true)}
                 className="flex flex-col items-center gap-1.5 shrink-0 w-[56px]"
+                aria-label="Nouveau chat"
               >
                 <div className="w-[52px] h-[52px] rounded-full bg-snap-yellow flex items-center justify-center shadow-[0_2px_10px_rgba(255,252,0,0.3)]">
                   <MessageCirclePlus size={22} className="text-black" strokeWidth={2.2} />
                 </div>
                 <span className="text-[10px] font-bold text-center leading-tight max-w-[56px] truncate">Nouveau</span>
-              </button>
+              </motion.button>
+
               {quickFriends.map((friend) => (
-                <button
+                <motion.button
                   key={friend.id}
                   type="button"
+                  whileTap={{ scale: 0.92 }}
                   onClick={() => {
                     setActiveConversationId(friend.convId);
                     setIsInConversation(true);
                   }}
                   className="flex flex-col items-center gap-1.5 shrink-0 w-[56px]"
+                  aria-label={`Ouvrir la conversation avec ${friend.name}`}
                 >
-                  <div
-                    className={`w-[52px] h-[52px] rounded-full overflow-hidden ${friend.hasNew ? 'ring-[2.5px] ring-snap-yellow ring-offset-[2.5px] ' + t.ringOffset : ''}`}
-                  >
+                  <div className={`relative w-[52px] h-[52px] rounded-full overflow-hidden ${friend.hasNew ? `ring-[2.5px] ring-snap-yellow ring-offset-[2.5px] ${t.ringOffset}` : ''}`}>
                     {friend.avatar ? (
                       <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
                     ) : (
@@ -726,34 +827,40 @@ export default function ChatScreen() {
                         {friend.name.substring(0, 2).toUpperCase()}
                       </div>
                     )}
+                    {/* New message dot indicator */}
+                    {friend.hasNew && (
+                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-snap-yellow rounded-full border-2 border-black" />
+                    )}
                   </div>
                   <span className={`text-[10px] text-center leading-tight max-w-[56px] truncate ${friend.hasNew ? 'font-black' : 'font-semibold'} ${t.textMuted}`}>
                     {friend.name.split(' ')[0]}
                   </span>
-                </button>
+                </motion.button>
               ))}
             </div>
             <div className={`mx-4 border-b ${t.borderMuted}`} />
           </div>
         )}
 
-        {/* Nouveau chat row — Snapchat style */}
+        {/* Nouveau chat row */}
         {!isLoading && (
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.99 }}
             onClick={() => setShowNewChatModal(true)}
-            className={`w-full flex items-center gap-3.5 pl-4 pr-3 py-3.5 border-b ${t.borderMuted} active:opacity-70 transition-opacity`}
+            className={`w-full flex items-center gap-3.5 pl-4 pr-3 py-3.5 border-b ${t.borderMuted} transition-opacity`}
           >
-            <div className="w-[52px] h-[52px] rounded-full bg-snap-yellow flex items-center justify-center shrink-0">
+            <div className="w-[52px] h-[52px] rounded-full bg-snap-yellow flex items-center justify-center shrink-0 shadow-[0_2px_12px_rgba(255,252,0,0.25)]">
               <Camera size={22} className="text-black" strokeWidth={2.2} />
             </div>
             <div className="flex-1 text-left">
               <p className="font-black text-[16px] tracking-tight">Nouveau Snap / Chat</p>
               <p className={`text-[13px] mt-0.5 ${t.textMuted}`}>Envoie un message à un ami</p>
             </div>
-          </button>
+          </motion.button>
         )}
 
+        {/* Skeleton loading */}
         {isLoading && (
           <div className="pt-1">
             {[...Array(6)].map((_, i) => (
@@ -768,19 +875,25 @@ export default function ChatScreen() {
           </div>
         )}
 
+        {/* Conversation list */}
         {!isLoading && sortedConversations.length > 0 && (
           <>
             {newConversations.length > 0 && (
-              <section>
-                <p className={`px-4 pt-3 pb-1 text-[11px] font-black uppercase tracking-[0.12em] ${t.textFaint}`}>
-                  Nouveaux · {newConversations.length}
-                </p>
+              <section aria-label="Nouvelles conversations">
+                <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                  <p className={`text-[11px] font-black uppercase tracking-[0.12em] ${t.textFaint}`}>
+                    Nouveaux
+                  </p>
+                  <span className="text-[10px] font-black bg-snap-yellow text-black rounded-full px-2 py-0.5 leading-none">
+                    {newConversations.length}
+                  </span>
+                </div>
                 {newConversations.map(renderConvRow)}
               </section>
             )}
 
             {recentConversations.length > 0 && (
-              <section>
+              <section aria-label="Conversations récentes">
                 <p className={`px-4 pt-4 pb-1 text-[11px] font-black uppercase tracking-[0.12em] ${t.textFaint}`}>
                   {newConversations.length > 0 ? 'Récents' : 'Conversations'}
                 </p>
@@ -790,14 +903,22 @@ export default function ChatScreen() {
           </>
         )}
 
+        {/* Empty state */}
         {!isLoading && sortedConversations.length === 0 && (
-          <div className="flex flex-col items-center justify-center pt-20 px-8 gap-5">
-            <div
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="flex flex-col items-center justify-center pt-20 px-8 gap-5"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
               className="w-20 h-20 rounded-full flex items-center justify-center"
               style={{ background: t.isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)' }}
             >
               <MessageCirclePlus size={36} className={t.textFaint} strokeWidth={1.5} />
-            </div>
+            </motion.div>
             <div className="text-center">
               <p className="font-black text-[18px] tracking-tight">Aucune conversation</p>
               <p className={`text-[14px] mt-1.5 leading-relaxed ${t.textMuted}`}>
@@ -807,55 +928,90 @@ export default function ChatScreen() {
             <motion.button
               onClick={() => setShowNewChatModal(true)}
               whileTap={{ scale: 0.94 }}
+              whileHover={{ scale: 1.03 }}
               className="px-8 py-3.5 text-black font-black rounded-full text-[14px] bg-snap-yellow shadow-[0_6px_24px_rgba(255,252,0,0.35)]"
             >
               Commencer à chatter
             </motion.button>
-          </div>
+          </motion.div>
         )}
       </div>
 
       {/* New Chat / Group Modal */}
-      {showNewChatModal && (
-        <div className={`absolute inset-0 z-50 flex justify-center backdrop-blur-md ${t.isLight ? 'bg-[#f0f2f8]/80' : 'bg-black/80'} ${t.text}`}>
-          <div className={`w-full max-w-[430px] h-full flex flex-col ${t.bg}`}>
+      <AnimatePresence>
+        {showNewChatModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className={`absolute inset-0 z-50 flex justify-center backdrop-blur-md ${t.isLight ? 'bg-[#f0f2f8]/80' : 'bg-black/80'} ${t.text}`}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 32 }}
+              className={`w-full max-w-[430px] h-full flex flex-col ${t.bg}`}
+            >
 
             {/* Header */}
             <div className={`flex items-center gap-3 px-4 pt-14 pb-4 border-b ${t.borderMuted}`}>
-              <button
-                onClick={() => {
-                  setShowNewChatModal(false);
-                  setSearchQuery('');
-                  setGroupTitle('');
-                  setSelectedFriends([]);
-                  setModalMode('chat');
-                }}
+              <motion.button
+                onClick={resetModalState}
+                whileTap={{ scale: 0.9 }}
                 className={`w-9 h-9 rounded-full flex items-center justify-center ${t.iconBtn}`}
+                aria-label="Fermer"
               >
                 <X size={18} />
-              </button>
+              </motion.button>
               <h2 className="text-lg font-black flex-1">
                 {modalMode === 'chat' ? 'Nouveau chat' : 'Créer un groupe'}
               </h2>
+              {modalMode === 'group' && selectedFriends.length > 0 && (
+                <motion.button
+                  onClick={() => setModalMode('chat')}
+                  whileTap={{ scale: 0.95 }}
+                  className="text-xs font-bold text-snap-yellow bg-snap-yellow/10 px-3 py-1.5 rounded-full"
+                >
+                  {selectedFriends.length} sélectionnés
+                </motion.button>
+              )}
             </div>
 
-            {/* Sliding tab switcher */}
+            {/* Sliding tab switcher with enhanced animations */}
             <div className="px-4 py-3 flex justify-center border-b border-black/5 dark:border-white/5">
-              <div className={`flex p-1 rounded-full w-full max-w-[340px] border ${t.isLight ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
-                <button
+              <div className={`relative flex p-1 rounded-full w-full max-w-[340px] border ${t.isLight ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
+                <motion.button
                   type="button"
                   onClick={() => setModalMode('chat')}
-                  className={`flex-1 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all ${modalMode === 'chat' ? 'bg-snap-yellow text-black shadow-md scale-100' : `${t.textMuted} hover:text-current active:scale-95`}`}
+                  whileTap={{ scale: 0.98 }}
+                  className={`relative flex-1 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all z-10 ${modalMode === 'chat' ? 'text-black' : `${t.textMuted} hover:text-current`}`}
                 >
                   Nouveau Chat
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   type="button"
                   onClick={() => setModalMode('group')}
-                  className={`flex-1 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all ${modalMode === 'group' ? 'bg-snap-yellow text-black shadow-md scale-100' : `${t.textMuted} hover:text-current active:scale-95`}`}
+                  whileTap={{ scale: 0.98 }}
+                  className={`relative flex-1 py-2 rounded-full text-[11px] font-black tracking-wider uppercase transition-all z-10 ${modalMode === 'group' ? 'text-black' : `${t.textMuted} hover:text-current`}`}
                 >
                   Nouveau Groupe
-                </button>
+                </motion.button>
+                <motion.div
+                  className="absolute bg-snap-yellow rounded-full shadow-md"
+                  animate={{
+                    x: modalMode === 'chat' ? 4 : '50%',
+                    width: modalMode === 'chat' ? 'calc(50% - 8px)' : 'calc(50% - 8px)'
+                  }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  style={{
+                    top: 4,
+                    bottom: 4,
+                    left: modalMode === 'chat' ? 4 : undefined,
+                    right: modalMode === 'group' ? 4 : undefined
+                  }}
+                />
               </div>
             </div>
 
@@ -929,140 +1085,312 @@ export default function ChatScreen() {
               </div>
             </div>
 
-            {/* Members / Users List */}
+            {/* Enhanced Members / Users List with better error handling */}
             <div className="flex-1 overflow-y-auto scroll-hide px-4 pb-8 flex flex-col gap-1.5">
-              {isUsersLoading && <div className="flex justify-center pt-12"><Loader2 className={`animate-spin ${t.textMuted}`} size={28} /></div>}
+              {isUsersLoading && (
+                <div className="flex flex-col items-center justify-center pt-12 gap-4">
+                  <Loader2 className={`animate-spin ${t.textMuted}`} size={28} />
+                  <span className={`text-sm ${t.textMuted}`}>Chargement des utilisateurs...</span>
+                </div>
+              )}
 
-              {!isUsersLoading && modalMode === 'chat' && (
+              {usersError && (
+                <div className="flex flex-col items-center justify-center pt-12 gap-4">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center ${t.isLight ? 'bg-red-50' : 'bg-red-900/20'}`}>
+                    <X size={24} className="text-red-500" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-bold text-red-500 mb-2">Erreur de chargement</p>
+                    <p className={`text-sm ${t.textMuted}`}>Impossible de charger les utilisateurs</p>
+                  </div>
+                </div>
+              )}
+
+              {!isUsersLoading && !usersError && modalMode === 'chat' && (
                 <>
-                  {filteredUsers.length === 0 && <div className={`text-center pt-12 text-sm ${t.textMuted}`}>Aucun utilisateur trouvé</div>}
-                  {filteredFriendUsers.length > 0 && (
-                    <>
-                      <p className={`text-xs font-bold uppercase tracking-wider mb-1 mt-1 px-2 ${t.textMuted}`}>Amis</p>
-                      {filteredFriendUsers.map((u) => <UserRow key={u.id} user={u} isFriend isCreating={isCreating} onSelect={() => handleStartChat(u)} />)}
-                    </>
-                  )}
-                  {filteredOtherUsers.length > 0 && (
-                    <>
-                      <p className={`text-xs font-bold uppercase tracking-wider mb-1 mt-3 px-2 ${t.textMuted}`}>Autres utilisateurs</p>
-                      {filteredOtherUsers.map((u) => <UserRow key={u.id} user={u} isFriend={false} isCreating={isCreating} onSelect={() => handleStartChat(u)} />)}
-                    </>
-                  )}
-                  {isFetchingNextPageData && (
-                    <div className="flex justify-center py-2 shrink-0">
-                      <Loader2 className={`animate-spin ${t.textMuted}`} size={20} />
+                  {filteredUsers.length === 0 && (
+                    <div className={`text-center pt-12 text-sm ${t.textMuted}`}>
+                      {searchQuery ? 'Aucun utilisateur trouvé pour cette recherche' : 'Aucun utilisateur trouvé'}
                     </div>
                   )}
+                  
+                  {filteredFriendUsers.length > 0 && (
+                    <>
+                      <div className="flex items-center justify-between px-2 mb-1 mt-1">
+                        <p className={`text-xs font-bold uppercase tracking-wider ${t.textMuted}`}>
+                          Amis ({filteredFriendUsers.length})
+                        </p>
+                      </div>
+                      {filteredFriendUsers.map((u) => (
+                        <UserRow 
+                          key={u.id} 
+                          user={u} 
+                          isFriend 
+                          isCreating={isCreating} 
+                          onSelect={() => handleStartChat(u)} 
+                        />
+                      ))}
+                    </>
+                  )}
+                  
+                  {filteredOtherUsers.length > 0 && (
+                    <>
+                      <div className="flex items-center justify-between px-2 mb-1 mt-3">
+                        <p className={`text-xs font-bold uppercase tracking-wider ${t.textMuted}`}>
+                          Autres utilisateurs ({filteredOtherUsers.length})
+                        </p>
+                      </div>
+                      {filteredOtherUsers.map((u) => (
+                        <UserRow 
+                          key={u.id} 
+                          user={u} 
+                          isFriend={false} 
+                          isCreating={isCreating} 
+                          onSelect={() => handleStartChat(u)} 
+                        />
+                      ))}
+                    </>
+                  )}
+                  
+                  {/* Loading more indicator with better UX */}
+                  {isFetchingNextPageData && (
+                    <div className="flex justify-center py-4 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className={`animate-spin ${t.textMuted}`} size={20} />
+                        <span className={`text-sm ${t.textMuted}`}>Chargement...</span>
+                      </div>
+                    </div>
+                  )}
+                  
                   {hasNextUsersPage && (
-                    <div ref={loadMoreUsersRef} className="h-1 w-full shrink-0" />
+                    <div ref={loadMoreUsersRef} className="h-1 w-full shrink-0" aria-hidden="true" />
                   )}
                 </>
               )}
 
-              {!isUsersLoading && modalMode === 'group' && (
+              {!isUsersLoading && !usersError && modalMode === 'group' && (
                 <>
-                  {/* For group creation, we show a multi-select list of friends */}
                   {filteredFriendUsers.length === 0 ? (
-                    <div className={`text-center pt-12 text-sm ${t.textMuted}`}>Aucun ami trouvé. Ajoute des amis pour créer un groupe !</div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex flex-col items-center justify-center pt-12 gap-4 text-center"
+                    >
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center ${t.isLight ? 'bg-black/5' : 'bg-white/5'}`}>
+                        <Users size={28} className={t.textFaint} strokeWidth={1.5} />
+                      </div>
+                      <div>
+                        <p className={`font-bold text-[15px] ${t.text}`}>Aucun ami trouvé</p>
+                        <p className={`text-sm mt-1 ${t.textMuted}`}>Ajoute des amis pour créer un groupe !</p>
+                      </div>
+                    </motion.div>
                   ) : (
                     <>
-                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 px-2 ${t.textMuted}`}>Choisis les membres de ton groupe ({selectedFriends.length} sélectionné{selectedFriends.length > 1 ? 's' : ''})</p>
+                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 px-2 ${t.textMuted}`}>
+                        Membres ({selectedFriends.length} sélectionné{selectedFriends.length > 1 ? 's' : ''})
+                      </p>
                       <div className="flex flex-col gap-1">
-                        {filteredFriendUsers.map((u) => (
-                          <button
-                            key={u.id}
-                            type="button"
-                            onClick={() => toggleFriendSelection(u.id)}
-                            className={`w-full flex items-center justify-between px-3 py-3 rounded-2xl transition-all text-left ${t.surfaceHover} border border-transparent active:scale-[0.99]`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-11 h-11 rounded-full overflow-hidden shrink-0">
-                                {u.avatar_url ? (
-                                  <img src={u.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
-                                    {u.username?.substring(0, 2).toUpperCase()}
-                                  </div>
-                                )}
+                        {filteredFriendUsers.map((u) => {
+                          const isSelected = selectedFriends.includes(u.id);
+                          return (
+                            <motion.button
+                              key={u.id}
+                              type="button"
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => toggleFriendSelection(u.id)}
+                              className={`w-full flex items-center justify-between px-3 py-3 rounded-2xl transition-all text-left border active:scale-[0.99] ${
+                                isSelected
+                                  ? `border-snap-yellow/30 ${t.isLight ? 'bg-snap-yellow/5' : 'bg-snap-yellow/8'}`
+                                  : `border-transparent ${t.surfaceHover}`
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-11 h-11 rounded-full overflow-hidden shrink-0 transition-all ${isSelected ? 'ring-2 ring-snap-yellow ring-offset-1' : ''} ${t.ringOffset}`}>
+                                  {u.avatar_url ? (
+                                    <img
+                                      src={u.avatar_url}
+                                      alt={`Avatar de ${u.display_name || u.username}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
+                                      {u.username?.substring(0, 2).toUpperCase()}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className={`font-bold text-[14.5px] truncate ${t.text}`}>{u.display_name || u.username}</p>
+                                  <p className={`text-xs ${t.textMuted}`}>@{u.username}</p>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className={`font-bold text-[14.5px] truncate ${t.text}`}>{u.display_name || u.username}</p>
-                                <p className={`text-xs ${t.textMuted}`}>@{u.username}</p>
-                              </div>
-                            </div>
 
-                            {/* Premium checkbox circle */}
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedFriends.includes(u.id) ? 'bg-snap-yellow border-snap-yellow scale-105 shadow-[0_2px_8px_rgba(255,252,0,0.4)]' : `${t.isLight ? 'border-black/15' : 'border-white/15'}`}`}>
-                              {selectedFriends.includes(u.id) && (
-                                <Check size={11} className="text-black" strokeWidth={3.5} />
-                              )}
-                            </div>
-                          </button>
-                        ))}
+                              {/* Animated checkbox */}
+                              <motion.div
+                                animate={isSelected
+                                  ? { scale: 1.08, backgroundColor: '#FFFC00', borderColor: '#FFFC00' }
+                                  : { scale: 1, backgroundColor: 'transparent', borderColor: t.isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)' }
+                                }
+                                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                                className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0"
+                                style={{ boxShadow: isSelected ? '0 2px 8px rgba(255,252,0,0.4)' : 'none' }}
+                              >
+                                <AnimatePresence>
+                                  {isSelected && (
+                                    <motion.div
+                                      initial={{ scale: 0, opacity: 0 }}
+                                      animate={{ scale: 1, opacity: 1 }}
+                                      exit={{ scale: 0, opacity: 0 }}
+                                      transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                                    >
+                                      <Check size={11} className="text-black" strokeWidth={3.5} />
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </motion.div>
+                            </motion.button>
+                          );
+                        })}
                       </div>
                     </>
                   )}
 
-                  {/* Create group CTA Button */}
+                  {/* Enhanced group creation with better validation */}
                   {filteredFriendUsers.length > 0 && (
-                    <div className="pt-4 mt-auto">
-                      <button
+                    <div className="pt-4 mt-auto space-y-3">
+                      {/* Group info summary */}
+                      <div className={`p-3 rounded-2xl border ${t.isLight ? 'bg-black/2 border-black/5' : 'bg-white/2 border-white/5'}`}>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className={t.textMuted}>Membres sélectionnés:</span>
+                          <span className="font-bold text-snap-yellow">{selectedFriends.length}/{MAX_GROUP_MEMBERS}</span>
+                        </div>
+                        {groupTitle.trim() && (
+                          <div className="flex items-center justify-between text-xs mt-1">
+                            <span className={t.textMuted}>Nom du groupe:</span>
+                            <span className="font-bold">{groupTitle.trim()}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Create button with better states */}
+                      <motion.button
                         type="button"
                         disabled={isCreating || !groupTitle.trim() || selectedFriends.length === 0}
                         onClick={handleStartGroup}
-                        className={`w-full py-4 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 rounded-2xl transition-all ${(!groupTitle.trim() || selectedFriends.length === 0) ? `bg-black/10 dark:bg-white/10 ${t.textMuted} cursor-not-allowed` : 'bg-snap-yellow text-black hover:scale-[1.02] active:scale-98 shadow-[0_4px_25px_rgba(255,252,0,0.35)]'}`}
+                        whileTap={{ scale: 0.98 }}
+                        whileHover={{ scale: 1.02 }}
+                        className={`w-full py-4 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 rounded-2xl transition-all ${
+                          (!groupTitle.trim() || selectedFriends.length === 0) 
+                            ? `bg-black/10 dark:bg-white/10 ${t.textMuted} cursor-not-allowed` 
+                            : 'bg-snap-yellow text-black shadow-[0_4px_25px_rgba(255,252,0,0.35)]'
+                        }`}
                       >
-                        {isCreating ? (
-                          <Loader2 className="animate-spin text-black" size={18} />
-                        ) : (
-                          <>
-                            <Users size={16} />
-                            Créer le groupe ({selectedFriends.length})
-                          </>
-                        )}
-                      </button>
+                        <AnimatePresence mode="wait">
+                          {isCreating ? (
+                            <motion.div
+                              key="creating"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              className="flex items-center gap-2"
+                            >
+                              <Loader2 className="animate-spin text-black" size={18} />
+                              <span>Création...</span>
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="create"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              className="flex items-center gap-2"
+                            >
+                              <Users size={16} />
+                              <span>Créer le groupe ({selectedFriends.length})</span>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.button>
                     </div>
                   )}
                 </>
               )}
             </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-// ── User row sub-component ────────────────────────────────────
+// ── Enhanced User Row Component ────────────────────────────────────
 const UserRow: React.FC<{
   user: AppUserProfile;
   isFriend: boolean;
   isCreating: boolean;
   onSelect: () => void;
-}> = ({ user, isFriend, isCreating, onSelect }) => {
+}> = React.memo(({ user, isFriend, isCreating, onSelect }) => {
   const t = useTheme();
+  
   return (
-    <button onClick={onSelect} disabled={isCreating}
-      className={`w-full flex items-center gap-3 px-4 py-3 border-b ${t.borderMuted} transition-colors text-left disabled:opacity-50 active:opacity-70`}>
-      <div className="w-[48px] h-[48px] rounded-full overflow-hidden shrink-0">
-        {user.avatar_url ? <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : (
+    <motion.button 
+      onClick={onSelect} 
+      disabled={isCreating}
+      whileTap={{ scale: 0.98 }}
+      className={`w-full flex items-center gap-3 px-4 py-3 border-b ${t.borderMuted} transition-all text-left disabled:opacity-50 hover:bg-black/2 dark:hover:bg-white/2 rounded-lg mx-2 -mx-2`}
+    >
+      <div className="w-[48px] h-[48px] rounded-full overflow-hidden shrink-0 ring-2 ring-transparent hover:ring-snap-yellow/20 transition-all">
+        {user.avatar_url ? (
+          <img 
+            src={user.avatar_url} 
+            alt={`Avatar de ${user.display_name || user.username}`}
+            className="w-full h-full object-cover" 
+          />
+        ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#FFFC00] to-[#ff9500] flex items-center justify-center font-black text-black text-sm">
             {user.username?.substring(0, 2).toUpperCase()}
           </div>
         )}
       </div>
+      
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className={`font-bold text-[15px] truncate ${t.text}`}>{user.display_name || user.username}</p>
-          {isFriend && <span className="text-[9px] font-black text-black bg-snap-yellow rounded-full px-2 py-0.5 shrink-0 uppercase tracking-wide">Ami</span>}
+          <p className={`font-bold text-[15px] truncate ${t.text}`}>
+            {user.display_name || user.username}
+          </p>
+          {isFriend && (
+            <span className="text-[9px] font-black text-black bg-snap-yellow rounded-full px-2 py-0.5 shrink-0 uppercase tracking-wide">
+              Ami
+            </span>
+          )}
         </div>
         <p className={`text-[13px] ${t.textMuted}`}>@{user.username}</p>
       </div>
-      {isCreating ? <Loader2 size={18} className={`animate-spin shrink-0 ${t.textMuted}`} /> : (
-        <div className="w-8 h-8 rounded-full bg-snap-yellow flex items-center justify-center shrink-0">
-          <UserPlus size={15} className="text-black" strokeWidth={2.5} />
-        </div>
-      )}
-    </button>
+      
+      <div className="shrink-0">
+        <AnimatePresence mode="wait">
+          {isCreating ? (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0, rotate: -90 }}
+              animate={{ opacity: 1, rotate: 0 }}
+              exit={{ opacity: 0, rotate: 90 }}
+            >
+              <Loader2 size={18} className={`animate-spin ${t.textMuted}`} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="add"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="w-8 h-8 rounded-full bg-snap-yellow flex items-center justify-center"
+            >
+              <UserPlus size={15} className="text-black" strokeWidth={2.5} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.button>
   );
-};
+});
