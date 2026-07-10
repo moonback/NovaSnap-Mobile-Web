@@ -126,7 +126,6 @@
   .transition-bounce {
     transition: all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   }
-  }
 
   .glass-card {
     background: var(--snap-card);
@@ -254,7 +253,7 @@
     background: rgba(0, 0, 0, 0.07);
     color: #0d0e1a;
   }
-}
+} /* end @layer utilities */
 
 @keyframes progress {
   from {
