@@ -308,7 +308,14 @@ export default function StoriesScreen() {
             viewed_at: new Date().toISOString(),
           }, { onConflict: 'story_id,viewer_id' })
           .then(({ error }) => {
-            if (error) console.error('[StoryView] Error recording view:', error);
+            if (error) {
+              console.error('[StoryView] Error recording view:', error);
+              // Handle RLS policy violation gracefully
+              if (error.code === '42501' || error.message?.includes('row-level security')) {
+                console.warn('[StoryView] RLS policy issue - view not recorded, but story viewing continues');
+                // Don't show error to user, just log it for debugging
+              }
+            }
           });
       }
       

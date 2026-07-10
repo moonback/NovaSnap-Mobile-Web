@@ -107,19 +107,19 @@ export default function AuthScreen() {
   };
 
   return (
-    <div className="w-full h-full bg-[#0a0a0f] text-white flex flex-col items-center justify-center relative overflow-y-auto overflow-x-hidden font-sans py-8">
-      {/* Animated Background Blobs */}
+    <div className="w-full h-full bg-black text-white flex flex-col items-center justify-center relative overflow-y-auto overflow-x-hidden font-sans py-8">
+      {/* Animated background blobs */}
       <motion.div
-        animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
-        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20 blur-[80px] pointer-events-none fixed"
-        style={{ background: 'radial-gradient(circle, #FFC0CB 0%, transparent 70%)' }}
+        animate={{ scale: [1, 1.15, 1], rotate: [0, 120, 0] }}
+        transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+        className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full opacity-[0.18] blur-[100px] pointer-events-none"
+        style={{ background: 'radial-gradient(circle, #FFFC00 0%, transparent 65%)' }}
       />
       <motion.div
-        animate={{ scale: [1, 1.3, 1], rotate: [0, -90, 0] }}
-        transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-        className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full opacity-[0.15] blur-[80px] pointer-events-none fixed"
-        style={{ background: 'radial-gradient(circle, #a855f7 0%, transparent 70%)' }}
+        animate={{ scale: [1, 1.25, 1], rotate: [0, -100, 0] }}
+        transition={{ duration: 22, repeat: Infinity, ease: "linear" }}
+        className="absolute -bottom-40 -right-40 w-[450px] h-[450px] rounded-full opacity-[0.12] blur-[100px] pointer-events-none"
+        style={{ background: 'radial-gradient(circle, #a855f7 0%, transparent 65%)' }}
       />
 
       <motion.div
@@ -129,47 +129,59 @@ export default function AuthScreen() {
         className="w-full max-w-sm px-6 relative z-10 flex flex-col my-auto"
       >
         {/* Logo Header */}
-        <div className="flex flex-col items-center mb-6">
+        <div className="flex flex-col items-center mb-8">
           <motion.div
-            whileHover={{ scale: 1.05, rotate: 5 }}
-            whileTap={{ scale: 0.95 }}
-            className="w-20 h-20 rounded-[28px] bg-gradient-to-br from-[#FFC0CB] to-[#eab308] flex items-center justify-center mb-5 shadow-[0_0_30px_rgba(255,252,0,0.3)] relative group"
+            whileHover={{ scale: 1.06, rotate: 4 }}
+            whileTap={{ scale: 0.94 }}
+            className="w-[88px] h-[88px] rounded-[26px] flex items-center justify-center mb-5 relative"
+            style={{
+              background: 'linear-gradient(145deg, #FFFC00 0%, #FFD700 100%)',
+              boxShadow: '0 0 50px rgba(255,252,0,0.35), 0 12px 40px rgba(0,0,0,0.3)',
+            }}
           >
-            <div className="absolute inset-0 rounded-[28px] bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
             <img
               src="/logo.png"
               alt="Logo"
-              className="w-12 h-12 object-contain relative z-10"
+              className="w-14 h-14 object-contain relative z-10"
             />
-            <div className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-[#FFC0CB]/20 to-[#eab308]/20 opacity-0 group-hover:opacity-100 transition-opacity" />
           </motion.div>
-          <h1 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70">
+          <h1 className="text-[32px] font-black tracking-tight text-white">
             NovaSnap
           </h1>
-          <p className="text-white/40 text-sm mt-1.5 font-medium">
-            {isLogin ? 'Content de te revoir 👋' : 'Rejoins la communauté'}
+          <p className="text-white/45 text-[13px] mt-1.5 font-medium">
+            {isLogin ? 'Content de te revoir 👋' : 'Rejoins la communauté ✨'}
           </p>
         </div>
 
-        {/* Segmented Toggle — hidden in forgot mode */}
+        {/* Segmented toggle */}
         {!isForgot && (
-          <div className="flex p-1 bg-white/5 border border-white/10 rounded-full mb-8 relative backdrop-blur-md">
+          <div
+            className="flex p-1 rounded-full mb-7 relative"
+            style={{
+              background: 'rgba(255,255,255,0.07)',
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
             <motion.div
-              className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white/10 rounded-full shadow-lg border border-white/5"
+              className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full"
               animate={{ x: isLogin ? 4 : 'calc(100% + 4px)' }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              style={{
+                background: 'rgba(255,255,255,0.12)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
             />
             <button
               type="button"
               onClick={() => { setMode('login'); setError(null); }}
-              className={`flex-1 py-2.5 text-sm font-bold z-10 transition-colors ${isLogin ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
+              className={`flex-1 py-2.5 text-sm font-bold z-10 transition-colors duration-150 ${isLogin ? 'text-white' : 'text-white/40 hover:text-white/65'}`}
             >
               Connexion
             </button>
             <button
               type="button"
               onClick={() => { setMode('signup'); setError(null); }}
-              className={`flex-1 py-2.5 text-sm font-bold z-10 transition-colors ${!isLogin ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
+              className={`flex-1 py-2.5 text-sm font-bold z-10 transition-colors duration-150 ${!isLogin ? 'text-white' : 'text-white/40 hover:text-white/65'}`}
             >
               Inscription
             </button>
@@ -288,20 +300,27 @@ export default function AuthScreen() {
               >
                 {!isLogin && (
                   <div className="relative group">
-                    <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-snap-yellow transition-colors pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Nom d'utilisateur"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
-                      required
-                      minLength={3}
-                      maxLength={20}
-                      autoCapitalize="none"
-                      autoComplete="username"
-                      aria-invalid={!!usernameError}
-                    />
+                  <User size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-[#FFFC00] transition-colors pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Nom d'utilisateur"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full rounded-2xl py-[14px] pl-11 pr-4 text-white placeholder-white/30 focus:outline-none text-[15px]"
+                    style={{
+                      background: 'rgba(255,255,255,0.07)',
+                      border: '1.5px solid rgba(255,255,255,0.1)',
+                      transition: 'border-color 0.2s, background 0.2s',
+                    }}
+                    onFocus={e => { e.currentTarget.style.borderColor = 'rgba(255,252,0,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+                    required
+                    minLength={3}
+                    maxLength={20}
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    aria-invalid={!!usernameError}
+                  />
                     <AnimatePresence>
                       {usernameError && (
                         <motion.p
@@ -316,13 +335,20 @@ export default function AuthScreen() {
                 )}
 
                 <div className="relative group">
-                  <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-snap-yellow transition-colors pointer-events-none" />
+                  <Mail size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-[#FFFC00] transition-colors pointer-events-none" />
                   <input
                     type="email"
                     placeholder="Adresse email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
+                    className="w-full rounded-2xl py-[14px] pl-11 pr-4 text-white placeholder-white/30 focus:outline-none text-[15px]"
+                    style={{
+                      background: 'rgba(255,255,255,0.07)',
+                      border: '1.5px solid rgba(255,255,255,0.1)',
+                      transition: 'border-color 0.2s, background 0.2s',
+                    }}
+                    onFocus={e => { e.currentTarget.style.borderColor = 'rgba(255,252,0,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
                     required
                     autoComplete="email"
                     inputMode="email"
@@ -330,13 +356,20 @@ export default function AuthScreen() {
                 </div>
 
                 <div className="relative group">
-                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-snap-yellow transition-colors pointer-events-none" />
+                  <Lock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-[#FFFC00] transition-colors pointer-events-none" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Mot de passe"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white placeholder-white/30 focus:outline-none focus:border-snap-yellow/50 focus:bg-white/10 transition-all text-[15px] shadow-inner"
+                    className="w-full rounded-2xl py-[14px] pl-11 pr-12 text-white placeholder-white/30 focus:outline-none text-[15px]"
+                    style={{
+                      background: 'rgba(255,255,255,0.07)',
+                      border: '1.5px solid rgba(255,255,255,0.1)',
+                      transition: 'border-color 0.2s, background 0.2s',
+                    }}
+                    onFocus={e => { e.currentTarget.style.borderColor = 'rgba(255,252,0,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
                     required
                     minLength={8}
                     autoComplete={isLogin ? 'current-password' : 'new-password'}
@@ -346,7 +379,7 @@ export default function AuthScreen() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors p-1"
                   >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                   </button>
                 </div>
 
@@ -365,16 +398,19 @@ export default function AuthScreen() {
                 <motion.button
                   type="submit"
                   disabled={!canSubmit}
-                  whileTap={canSubmit ? { scale: 0.98 } : {}}
-                  className="w-full bg-gradient-to-r from-[#FFC0CB] to-[#eab308] text-black font-black py-4 rounded-2xl mt-4 flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(255,252,0,0.25)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer text-[15px] tracking-wide relative overflow-hidden group"
+                  whileTap={canSubmit ? { scale: 0.97 } : {}}
+                  className="w-full text-black font-black py-[15px] rounded-2xl mt-5 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[15px] tracking-wide relative overflow-hidden"
+                  style={{
+                    background: '#FFFC00',
+                    boxShadow: canSubmit ? '0 6px 24px rgba(255,252,0,0.3)' : 'none',
+                  }}
                 >
-                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                   {loading ? (
                     <Loader2 size={20} className="animate-spin" />
                   ) : (
                     <>
-                      <span className="relative z-10">{isLogin ? 'Se connecter' : 'Créer mon compte'}</span>
-                      <ArrowRight size={18} className="relative z-10" />
+                      <span>{isLogin ? 'Se connecter' : 'Créer mon compte'}</span>
+                      <ArrowRight size={18} />
                     </>
                   )}
                 </motion.button>

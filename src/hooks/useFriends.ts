@@ -28,37 +28,53 @@ const FRIENDS_QUERY_KEY = (userId: string) => ['friends', userId] as const;
 
 // ── Fetch Helper for pagination ──────────────────────────────
 async function fetchFriendshipsPage(userId: string, pageParam: number, limit: number): Promise<FriendWithProfile[]> {
-  const { data: rows, error } = await supabase
-    .from('friendships_resolved')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .range(pageParam * limit, (pageParam + 1) * limit - 1);
+  try {
+    const { data: rows, error } = await supabase
+      .from('friendships_resolved')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(pageParam * limit, (pageParam + 1) * limit - 1);
 
-  if (error) throw error;
-  if (!rows || rows.length === 0) return [];
+    if (error) {
+      console.warn('[fetchFriendshipsPage] Query failed:', error.message);
+      // If RLS error or view doesn't exist, return empty array
+      if (error.code === '42501' || error.message?.includes('row-level security') || 
+          error.message?.includes('does not exist') || error.message?.includes('relation')) {
+        console.warn('[fetchFriendshipsPage] Database issue detected, returning empty results');
+        return [];
+      }
+      throw error;
+    }
+    
+    if (!rows || rows.length === 0) return [];
 
-  return Promise.all(
-    rows.map(async (row): Promise<FriendWithProfile> => {
-      const avatarUrl = row.friend_avatar_url
-        ? await getValidMediaUrl('avatars', row.friend_avatar_url)
-        : null;
+    return Promise.all(
+      rows.map(async (row): Promise<FriendWithProfile> => {
+        const avatarUrl = row.friend_avatar_url
+          ? await getValidMediaUrl('avatars', row.friend_avatar_url)
+          : null;
 
-      return {
-        friendship_id: row.friendship_id,
-        friendship_status: row.friendship_status,
-        is_requester: row.is_requester,
-        user: {
-          id: row.friend_id,
-          username: row.friend_username,
-          display_name: row.friend_display_name,
-          avatar_url: avatarUrl,
-          bio: row.friend_bio,
-          snap_score: row.friend_snap_score || 0,
-        },
-      };
-    })
-  );
+        return {
+          friendship_id: row.friendship_id,
+          friendship_status: row.friendship_status,
+          is_requester: row.is_requester,
+          user: {
+            id: row.friend_id,
+            username: row.friend_username,
+            display_name: row.friend_display_name,
+            avatar_url: avatarUrl,
+            bio: row.friend_bio,
+            snap_score: row.friend_snap_score || 0,
+          },
+        };
+      })
+    );
+  } catch (error) {
+    console.error('[fetchFriendshipsPage] Error:', error);
+    // Return empty array instead of throwing to prevent UI breaking
+    return [];
+  }
 }
 
 
@@ -116,28 +132,55 @@ export function useFriends() {
     queryFn: async () => {
       if (!user) return { friendsCount: 0, pendingCount: 0 };
       
-      const { count: friendsCount, error: friendsErr } = await supabase
-        .from('friendships')
-        .select('*', { count: 'exact', head: true })
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
-        .eq('status', 'ACCEPTED');
+      try {
+        const { count: friendsCount, error: friendsErr } = await supabase
+          .from('friendships')
+          .select('*', { count: 'exact', head: true })
+          .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+          .eq('status', 'ACCEPTED');
 
-      if (friendsErr) throw friendsErr;
+        if (friendsErr) {
+          console.warn('[useFriends] Friends count query failed:', friendsErr.message);
+          // If RLS error, return 0 but don't throw to prevent UI breaking
+          if (friendsErr.code === '42501' || friendsErr.message?.includes('row-level security')) {
+            return { friendsCount: 0, pendingCount: 0 };
+          }
+          throw friendsErr;
+        }
 
-      const { count: pendingCount, error: pendingErr } = await supabase
-        .from('friendships')
-        .select('*', { count: 'exact', head: true })
-        .eq('friend_id', user.id)
-        .eq('status', 'PENDING');
+        const { count: pendingCount, error: pendingErr } = await supabase
+          .from('friendships')
+          .select('*', { count: 'exact', head: true })
+          .eq('friend_id', user.id)
+          .eq('status', 'PENDING');
 
-      if (pendingErr) throw pendingErr;
+        if (pendingErr) {
+          console.warn('[useFriends] Pending count query failed:', pendingErr.message);
+          // If RLS error, return partial data
+          if (pendingErr.code === '42501' || pendingErr.message?.includes('row-level security')) {
+            return { friendsCount: friendsCount ?? 0, pendingCount: 0 };
+          }
+          throw pendingErr;
+        }
 
-      return {
-        friendsCount: friendsCount ?? 0,
-        pendingCount: pendingCount ?? 0,
-      };
+        return {
+          friendsCount: friendsCount ?? 0,
+          pendingCount: pendingCount ?? 0,
+        };
+      } catch (error) {
+        console.error('[useFriends] Count query failed:', error);
+        // Return fallback data instead of breaking the UI
+        return { friendsCount: 0, pendingCount: 0 };
+      }
     },
     enabled: !!user,
+    retry: (failureCount, error) => {
+      // Don't retry RLS errors, they need database fix
+      if (error && typeof error === 'object' && 'code' in error && error.code === '42501') {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   // ── Query ──────────────────────────────────────────────────

@@ -2,7 +2,8 @@ import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import { supabase, getValidMediaUrl } from '../lib/supabase';
 import { useConversations } from '../hooks/useConversations';
 import { useFriends } from '../hooks/useFriends';
-import { Loader2, User, X, Search, Edit3, ChevronRight, Trash2, Check, Users } from 'lucide-react';
+import { useCurrentUserProfile } from '../hooks/useCurrentUserProfile';
+import { Loader2, X, Search, UserPlus, Trash2, Check, Users, MessageCirclePlus, Camera } from 'lucide-react';
 import Skeleton from '../components/ui/Skeleton';
 import ConversationScreen from './ConversationScreen';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
@@ -91,21 +92,21 @@ const getStatusText = (lastMsg: ConversationMessage | null, userId: string | und
   if (!isMe) {
     if (hasNew) {
       return (
-        <span className={`font-black ${colorClass} text-[13.5px] tracking-tight`}>
-          {isImage ? 'Nouveau Snap 📷' : isVideo ? 'Nouveau Snap 🎥' : 'Nouveau Message 💬'}
+        <span className={`font-black ${colorClass} text-[13px] tracking-tight`}>
+          {isImage ? 'Nouveau Snap' : isVideo ? 'Nouveau Snap' : 'Nouveau chat'}
         </span>
       );
     } else {
       return (
-        <span className={`text-[13px] leading-normal ${t.textMuted} truncate block max-w-[200px]`}>
-          {isImage ? '📷 Snap photo reçu' : isVideo ? '🎥 Snap vidéo reçu' : lastMsg.content}
+        <span className={`text-[13px] leading-snug ${t.textMuted} truncate block`}>
+          {isImage ? 'Snap reçu · Appuie pour voir' : isVideo ? 'Snap reçu · Appuie pour voir' : lastMsg.content}
         </span>
       );
     }
   } else {
     const isOpened = lastMsg.opened_by && lastMsg.opened_by.length > 0;
     return (
-      <span className={`text-[13.5px] leading-normal ${t.textMuted} font-semibold`}>
+      <span className={`text-[13px] leading-snug ${t.textMuted}`}>
         {isImage || isVideo
           ? isOpened ? 'Ouvert' : 'Envoyé'
           : isOpened ? 'Lu' : 'Distribué'
@@ -121,6 +122,16 @@ interface SwipeableConvRowProps {
   t: ReturnType<typeof useTheme>;
   onOpen: () => void;
   onDelete: (convId: string) => Promise<void>;
+}
+
+function convHasNew(conv: NonNullable<ConversationRow['conversations']>, userId: string | undefined) {
+  const lastMsg = conv.messages?.[0];
+  return !!(lastMsg && lastMsg.sender_id !== userId && (!lastMsg.opened_by || !lastMsg.opened_by.includes(userId || '')));
+}
+
+function getConvDisplayTitle(conv: NonNullable<ConversationRow['conversations']>) {
+  const titleParts = conv.title?.split('::') ?? [];
+  return titleParts[0] || 'Chat';
 }
 
 const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, onOpen, onDelete }) => {
@@ -221,64 +232,62 @@ const SwipeableConvRow: React.FC<SwipeableConvRowProps> = ({ conv, userId, t, on
     : '';
 
   return (
-    <div className="relative overflow-hidden rounded-2xl mb-1.5 border-b border-black/5 dark:border-white/5 pb-1">
-      {/* Delete background */}
+    <div className="relative overflow-hidden">
+      {/* Delete background — Snapchat yellow swipe */}
       <motion.div
-        className="absolute inset-0 flex items-center justify-end pr-5 rounded-2xl"
+        className="absolute inset-0 flex items-center justify-end pr-6"
         style={{ backgroundColor: bgColor }}
       >
-        <motion.div style={{ opacity: deleteOpacity, scale: deleteScale }} className="flex flex-col items-center gap-1">
+        <motion.div style={{ opacity: deleteOpacity, scale: deleteScale }} className="flex flex-col items-center gap-0.5">
           {isDeleting
-            ? <Loader2 size={20} className="text-white animate-spin" />
-            : <Trash2 size={20} className="text-white" />
+            ? <Loader2 size={22} className="text-black animate-spin" />
+            : <Trash2 size={22} className="text-black" />
           }
-          <span className="text-white text-[9px] font-black uppercase tracking-wider">Supprimer</span>
+          <span className="text-black text-[9px] font-black uppercase tracking-wider">Suppr.</span>
         </motion.div>
       </motion.div>
 
-      {/* Row content */}
+      {/* Row content — flat Snapchat list item */}
       <motion.div
         style={{ x }}
-        className={`relative flex items-center gap-3 px-3 py-3.5 rounded-2xl cursor-pointer select-none touch-pan-y ${t.bg} hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${isDeleting ? 'pointer-events-none' : ''}`}
+        className={`relative flex items-center gap-3.5 pl-4 pr-3 py-3 cursor-pointer select-none touch-pan-y border-b ${t.borderMuted} ${isDeleting ? 'pointer-events-none' : ''}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onClick={handleClick}
       >
         <div className="relative shrink-0">
-          <div className={`w-14 h-14 rounded-full overflow-hidden transition-all duration-300 ${hasNew ? `ring-2 ${ringColor} ring-offset-2 ${t.isLight ? 'ring-offset-[#f0f2f8]' : 'ring-offset-black'}` : ''}`}>
+          <div className={`w-[52px] h-[52px] rounded-full overflow-hidden transition-all duration-200 ${hasNew ? `ring-[2.5px] ${ringColor} ring-offset-[2.5px] ${t.ringOffset}` : ''}`}>
             {isGroup ? (
-              <div className={`w-full h-full bg-gradient-to-br ${getGroupGradient(avatarPreset)} flex items-center justify-center font-black text-white text-[15px] tracking-wider shadow-inner`}>
+              <div className={`w-full h-full bg-gradient-to-br ${getGroupGradient(avatarPreset)} flex items-center justify-center font-black text-white text-sm tracking-wider`}>
                 {initials}
               </div>
             ) : otherAvatar ? (
               <img src={otherAvatar} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">{initials}</div>
+              <div className="w-full h-full bg-gradient-to-br from-[#FFFC00] to-[#ff9500] flex items-center justify-center font-black text-black text-sm">{initials}</div>
             )}
           </div>
-          {hasNew && (
-            <div
-              className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 ${t.isLight ? 'border-[#f0f2f8]' : 'border-black'}`}
-              style={{ backgroundColor: lastMsg?.message_type === 'IMAGE' ? '#ff004f' : lastMsg?.message_type === 'VIDEO' ? '#9b51e0' : '#00b2ff' }}
-            />
-          )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-0.5">
-            <span className={`font-black text-[15.5px] tracking-tight truncate ${t.text}`}>{displayTitle}</span>
-            {lastMsg && <span className={`text-[11px] shrink-0 ml-2 ${t.textFaint}`}>{timeAgo(lastMsg.created_at)}</span>}
+        <div className="flex-1 min-w-0 py-0.5">
+          <div className="flex items-baseline justify-between gap-2 mb-0.5">
+            <span className={`truncate ${hasNew ? 'font-black text-[16px]' : 'font-bold text-[15px]'} tracking-tight ${t.text}`}>
+              {displayTitle}
+            </span>
+            {lastMsg && (
+              <span className={`text-[11px] shrink-0 tabular-nums ${hasNew ? 'text-snap-yellow font-bold' : t.textFaint}`}>
+                {timeAgo(lastMsg.created_at)}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-1.5">
             {getStatusIcon(lastMsg, userId, hasNew)}
-            <div className="truncate flex-1">
+            <div className="truncate flex-1 min-w-0">
               {getStatusText(lastMsg, userId, hasNew, t)}
             </div>
           </div>
         </div>
-
-        {hasNew && <ChevronRight size={16} className="text-snap-yellow shrink-0" />}
       </motion.div>
     </div>
   );
@@ -293,6 +302,7 @@ export default function ChatScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
   const { user, setShowProfile, setIsInConversation } = useAppStore();
+  const { data: currentProfile } = useCurrentUserProfile();
   const t = useTheme();
   const queryClient = useQueryClient();
 
@@ -544,6 +554,65 @@ export default function ChatScreen() {
     [activeConversationId, conversations]
   );
 
+  const sortedConversations = useMemo(() => {
+    if (!conversations) return [];
+    const rows = conversations
+      .map((c) => c.conversations)
+      .filter((c): c is NonNullable<typeof c> => !!c);
+    return [...rows].sort((a, b) => {
+      const aNew = convHasNew(a, user?.id);
+      const bNew = convHasNew(b, user?.id);
+      if (aNew !== bNew) return aNew ? -1 : 1;
+      const aTime = a.messages?.[0]?.created_at ?? '';
+      const bTime = b.messages?.[0]?.created_at ?? '';
+      return bTime.localeCompare(aTime);
+    });
+  }, [conversations, user?.id]);
+
+  const newConversations = useMemo(
+    () => sortedConversations.filter((c) => convHasNew(c, user?.id)),
+    [sortedConversations, user?.id]
+  );
+
+  const recentConversations = useMemo(
+    () => sortedConversations.filter((c) => !convHasNew(c, user?.id)),
+    [sortedConversations, user?.id]
+  );
+
+  const quickFriends = useMemo(() => {
+    const seen = new Set<string>();
+    const items: { id: string; name: string; avatar: string | null; convId: string; hasNew: boolean }[] = [];
+    for (const conv of sortedConversations) {
+      if (conv.is_group) continue;
+      const member = conv.conversation_members?.find((m) => m.user_id !== user?.id);
+      if (!member || seen.has(member.user_id)) continue;
+      seen.add(member.user_id);
+      items.push({
+        id: member.user_id,
+        name: getConvDisplayTitle(conv),
+        avatar: member.users?.avatar_url ?? null,
+        convId: conv.id,
+        hasNew: convHasNew(conv, user?.id),
+      });
+      if (items.length >= 12) break;
+    }
+    return items;
+  }, [sortedConversations, user?.id]);
+
+  const renderConvRow = (conv: NonNullable<ConversationRow['conversations']>) => (
+    <SwipeableConvRow
+      key={conv.id}
+      conv={conv}
+      userId={user?.id}
+      t={t}
+      onOpen={() => {
+        setActiveConversationId(conv.id);
+        setIsInConversation(true);
+      }}
+      onDelete={handleDeleteConversation}
+    />
+  );
+
   if (activeConversationId) {
     const otherMember = activeConversation?.conversation_members?.find(
       (m) => m.user_id !== user?.id
@@ -564,117 +633,192 @@ export default function ChatScreen() {
 
   return (
     <div className={`w-full h-full flex flex-col overflow-hidden ${t.bg} ${t.text}`}>
-      {/* ── Header — Snapchat style ── */}
-      <div className="relative flex items-center justify-between px-4 pt-12 pb-3">
-        {/* Left — profile avatar */}
-        <button
-          onClick={() => setShowProfile(true)}
-          aria-label="Profil"
-          className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center active:scale-90 transition-transform"
-          style={{ background: 'linear-gradient(135deg, #FFC0CB 0%, #ff9500 100%)' }}
-        >
-          {user?.user_metadata?.avatar_url ? (
-            <img src={user.user_metadata.avatar_url} className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-black font-black text-sm">
-              {(user?.user_metadata?.username || user?.email || 'U').charAt(0).toUpperCase()}
-            </span>
-          )}
-        </button>
+      {/* ── Header Snapchat ── */}
+      <div className="shrink-0 px-4 pt-14 pb-3">
+        <div className="flex items-center justify-between mb-4">
+          <motion.button
+            onClick={() => setShowProfile(true)}
+            aria-label="Profil"
+            whileTap={{ scale: 0.9 }}
+            className="w-10 h-10 rounded-full overflow-hidden shrink-0"
+            style={{
+              boxShadow: '0 0 0 2px rgba(255,252,0,0.35)',
+            }}
+          >
+            {currentProfile?.avatar_url ? (
+              <img src={currentProfile.avatar_url} className="w-full h-full object-cover" alt="avatar" />
+            ) : (
+              <div
+                className="w-full h-full flex items-center justify-center font-black text-sm text-black"
+                style={{ background: 'linear-gradient(135deg, #FFFC00 0%, #ff9500 100%)' }}
+              >
+                {(currentProfile?.username || user?.user_metadata?.username || user?.email || 'U').charAt(0).toUpperCase()}
+              </div>
+            )}
+          </motion.button>
 
-        {/* Center — title */}
-        <h1 className="absolute left-1/2 -translate-x-1/2 text-[19px] font-black tracking-tight">Chat</h1>
+          <h1 className="text-[22px] font-black tracking-tight absolute left-1/2 -translate-x-1/2">
+            Chat
+          </h1>
 
-        {/* Right — compose */}
-        <button
-          onClick={() => setShowNewChatModal(true)}
-          aria-label="Nouveau message"
-          className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-          style={{ background: t.isLight ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.1)' }}
-        >
-          <Edit3 size={17} />
-        </button>
-      </div>
-
-      {/* ── Search bar — Snapchat dark pill ── */}
-      <div className="px-4 pb-3">
-        <div className="relative">
-          <Search size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
-          <input
-            type="text"
-            placeholder="Rechercher..."
-            readOnly
+          <motion.button
             onClick={() => setShowNewChatModal(true)}
-            className={`w-full h-[38px] rounded-full pl-9 pr-4 text-sm font-semibold focus:outline-none cursor-pointer snap-input ${t.isLight ? 'placeholder-black/35' : 'placeholder-white/35'}`}
-          />
+            aria-label="Nouveau message"
+            whileTap={{ scale: 0.9 }}
+            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-snap-yellow text-black shadow-[0_2px_12px_rgba(255,252,0,0.35)]"
+          >
+            <UserPlus size={18} strokeWidth={2.5} />
+          </motion.button>
         </div>
+
+        {/* Search — pill Snapchat */}
+        <button
+          type="button"
+          onClick={() => setShowNewChatModal(true)}
+          className={`w-full flex items-center gap-2.5 h-10 rounded-full px-4 ${t.input} border ${t.borderMuted}`}
+        >
+          <Search size={15} className={t.textMuted} />
+          <span className={`text-[14px] font-medium ${t.textMuted}`}>Rechercher</span>
+        </button>
       </div>
 
       {/* Realtime status */}
       {realtimeStatus !== 'connected' && (
-        <div className="mx-4 mb-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
+        <div className="mx-4 mb-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center gap-2 shrink-0">
           <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
           <span className="text-amber-400 text-xs font-medium">Reconnexion en cours...</span>
         </div>
       )}
 
-      {/* Conversations list */}
-      <div className="flex-1 overflow-y-auto scroll-hide px-4 pb-28">
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto scroll-hide pb-28">
+        {/* Quick friends strip — style Snapchat */}
+        {!isLoading && quickFriends.length > 0 && (
+          <div className="mb-2">
+            <div className="flex gap-4 overflow-x-auto scroll-hide px-4 pb-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowNewChatModal(true)}
+                className="flex flex-col items-center gap-1.5 shrink-0 w-[56px]"
+              >
+                <div className="w-[52px] h-[52px] rounded-full bg-snap-yellow flex items-center justify-center shadow-[0_2px_10px_rgba(255,252,0,0.3)]">
+                  <MessageCirclePlus size={22} className="text-black" strokeWidth={2.2} />
+                </div>
+                <span className="text-[10px] font-bold text-center leading-tight max-w-[56px] truncate">Nouveau</span>
+              </button>
+              {quickFriends.map((friend) => (
+                <button
+                  key={friend.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveConversationId(friend.convId);
+                    setIsInConversation(true);
+                  }}
+                  className="flex flex-col items-center gap-1.5 shrink-0 w-[56px]"
+                >
+                  <div
+                    className={`w-[52px] h-[52px] rounded-full overflow-hidden ${friend.hasNew ? 'ring-[2.5px] ring-snap-yellow ring-offset-[2.5px] ' + t.ringOffset : ''}`}
+                  >
+                    {friend.avatar ? (
+                      <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-[#FFFC00] to-[#ff9500] flex items-center justify-center font-black text-black text-xs">
+                        {friend.name.substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <span className={`text-[10px] text-center leading-tight max-w-[56px] truncate ${friend.hasNew ? 'font-black' : 'font-semibold'} ${t.textMuted}`}>
+                    {friend.name.split(' ')[0]}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className={`mx-4 border-b ${t.borderMuted}`} />
+          </div>
+        )}
+
+        {/* Nouveau chat row — Snapchat style */}
+        {!isLoading && (
+          <button
+            type="button"
+            onClick={() => setShowNewChatModal(true)}
+            className={`w-full flex items-center gap-3.5 pl-4 pr-3 py-3.5 border-b ${t.borderMuted} active:opacity-70 transition-opacity`}
+          >
+            <div className="w-[52px] h-[52px] rounded-full bg-snap-yellow flex items-center justify-center shrink-0">
+              <Camera size={22} className="text-black" strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-black text-[16px] tracking-tight">Nouveau Snap / Chat</p>
+              <p className={`text-[13px] mt-0.5 ${t.textMuted}`}>Envoie un message à un ami</p>
+            </div>
+          </button>
+        )}
+
         {isLoading && (
-          <div className="space-y-1 pt-2">
+          <div className="pt-1">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-2 py-3">
-                <Skeleton className="w-14 h-14 rounded-full shrink-0" />
-                <div className="flex-1 space-y-2"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-3 w-2/3" /></div>
+              <div key={i} className={`flex items-center gap-3.5 pl-4 pr-3 py-3 border-b ${t.borderMuted}`}>
+                <Skeleton className="w-[52px] h-[52px] rounded-full shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-3 w-2/3" />
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {!isLoading && conversations && conversations.length > 0 && (
-          <div className="pt-1">
-            {conversations.map((convObj) => {
-              const conv = convObj.conversations;
-              if (!conv) return null;
-              return (
-                <SwipeableConvRow
-                  key={conv.id}
-                  conv={conv}
-                  userId={user?.id}
-                  t={t}
-                  onOpen={() => {
-                    setActiveConversationId(conv.id);
-                    setIsInConversation(true);
-                  }}
-                  onDelete={handleDeleteConversation}
-                />
-              );
-            })}
-          </div>
+        {!isLoading && sortedConversations.length > 0 && (
+          <>
+            {newConversations.length > 0 && (
+              <section>
+                <p className={`px-4 pt-3 pb-1 text-[11px] font-black uppercase tracking-[0.12em] ${t.textFaint}`}>
+                  Nouveaux · {newConversations.length}
+                </p>
+                {newConversations.map(renderConvRow)}
+              </section>
+            )}
+
+            {recentConversations.length > 0 && (
+              <section>
+                <p className={`px-4 pt-4 pb-1 text-[11px] font-black uppercase tracking-[0.12em] ${t.textFaint}`}>
+                  {newConversations.length > 0 ? 'Récents' : 'Conversations'}
+                </p>
+                {recentConversations.map(renderConvRow)}
+              </section>
+            )}
+          </>
         )}
 
-        {!isLoading && (!conversations || conversations.length === 0) && (
-          <div className="flex flex-col items-center justify-center pt-20 gap-4">
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center ${t.surface}`}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={t.isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)'} strokeWidth="1.5">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
+        {!isLoading && sortedConversations.length === 0 && (
+          <div className="flex flex-col items-center justify-center pt-20 px-8 gap-5">
+            <div
+              className="w-20 h-20 rounded-full flex items-center justify-center"
+              style={{ background: t.isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)' }}
+            >
+              <MessageCirclePlus size={36} className={t.textFaint} strokeWidth={1.5} />
             </div>
             <div className="text-center">
-              <p className={`font-bold text-lg ${t.text}`}>Aucune conversation</p>
-              <p className={`text-sm mt-1 ${t.textMuted}`}>Commence à chatter avec tes amis</p>
+              <p className="font-black text-[18px] tracking-tight">Aucune conversation</p>
+              <p className={`text-[14px] mt-1.5 leading-relaxed ${t.textMuted}`}>
+                Envoie ton premier Snap ou démarre un chat avec tes amis
+              </p>
             </div>
-            <button onClick={() => setShowNewChatModal(true)} className="mt-2 px-6 py-3 bg-snap-yellow text-black font-black rounded-full text-sm shadow-snap active:scale-95 transition-all">
-              Nouveau chat
-            </button>
+            <motion.button
+              onClick={() => setShowNewChatModal(true)}
+              whileTap={{ scale: 0.94 }}
+              className="px-8 py-3.5 text-black font-black rounded-full text-[14px] bg-snap-yellow shadow-[0_6px_24px_rgba(255,252,0,0.35)]"
+            >
+              Commencer à chatter
+            </motion.button>
           </div>
         )}
       </div>
 
       {/* New Chat / Group Modal */}
       {showNewChatModal && (
-        <div className={`absolute inset-0 z-50 flex justify-center backdrop-blur-md ${t.isLight ? 'bg-[#f0f2f8]/75' : 'bg-black/70'} ${t.text}`}>
-          <div className={`w-full max-w-[430px] h-full flex flex-col ${t.isLight ? 'bg-[#f0f2f8]/98' : 'bg-black/95'} border-x ${t.borderMuted}`}>
+        <div className={`absolute inset-0 z-50 flex justify-center backdrop-blur-md ${t.isLight ? 'bg-[#f0f2f8]/80' : 'bg-black/80'} ${t.text}`}>
+          <div className={`w-full max-w-[430px] h-full flex flex-col ${t.bg}`}>
 
             {/* Header */}
             <div className={`flex items-center gap-3 px-4 pt-14 pb-4 border-b ${t.borderMuted}`}>
@@ -899,10 +1043,10 @@ const UserRow: React.FC<{
   const t = useTheme();
   return (
     <button onClick={onSelect} disabled={isCreating}
-      className={`w-full flex items-center gap-3 px-2 py-3 rounded-2xl transition-colors text-left disabled:opacity-50 ${t.surfaceHover}`}>
-      <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
+      className={`w-full flex items-center gap-3 px-4 py-3 border-b ${t.borderMuted} transition-colors text-left disabled:opacity-50 active:opacity-70`}>
+      <div className="w-[48px] h-[48px] rounded-full overflow-hidden shrink-0">
         {user.avatar_url ? <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : (
-          <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-black text-sm">
+          <div className="w-full h-full bg-gradient-to-br from-[#FFFC00] to-[#ff9500] flex items-center justify-center font-black text-black text-sm">
             {user.username?.substring(0, 2).toUpperCase()}
           </div>
         )}
@@ -910,13 +1054,13 @@ const UserRow: React.FC<{
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className={`font-bold text-[15px] truncate ${t.text}`}>{user.display_name || user.username}</p>
-          {isFriend && <span className="text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 rounded-full px-2 py-0.5 shrink-0">Amis</span>}
+          {isFriend && <span className="text-[9px] font-black text-black bg-snap-yellow rounded-full px-2 py-0.5 shrink-0 uppercase tracking-wide">Ami</span>}
         </div>
-        <p className={`text-sm ${t.textMuted}`}>@{user.username}</p>
+        <p className={`text-[13px] ${t.textMuted}`}>@{user.username}</p>
       </div>
       {isCreating ? <Loader2 size={18} className={`animate-spin shrink-0 ${t.textMuted}`} /> : (
         <div className="w-8 h-8 rounded-full bg-snap-yellow flex items-center justify-center shrink-0">
-          <span className="text-black font-black text-lg leading-none">+</span>
+          <UserPlus size={15} className="text-black" strokeWidth={2.5} />
         </div>
       )}
     </button>

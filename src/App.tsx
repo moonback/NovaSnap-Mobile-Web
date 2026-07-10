@@ -312,33 +312,34 @@ export default function App() {
 
   if (isInitializing) {
     return (
-      <div className="fixed inset-0 bg-[#0a0a0f] flex items-center justify-center overflow-hidden font-sans z-[9999]">
+      <div className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden font-sans z-[9999]">
+        {/* Background glow */}
         <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-32 -left-32 w-[120vw] h-[120vw] max-w-[600px] max-h-[600px] rounded-full opacity-20 blur-[80px] pointer-events-none"
-          style={{ background: 'radial-gradient(circle, #FFC0CB 0%, transparent 70%)' }}
+          animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.25, 0.15] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute w-[400px] h-[400px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, #FFFC00 0%, transparent 65%)' }}
         />
 
         <div className="flex flex-col items-center z-10">
           <motion.div
-            initial={{ scale: 0.5, opacity: 0, y: 20 }}
+            initial={{ scale: 0.4, opacity: 0, y: 30 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-            className="w-32 h-32 rounded-[32px] bg-gradient-to-br from-[#FFC0CB] to-[#eab308] flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(255,252,0,0.4)] p-4"
+            transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+            className="w-[110px] h-[110px] rounded-[30px] flex items-center justify-center mb-7 p-5"
+            style={{
+              background: '#FFFC00',
+              boxShadow: '0 0 60px rgba(255,252,0,0.5), 0 20px 50px rgba(0,0,0,0.4)',
+            }}
           >
-            <img
-              src="/logo.png"
-              alt="NovaSnap Logo"
-              className="w-full h-full object-contain"
-            />
+            <img src="/logo.png" alt="NovaSnap" className="w-full h-full object-contain" />
           </motion.div>
 
           <motion.h1
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-            className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70"
+            transition={{ delay: 0.25, duration: 0.4 }}
+            className="text-[28px] font-black tracking-tight text-white"
           >
             NovaSnap
           </motion.h1>
@@ -346,11 +347,20 @@ export default function App() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.5 }}
-            className="absolute bottom-16 flex flex-col items-center gap-3"
+            transition={{ delay: 0.7, duration: 0.5 }}
+            className="absolute bottom-14 flex flex-col items-center gap-3"
           >
-            <Loader2 className="animate-spin text-snap-yellow" size={24} />
-            <p className="text-white/40 text-[10px] font-bold tracking-widest uppercase">Lancement</p>
+            <div className="flex gap-1.5">
+              {[0, 1, 2].map(i => (
+                <motion.div
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: '#FFFC00' }}
+                  animate={{ scale: [1, 1.5, 1], opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
+                />
+              ))}
+            </div>
           </motion.div>
         </div>
       </div>

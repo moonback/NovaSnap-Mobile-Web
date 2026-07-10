@@ -16,6 +16,7 @@ import {
 import { useFriends } from '../hooks/useFriends';
 import { useFriendLocations } from '../hooks/useFriendLocations';
 import { useStories } from '../hooks/useStories';
+import { useCurrentUserProfile } from '../hooks/useCurrentUserProfile';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../components/ui/ToastProvider';
 import type { StoryRow } from '../lib/types';
@@ -27,6 +28,7 @@ const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 export default function MapScreen() {
   const { friends, isLoading: friendsLoading } = useFriends();
   const { user, setShowProfile } = useAppStore();
+  const { data: currentProfile } = useCurrentUserProfile();
   const { toast } = useToast();
   const { data: allStories = [], isLoading: storiesLoading } = useStories();
 
@@ -553,11 +555,11 @@ export default function MapScreen() {
             className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center overflow-hidden active:scale-90 transition-transform pointer-events-auto shadow-lg flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #FFC0CB 0%, #ff9500 100%)' }}
           >
-            {user?.user_metadata?.avatar_url ? (
-              <img src={user.user_metadata.avatar_url} className="w-full h-full object-cover" />
+            {currentProfile?.avatar_url ? (
+              <img src={currentProfile.avatar_url} className="w-full h-full object-cover" alt="Profil" />
             ) : (
               <span className="text-black font-black text-xs">
-                {(user?.user_metadata?.username || user?.email || 'U').charAt(0).toUpperCase()}
+                {(currentProfile?.username || user?.user_metadata?.username || user?.email || 'U').charAt(0).toUpperCase()}
               </span>
             )}
           </button>

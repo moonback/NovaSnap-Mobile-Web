@@ -454,32 +454,45 @@ export default function ProfileScreen() {
       initial={{ y: '100%' }}
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
-      transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-      className={`absolute inset-0 z-50 flex flex-col overflow-y-auto scroll-hide pb-6 ${t.bg} ${t.text}`}
+      transition={{ type: 'spring', damping: 30, stiffness: 260 }}
+      className={`absolute inset-0 z-50 flex flex-col overflow-y-auto scroll-hide pb-8 ${t.bg} ${t.text}`}
     >
-      {/* Premium background neon glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[350px] h-[350px] bg-snap-yellow/5 dark:bg-snap-yellow/10 rounded-full blur-[90px] pointer-events-none z-0" />
-      
+      {/* Background glow accent */}
+      <div
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[320px] h-[320px] rounded-full pointer-events-none z-0"
+        style={{ background: 'radial-gradient(circle, rgba(255,252,0,0.06) 0%, transparent 70%)' }}
+      />
+
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-3 z-10 shrink-0">
-        <button
+      <div className="flex items-center justify-between px-5 pt-14 pb-2 z-10 shrink-0">
+        <motion.button
           onClick={() => setShowProfile(false)}
-          className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-90 border ${t.iconBtn} ${t.borderMuted}`}
+          whileTap={{ scale: 0.88 }}
+          className="w-10 h-10 rounded-full flex items-center justify-center"
+          style={{
+            background: t.isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.09)',
+            border: t.isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.08)',
+          }}
         >
-          <X size={18} />
-        </button>
-        <h1 className="text-lg font-black tracking-tight">Mon Profil</h1>
-        <button
+          <X size={17} />
+        </motion.button>
+        <h1 className="text-[18px] font-black tracking-tight">Mon Profil</h1>
+        <motion.button
           onClick={() => setShowSettings(true)}
-          className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-90 border ${t.iconBtn} ${t.borderMuted}`}
+          whileTap={{ scale: 0.88 }}
+          className="w-10 h-10 rounded-full flex items-center justify-center"
+          style={{
+            background: t.isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.09)',
+            border: t.isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.08)',
+          }}
         >
-          <Settings size={18} />
-        </button>
+          <Settings size={17} />
+        </motion.button>
       </div>
 
       <div className="flex-1 px-5 flex flex-col items-center z-10">
-        {/* Avatar with luxury glowing rings */}
-        <div className="relative mt-5 mb-5 cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
+        {/* Avatar */}
+        <div className="relative mt-6 mb-5 cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
           <input
             type="file"
             ref={fileInputRef}
